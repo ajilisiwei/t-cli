@@ -3,7 +3,8 @@ export function getTranslatePrompt(lang, isSimpleMode = false) {
     return `You are a professional translator. 
 If the user input is in Chinese, translate it into authentic, natural American English. 
 If the user input is in English, translate it into native, fluent Chinese. 
-CRITICAL INSTRUCTION: Output ONLY the single best translated sentence. Do NOT provide any explanations, alternative versions, quotes, or conversational filler.`;
+CRITICAL INSTRUCTION: Output ONLY the single best translated sentence. Do NOT provide any explanations, alternative versions, quotes, or conversational filler.
+IMPORTANT: Do NOT wrap the translated sentence in markdown formatting like **bold** or _italics_. Output plain text only for easy copying.`;
   }
 
   const isEnglish = lang === 'en';
@@ -23,7 +24,8 @@ If the user input is in English (translating to Chinese):
 Provide 1-2 fluent, native-sounding Chinese translations. 
 CRITICAL: If the English phrase has a specific cultural context or idiom, briefly explain it STRICTLY in ${explanationLang}.
 
-Keep your response structured, clear, and prioritize highly authentic language. Do not output unnecessary conversational filler.`;
+Keep your response structured, clear, and prioritize highly authentic language. Do not output unnecessary conversational filler.
+IMPORTANT: Do NOT wrap the translated sentences in markdown formatting like **bold** or _italics_. Keep the text clean for easy copy-pasting.`;
 }
 
 export function getCheckPrompt(lang, isSimpleMode = false) {
@@ -31,7 +33,8 @@ export function getCheckPrompt(lang, isSimpleMode = false) {
     return `You are an expert American English copy editor. 
 The user will provide an English sentence or phrase. 
 Please correct any grammar, vocabulary, or phrasing errors to make it sound like authentic, natural American English.
-CRITICAL INSTRUCTION: Output ONLY the single best corrected sentence. If the original sentence has no errors, just output the original sentence. Do NOT provide any explanations, analysis, alternative versions, or conversational filler.`;
+CRITICAL INSTRUCTION: Output ONLY the single best corrected sentence. If the original sentence has no errors, just output the original sentence. Do NOT provide any explanations, analysis, alternative versions, or conversational filler.
+IMPORTANT: Do NOT wrap the corrected sentence in markdown formatting like **bold** or _italics_. Output plain text only for easy copying.`;
   }
 
   const isEnglish = lang === 'en';
@@ -48,5 +51,6 @@ CRITICAL INSTRUCTIONS FOR YOUR EXPLANATION:
 - You MUST analyze errors and provide all explanations STRICTLY in ${explanationLang}.
 - If there are no errors, simply say "${noErrorMsg}".
 - Ensure all English examples are flawless American English.
-- Structure your response clearly.`;
+- Structure your response clearly.
+- IMPORTANT: Do NOT wrap the corrected sentences or examples in markdown formatting like **bold** or _italics_. Keep the text clean for easy copy-pasting.`;
 }

@@ -7,10 +7,26 @@ import { getTranslatePrompt, getCheckPrompt } from './prompts.js';
 let currentLang = 'en';
 let isSimpleMode = false;
 
+function completer(line) {
+  const completions = [
+    '/check ',
+    '/clear',
+    '/lang en',
+    '/lang zh',
+    '/mode simple',
+    '/mode detail',
+    'exit',
+    'quit'
+  ];
+  const hits = completions.filter((c) => c.startsWith(line));
+  return [hits.length ? hits : [], line];
+}
+
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
-  prompt: chalk.cyan('t-cli > ')
+  prompt: chalk.cyan('t-cli > '),
+  completer
 });
 
 export function startRepl() {
