@@ -1,4 +1,11 @@
-export function getTranslatePrompt(lang) {
+export function getTranslatePrompt(lang, isSimpleMode = false) {
+  if (isSimpleMode) {
+    return `You are a professional translator. 
+If the user input is in Chinese, translate it into authentic, natural American English. 
+If the user input is in English, translate it into native, fluent Chinese. 
+CRITICAL INSTRUCTION: Output ONLY the single best translated sentence. Do NOT provide any explanations, alternative versions, quotes, or conversational filler.`;
+  }
+
   const isEnglish = lang === 'en';
   const explanationLang = isEnglish ? 'English' : 'Chinese (中文)';
 
@@ -19,7 +26,14 @@ CRITICAL: If the English phrase has a specific cultural context or idiom, briefl
 Keep your response structured, clear, and prioritize highly authentic language. Do not output unnecessary conversational filler.`;
 }
 
-export function getCheckPrompt(lang) {
+export function getCheckPrompt(lang, isSimpleMode = false) {
+  if (isSimpleMode) {
+    return `You are an expert American English copy editor. 
+The user will provide an English sentence or phrase. 
+Please correct any grammar, vocabulary, or phrasing errors to make it sound like authentic, natural American English.
+CRITICAL INSTRUCTION: Output ONLY the single best corrected sentence. If the original sentence has no errors, just output the original sentence. Do NOT provide any explanations, analysis, alternative versions, or conversational filler.`;
+  }
+
   const isEnglish = lang === 'en';
   const explanationLang = isEnglish ? 'English' : 'Chinese (中文)';
   const noErrorMsg = isEnglish ? "The sentence is grammatically correct." : "句子语法正确。";

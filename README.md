@@ -7,8 +7,9 @@ A minimalist, stateless CLI tool powered by the DeepSeek API for interactive Eng
 2. **Auto EN/ZH Translation**: Automatically detects the input language. Translates Chinese into natural American English, and English into fluent Chinese.
 3. **Grammar Check (`/check`)**: Points out grammar and phrasing errors in English sentences, providing 2-3 native, authentic alternatives.
 4. **Explanation Language Toggle (`/lang`)**: Toggle AI explanations between English (default) and Chinese using `/lang en` or `/lang zh`.
-5. **Clear Screen (`/clear`)**: Instantly clears the terminal output for a fresh view.
-6. **Stateless Requests**: No contextual memory between prompts, drastically reducing API token consumption.
+5. **Mode Toggle (`/mode`)**: Switch between detail mode (default) and simple mode (`/mode simple`). Simple mode only outputs the direct translation or correction without any extra explanation.
+6. **Clear Screen (`/clear`)**: Instantly clears the terminal output for a fresh view.
+7. **Stateless Requests**: No contextual memory between prompts, drastically reducing API token consumption.
 
 ## Installation
 

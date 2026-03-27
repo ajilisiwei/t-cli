@@ -5,6 +5,7 @@ import { callDeepSeekStream } from './api.js';
 import { getTranslatePrompt, getCheckPrompt } from './prompts.js';
 
 let currentLang = 'en';
+let isSimpleMode = false;
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -18,6 +19,7 @@ export function startRepl() {
     console.log(chalk.gray(' - Type English/Chinese text for automatic EN/ZH translation (American English).'));
     console.log(chalk.gray(' - Type "/check <English sentence>" to check grammar, correct errors, and get native examples.'));
     console.log(chalk.gray(' - Type "/lang en" or "/lang zh" to switch explanation language (Default: en).'));
+    console.log(chalk.gray(' - Type "/mode simple" or "/mode detail" to toggle output detail (Default: detail).'));
     console.log(chalk.gray(' - Type "/clear" to clear the terminal screen.'));
     console.log(chalk.gray(' - Type "exit" or "quit" to quit.'));
     console.log(chalk.bold.green('========================================\n'));
@@ -70,21 +72,38 @@ export function startRepl() {
       return;
     }
 
+    if (lowerInput.startsWith('/mode ')) {
+      const targetMode = lowerInput.slice(6).trim();
+      if (targetMode === 'simple') {
+        isSimpleMode = true;
+        console.log(chalk.green('✓ Mode set to: Simple (Translations/Corrections only).'));
+      } else if (targetMode === 'detail') {
+        isSimpleMode = false;
+        console.log(chalk.green('✓ Mode set to: Detail (Explanations and alternatives enabled).'));
+      } else {
+        console.log(chalk.yellow('Tip: Invalid mode. Use "/mode simple" or "/mode detail".'));
+      }
+      rl.prompt();
+      return;
+    }
+
     try {
       if (input.startsWith('/check ')) {
         const textToCheck = input.slice(7).trim();
         if (!textToCheck) {
           console.log(chalk.yellow('Tip: Please enter the English sentence you want to check after /check.'));
         } else {
-          console.log(chalk.gray(`⏳ Checking grammar and polishing (Lang: ${currentLang})...\n`));
-          await callDeepSeekStream(getCheckPrompt(currentLang), textToCheck, (chunk) => {
+          const modeTag = isSimpleMode ? '[Simple]' : `[Lang: ${currentLang}]`;
+          console.log(chalk.gray(`⏳ Checking grammar and polishing ${modeTag}...\n`));
+          await callDeepSeekStream(getCheckPrompt(currentLang, isSimpleMode), textToCheck, (chunk) => {
             process.stdout.write(chalk.green(chunk));
           });
           console.log('\n'); // Add spacing after stream completes
         }
       } else {
-        console.log(chalk.gray(`⏳ Translating (Lang: ${currentLang})...\n`));
-        await callDeepSeekStream(getTranslatePrompt(currentLang), input, (chunk) => {
+        const modeTag = isSimpleMode ? '[Simple]' : `[Lang: ${currentLang}]`;
+        console.log(chalk.gray(`⏳ Translating ${modeTag}...\n`));
+        await callDeepSeekStream(getTranslatePrompt(currentLang, isSimpleMode), input, (chunk) => {
           process.stdout.write(chalk.yellow(chunk));
         });
         console.log('\n'); // Add spacing after stream completes
