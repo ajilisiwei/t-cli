@@ -3,9 +3,11 @@ import process from 'node:process';
 import chalk from 'chalk';
 import { callDeepSeekStream } from './api.js';
 import { getTranslatePrompt, getCheckPrompt } from './prompts.js';
+import { loadConfig, saveConfig } from './config.js';
 
-let currentLang = 'en';
-let isSimpleMode = false;
+const config = loadConfig();
+let currentLang = config.lang;
+let isSimpleMode = config.isSimpleMode;
 
 function completer(line) {
   const completions = [
@@ -34,8 +36,8 @@ export function startRepl() {
     console.log(chalk.bold.green('========== t-cli Translator =========='));
     console.log(chalk.gray(' - Type English/Chinese text for automatic EN/ZH translation (American English).'));
     console.log(chalk.gray(' - Type "/check <English sentence>" to check grammar, correct errors, and get native examples.'));
-    console.log(chalk.gray(' - Type "/lang en" or "/lang zh" to switch explanation language (Default: en).'));
-    console.log(chalk.gray(' - Type "/mode simple" or "/mode detail" to toggle output detail (Default: detail).'));
+    console.log(chalk.gray(` - Type "/lang en" or "/lang zh" to switch explanation language (Current: ${currentLang}).`));
+    console.log(chalk.gray(` - Type "/mode simple" or "/mode detail" to toggle output detail (Current: ${isSimpleMode ? 'simple' : 'detail'}).`));
     console.log(chalk.gray(' - Type "/clear" to clear the terminal screen.'));
     console.log(chalk.gray(' - Type "exit" or "quit" to quit.'));
     console.log(chalk.bold.green('========================================\n'));
@@ -77,9 +79,11 @@ export function startRepl() {
       const targetLang = lowerInput.slice(6).trim();
       if (targetLang === 'en') {
         currentLang = 'en';
+        saveConfig({ lang: 'en' });
         console.log(chalk.green('✓ Explanation language set to: English.'));
       } else if (targetLang === 'zh') {
         currentLang = 'zh';
+        saveConfig({ lang: 'zh' });
         console.log(chalk.green('✓ 解释说明语言已切换为: 中文.'));
       } else {
         console.log(chalk.yellow('Tip: Invalid language. Use "/lang en" or "/lang zh".'));
@@ -92,9 +96,11 @@ export function startRepl() {
       const targetMode = lowerInput.slice(6).trim();
       if (targetMode === 'simple') {
         isSimpleMode = true;
+        saveConfig({ isSimpleMode: true });
         console.log(chalk.green('✓ Mode set to: Simple (Translations/Corrections only).'));
       } else if (targetMode === 'detail') {
         isSimpleMode = false;
+        saveConfig({ isSimpleMode: false });
         console.log(chalk.green('✓ Mode set to: Detail (Explanations and alternatives enabled).'));
       } else {
         console.log(chalk.yellow('Tip: Invalid mode. Use "/mode simple" or "/mode detail".'));
