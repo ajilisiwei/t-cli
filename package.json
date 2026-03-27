@@ -1,0 +1,26 @@
+{
+  "name": "t-cli-translator",
+  "version": "1.0.0",
+  "description": "A stateless CLI tool for EN/ZH translation and English grammar checking using DeepSeek API.",
+  "main": "src/repl.js",
+  "type": "module",
+  "bin": {
+    "t-cli": "./bin/t-cli.js"
+  },
+  "scripts": {
+    "start": "node ./bin/t-cli.js"
+  },
+  "keywords": [
+    "cli",
+    "translate",
+    "deepseek",
+    "english",
+    "grammar"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "dotenv": "^16.4.5"
+  }
+}
