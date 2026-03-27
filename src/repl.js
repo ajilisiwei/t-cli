@@ -1,6 +1,8 @@
 import readline from 'node:readline';
 import process from 'node:process';
 import chalk from 'chalk';
+import boxen from 'boxen';
+import ora from 'ora';
 import { callDeepSeekStream } from './api.js';
 import { getTranslatePrompt, getCheckPrompt } from './prompts.js';
 import { loadConfig, saveConfig } from './config.js';
@@ -27,20 +29,36 @@ function completer(line) {
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
-  prompt: chalk.cyan('t-cli > '),
+  prompt: chalk.cyan('t-cli ❯ '),
   completer
 });
 
 export function startRepl() {
   const printWelcome = () => {
-    console.log(chalk.bold.green('========== t-cli Translator =========='));
-    console.log(chalk.gray(' - Type English/Chinese text for automatic EN/ZH translation (American English).'));
-    console.log(chalk.gray(' - Type "/check <English sentence>" to check grammar, correct errors, and get native examples.'));
-    console.log(chalk.gray(` - Type "/lang en" or "/lang zh" to switch explanation language (Current: ${currentLang}).`));
-    console.log(chalk.gray(` - Type "/mode simple" or "/mode detail" to toggle output detail (Current: ${isSimpleMode ? 'simple' : 'detail'}).`));
-    console.log(chalk.gray(' - Type "/clear" to clear the terminal screen.'));
-    console.log(chalk.gray(' - Type "exit" or "quit" to quit.'));
-    console.log(chalk.bold.green('========================================\n'));
+    const title = chalk.bold.cyan('✨ t-cli Translator');
+    
+    const lines = [
+      title,
+      '',
+      chalk.dim('Type any text directly to translate (Auto EN/ZH)'),
+      '',
+      chalk.bold('Commands'),
+      `  ${chalk.cyan('/check <text>')}  ${chalk.dim('Grammar check & native examples')}`,
+      `  ${chalk.cyan('/lang <en|zh>')}  ${chalk.dim(`Switch explanation lang (Current: ${currentLang})`)}`,
+      `  ${chalk.cyan('/mode <s|d>')}    ${chalk.dim(`Toggle output detail (Current: ${isSimpleMode ? 'simple' : 'detail'})`)}`,
+      `  ${chalk.cyan('/clear')}         ${chalk.dim('Clear terminal screen')}`,
+      `  ${chalk.cyan('exit')}           ${chalk.dim('Quit the application')}`
+    ].join('\n');
+
+    const welcomeBox = boxen(lines, {
+      padding: 1,
+      margin: { top: 1, bottom: 1 },
+      borderStyle: 'round',
+      borderColor: 'gray',
+      align: 'left'
+    });
+
+    console.log(welcomeBox);
   };
 
   printWelcome();
@@ -94,16 +112,16 @@ export function startRepl() {
 
     if (lowerInput.startsWith('/mode ')) {
       const targetMode = lowerInput.slice(6).trim();
-      if (targetMode === 'simple') {
+      if (targetMode === 'simple' || targetMode === 's') {
         isSimpleMode = true;
         saveConfig({ isSimpleMode: true });
         console.log(chalk.green('✓ Mode set to: Simple (Translations/Corrections only).'));
-      } else if (targetMode === 'detail') {
+      } else if (targetMode === 'detail' || targetMode === 'd') {
         isSimpleMode = false;
         saveConfig({ isSimpleMode: false });
         console.log(chalk.green('✓ Mode set to: Detail (Explanations and alternatives enabled).'));
       } else {
-        console.log(chalk.yellow('Tip: Invalid mode. Use "/mode simple" or "/mode detail".'));
+        console.log(chalk.yellow('Tip: Invalid mode. Use "/mode <s|d>".'));
       }
       rl.prompt();
       return;
@@ -116,18 +134,36 @@ export function startRepl() {
           console.log(chalk.yellow('Tip: Please enter the English sentence you want to check after /check.'));
         } else {
           const modeTag = isSimpleMode ? '[Simple]' : `[Lang: ${currentLang}]`;
-          console.log(chalk.gray(`⏳ Checking grammar and polishing ${modeTag}...\n`));
+          const spinner = ora(`Checking grammar and polishing ${chalk.dim(modeTag)}...`).start();
+          spinner.color = 'cyan';
+          
+          let firstChunk = true;
           await callDeepSeekStream(getCheckPrompt(currentLang, isSimpleMode), textToCheck, (chunk) => {
+            if (firstChunk) {
+              spinner.stop(); // Clear spinner when stream starts
+              firstChunk = false;
+            }
             process.stdout.write(chalk.green(chunk));
           });
+          
+          if (firstChunk) spinner.stop(); // Stop if stream returned nothing
           console.log('\n'); // Add spacing after stream completes
         }
       } else {
         const modeTag = isSimpleMode ? '[Simple]' : `[Lang: ${currentLang}]`;
-        console.log(chalk.gray(`⏳ Translating ${modeTag}...\n`));
+        const spinner = ora(`Translating ${chalk.dim(modeTag)}...`).start();
+        spinner.color = 'yellow';
+        
+        let firstChunk = true;
         await callDeepSeekStream(getTranslatePrompt(currentLang, isSimpleMode), input, (chunk) => {
+          if (firstChunk) {
+            spinner.stop(); // Clear spinner when stream starts
+            firstChunk = false;
+          }
           process.stdout.write(chalk.yellow(chunk));
         });
+        
+        if (firstChunk) spinner.stop(); // Stop if stream returned nothing
         console.log('\n'); // Add spacing after stream completes
       }
     } catch (error) {
