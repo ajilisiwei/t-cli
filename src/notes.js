@@ -15,58 +15,11 @@ export function getNotesDir() {
   );
 }
 
-function getTodayString() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function getTimeString() {
-  const d = new Date();
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
-
 /**
- * Append a translation or grammar-check entry to today's note file.
- * @param {'Translation'|'Grammar Check'} type
- * @param {string} input - the user's original text
- * @param {string} response - the raw API response (no ANSI codes)
+ * List all AI-generated note dates, newest first.
+ * @returns {{ date: string }[]}
  */
-export function saveNote(type, input, response) {
-  try {
-    const notesDir = getNotesDir();
-    fs.mkdirSync(notesDir, { recursive: true });
-
-    const today = getTodayString();
-    const filePath = path.join(notesDir, `${today}.md`);
-    const time = getTimeString();
-
-    let header = '';
-    if (!fs.existsSync(filePath)) {
-      header = `# t-cli Learning Notes — ${today}\n\n---\n`;
-    }
-
-    const entry = [
-      '',
-      `## [${time}] ${type}`,
-      '',
-      `**Input:** ${input}`,
-      '',
-      response.trim(),
-      '',
-      '---',
-      ''
-    ].join('\n');
-
-    fs.appendFileSync(filePath, header + entry, 'utf8');
-  } catch (_) {
-    // Silent — never crash the REPL
-  }
-}
-
-/**
- * List all note dates, newest first.
- * @returns {{ date: string, count: number }[]}
- */
-export function listNotes() {
+export function listGeneratedNotes() {
   try {
     const notesDir = getNotesDir();
     if (!fs.existsSync(notesDir)) return [];
@@ -75,28 +28,38 @@ export function listNotes() {
       .filter(f => /^\d{4}-\d{2}-\d{2}\.md$/.test(f))
       .sort()
       .reverse()
-      .map(f => {
-        const date = f.replace('.md', '');
-        const content = fs.readFileSync(path.join(notesDir, f), 'utf8');
-        const count = (content.match(/^## \[/gm) || []).length;
-        return { date, count };
-      });
+      .map(f => ({ date: f.replace('.md', '') }));
   } catch (_) {
     return [];
   }
 }
 
 /**
- * Read a specific date's note file.
+ * Read a previously generated note.
  * @param {string} date - YYYY-MM-DD
  * @returns {string|null}
  */
-export function readNote(date) {
+export function readGeneratedNote(date) {
   try {
     const filePath = path.join(getNotesDir(), `${date}.md`);
     if (!fs.existsSync(filePath)) return null;
     return fs.readFileSync(filePath, 'utf8');
   } catch (_) {
     return null;
+  }
+}
+
+/**
+ * Save (overwrite) an AI-generated note for a given date.
+ * @param {string} date - YYYY-MM-DD
+ * @param {string} content - full Markdown content
+ */
+export function saveGeneratedNote(date, content) {
+  try {
+    const notesDir = getNotesDir();
+    fs.mkdirSync(notesDir, { recursive: true });
+    fs.writeFileSync(path.join(notesDir, `${date}.md`), content, 'utf8');
+  } catch (_) {
+    // Silent — never crash the REPL
   }
 }

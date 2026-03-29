@@ -4,9 +4,10 @@ import chalk from 'chalk';
 import boxen from 'boxen';
 import ora from 'ora';
 import { callDeepSeekStream } from './api.js';
-import { getTranslatePrompt, getCheckPrompt } from './prompts.js';
+import { getTranslatePrompt, getCheckPrompt, getNoteGenPrompt } from './prompts.js';
 import { loadConfig, saveConfig } from './config.js';
-import { saveNote, listNotes, readNote, getNotesDir } from './notes.js';
+import { saveHistory, listHistory, readHistory, getHistoryDir } from './history.js';
+import { listGeneratedNotes, readGeneratedNote, saveGeneratedNote, getNotesDir } from './notes.js';
 
 const config = loadConfig();
 let currentLang = config.lang;
@@ -16,12 +17,15 @@ function completer(line) {
   const completions = [
     '/check ',
     '/clear',
+    '/history',
+    '/history today',
     '/lang en',
     '/lang zh',
     '/mode simple',
     '/mode detail',
     '/notes',
     '/notes today',
+    '/notes regen today',
     'exit',
     'quit'
   ];
@@ -49,7 +53,8 @@ export function startRepl() {
       `  ${chalk.cyan('/check <text>')}  ${chalk.dim('Grammar check & native examples')}`,
       `  ${chalk.cyan('/lang <en|zh>')}  ${chalk.dim(`Switch explanation lang (Current: ${currentLang})`)}`,
       `  ${chalk.cyan('/mode <s|d>')}    ${chalk.dim(`Toggle output detail (Current: ${isSimpleMode ? 'simple' : 'detail'})`)}`,
-      `  ${chalk.cyan('/notes')}         ${chalk.dim('View your daily learning notes')}`,
+      `  ${chalk.cyan('/history')}       ${chalk.dim('Browse raw daily learning history')}`,
+      `  ${chalk.cyan('/notes')}         ${chalk.dim('Generate AI learning notes from history')}`,
       `  ${chalk.cyan('/clear')}         ${chalk.dim('Clear terminal screen')}`,
       `  ${chalk.cyan('exit')}           ${chalk.dim('Quit the application')}`
     ].join('\n');
@@ -77,10 +82,10 @@ export function startRepl() {
 
   rl.prompt();
 
-  function renderNote(date) {
-    const content = readNote(date);
+  function renderHistory(date) {
+    const content = readHistory(date);
     if (!content) {
-      console.log(chalk.yellow(`No notes found for ${date}.`));
+      console.log(chalk.yellow(`No history found for ${date}.`));
       return;
     }
     for (const line of content.split('\n')) {
@@ -92,6 +97,29 @@ export function startRepl() {
         console.log(chalk.dim(line.replace('**Input:**', 'Input:')));
       } else if (line === '---') {
         console.log(chalk.dim('─'.repeat(44)));
+      } else {
+        console.log(chalk.white(line));
+      }
+    }
+    console.log('');
+  }
+
+  function renderGeneratedNote(content) {
+    console.log('');
+    for (const line of content.split('\n')) {
+      if (line.startsWith('# ')) {
+        console.log(chalk.bold.magenta(line.slice(2)));
+      } else if (line.startsWith('## ')) {
+        console.log(chalk.bold.cyan('\n' + line.slice(3)));
+      } else if (line.startsWith('- **') || line.startsWith('* **')) {
+        const highlighted = line.replace(/\*\*(.+?)\*\*/g, (_, term) => chalk.yellow(term));
+        console.log(chalk.white(highlighted));
+      } else if (line.startsWith('- ') || line.startsWith('* ')) {
+        console.log(chalk.white(line));
+      } else if (line === '---') {
+        console.log(chalk.dim('─'.repeat(44)));
+      } else if (line.startsWith('*Generated')) {
+        console.log(chalk.dim(line.replace(/\*/g, '')));
       } else {
         console.log(chalk.white(line));
       }
@@ -153,16 +181,16 @@ export function startRepl() {
       return;
     }
 
-    if (lowerInput === '/notes' || lowerInput.startsWith('/notes ')) {
-      const arg = input.slice(6).trim();
+    if (lowerInput === '/history' || lowerInput.startsWith('/history ')) {
+      const arg = input.slice(8).trim();
 
       if (arg === '') {
-        const entries = listNotes();
+        const entries = listHistory();
         if (entries.length === 0) {
-          console.log(chalk.yellow('No notes yet. Start translating to create your first note!'));
-          console.log(chalk.dim(`Notes saved to: ${getNotesDir()}`));
+          console.log(chalk.yellow('No history yet. Start translating to create your first record!'));
+          console.log(chalk.dim(`History saved to: ${getHistoryDir()}`));
         } else {
-          console.log(chalk.bold.cyan('\n  Your Learning Notes\n'));
+          console.log(chalk.bold.cyan('\n  Learning History\n'));
           const today = new Date().toISOString().slice(0, 10);
           for (const { date, count } of entries) {
             const label = date === today
@@ -170,14 +198,115 @@ export function startRepl() {
               : chalk.white(date);
             console.log(`  ${label}  ${chalk.dim(`${count} ${count === 1 ? 'entry' : 'entries'}`)}`);
           }
-          console.log(chalk.dim(`\n  Use /notes today or /notes <YYYY-MM-DD> to read.\n`));
+          console.log(chalk.dim(`\n  Use /history today or /history <YYYY-MM-DD> to read.\n`));
         }
       } else if (arg === 'today') {
-        renderNote(new Date().toISOString().slice(0, 10));
+        renderHistory(new Date().toISOString().slice(0, 10));
       } else if (/^\d{4}-\d{2}-\d{2}$/.test(arg)) {
-        renderNote(arg);
+        renderHistory(arg);
       } else {
-        console.log(chalk.yellow('Tip: Use /notes, /notes today, or /notes <YYYY-MM-DD>.'));
+        console.log(chalk.yellow('Tip: Use /history, /history today, or /history <YYYY-MM-DD>.'));
+      }
+
+      rl.prompt();
+      return;
+    }
+
+    if (lowerInput === '/notes' || lowerInput.startsWith('/notes ')) {
+      const arg = input.slice(6).trim();
+
+      if (arg === '') {
+        // List all generated notes
+        const entries = listGeneratedNotes();
+        if (entries.length === 0) {
+          console.log(chalk.yellow('No AI notes yet.'));
+          console.log(chalk.dim('Use /notes today to generate your first learning note.'));
+          console.log(chalk.dim(`Notes saved to: ${getNotesDir()}`));
+        } else {
+          console.log(chalk.bold.magenta('\n  AI Learning Notes\n'));
+          const today = new Date().toISOString().slice(0, 10);
+          for (const { date } of entries) {
+            const label = date === today
+              ? chalk.cyan(date) + chalk.dim(' (today)')
+              : chalk.white(date);
+            console.log(`  ${label}`);
+          }
+          console.log(chalk.dim('\n  Use /notes today or /notes <YYYY-MM-DD> to read.\n'));
+        }
+        rl.prompt();
+        return;
+      }
+
+      // Parse regen flag
+      let forceRegen = false;
+      let dateArg = arg;
+      if (arg.startsWith('regen ')) {
+        forceRegen = true;
+        dateArg = arg.slice(6).trim();
+      }
+
+      // Resolve 'today'
+      const today = new Date().toISOString().slice(0, 10);
+      if (dateArg === 'today') dateArg = today;
+
+      // Validate date format
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateArg)) {
+        console.log(chalk.yellow('Tip: Use /notes, /notes today, /notes <YYYY-MM-DD>, or /notes regen today.'));
+        rl.prompt();
+        return;
+      }
+
+      // If not forcing regen, show existing note
+      if (!forceRegen) {
+        const existing = readGeneratedNote(dateArg);
+        if (existing) {
+          renderGeneratedNote(existing);
+          rl.prompt();
+          return;
+        }
+      }
+
+      // Check history exists and has entries
+      const historyContent = readHistory(dateArg);
+      if (!historyContent) {
+        console.log(chalk.yellow(`No history found for ${dateArg}. Translate something first!`));
+        rl.prompt();
+        return;
+      }
+      if ((historyContent.match(/^## \[/gm) || []).length === 0) {
+        console.log(chalk.yellow(`No history entries for ${dateArg} yet.`));
+        rl.prompt();
+        return;
+      }
+
+      // Generate via LLM
+      try {
+        const spinner = ora(`Generating AI learning note for ${chalk.cyan(dateArg)}...`).start();
+        spinner.color = 'magenta';
+
+        let firstChunk = true;
+        let noteBuffer = '';
+        const userText = `Date: ${dateArg}\n\n${historyContent}`;
+
+        await callDeepSeekStream(getNoteGenPrompt(currentLang), userText, (chunk) => {
+          if (firstChunk) {
+            spinner.stop();
+            console.log(chalk.bold.magenta(`\n  AI Learning Note — ${dateArg}\n`));
+            firstChunk = false;
+          }
+          noteBuffer += chunk;
+          process.stdout.write(chalk.white(chunk));
+        });
+
+        if (firstChunk) spinner.stop();
+        console.log('\n');
+
+        if (noteBuffer) {
+          saveGeneratedNote(dateArg, noteBuffer);
+          console.log(chalk.dim(`  Note saved. Use /notes ${dateArg} to view again.\n`));
+        }
+      } catch (error) {
+        console.log(chalk.red.bold('\nError generating note: ') + chalk.red(error.message) + '\n');
       }
 
       rl.prompt();
@@ -207,7 +336,7 @@ export function startRepl() {
 
           if (firstChunk) spinner.stop(); // Stop if stream returned nothing
           console.log('\n'); // Add spacing after stream completes
-          if (!firstChunk) saveNote('Grammar Check', textToCheck, responseBuffer);
+          if (!firstChunk) saveHistory('Grammar Check', textToCheck, responseBuffer);
         }
       } else {
         const modeTag = isSimpleMode ? '[Simple]' : `[Lang: ${currentLang}]`;
@@ -227,7 +356,7 @@ export function startRepl() {
 
         if (firstChunk) spinner.stop(); // Stop if stream returned nothing
         console.log('\n'); // Add spacing after stream completes
-        if (!firstChunk) saveNote('Translation', input, responseBuffer);
+        if (!firstChunk) saveHistory('Translation', input, responseBuffer);
       }
     } catch (error) {
       console.log(chalk.red.bold('\nError occurred: ') + chalk.red(error.message) + '\n');
