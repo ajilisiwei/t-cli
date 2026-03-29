@@ -182,7 +182,8 @@ export function startRepl() {
     }
 
     if (lowerInput === '/history' || lowerInput.startsWith('/history ')) {
-      const arg = input.slice(8).trim();
+      const parts = input.split(/\s+/);
+      const arg = parts.length > 1 ? parts.slice(1).join(' ') : '';
 
       if (arg === '') {
         const entries = listHistory();
@@ -213,7 +214,8 @@ export function startRepl() {
     }
 
     if (lowerInput === '/notes' || lowerInput.startsWith('/notes ')) {
-      const arg = input.slice(6).trim();
+      const parts = input.split(/\s+/);
+      const arg = parts.length > 1 ? parts.slice(1).join(' ') : '';
 
       if (arg === '') {
         // List all generated notes
@@ -240,9 +242,12 @@ export function startRepl() {
       // Parse regen flag
       let forceRegen = false;
       let dateArg = arg;
-      if (arg.startsWith('regen ')) {
+      const subParts = arg.split(/\s+/);
+      if (subParts[0] === 'regen' && subParts.length > 1) {
         forceRegen = true;
-        dateArg = arg.slice(6).trim();
+        dateArg = subParts.slice(1).join(' ');
+      } else {
+        dateArg = arg;
       }
 
       // Resolve 'today'
@@ -286,7 +291,16 @@ export function startRepl() {
 
         let firstChunk = true;
         let noteBuffer = '';
-        const userText = `Date: ${dateArg}\n\n${historyContent}`;
+
+        // Truncate history to prevent exceeding API context limits
+        const maxHistoryChars = 12000;
+        let historyToUse = historyContent;
+        if (historyContent.length > maxHistoryChars) {
+          historyToUse = historyContent.slice(0, maxHistoryChars) +
+            '\n\n[History truncated due to length...]';
+        }
+
+        const userText = `Date: ${dateArg}\n\n${historyToUse}`;
 
         await callDeepSeekStream(getNoteGenPrompt(currentLang), userText, (chunk) => {
           if (firstChunk) {
@@ -322,40 +336,42 @@ export function startRepl() {
           const modeTag = isSimpleMode ? '[Simple]' : `[Lang: ${currentLang}]`;
           const spinner = ora(`Checking grammar and polishing ${chalk.dim(modeTag)}...`).start();
           spinner.color = 'cyan';
-          
+
           let firstChunk = true;
           let responseBuffer = '';
           await callDeepSeekStream(getCheckPrompt(currentLang, isSimpleMode), textToCheck, (chunk) => {
             if (firstChunk) {
-              spinner.stop(); // Clear spinner when stream starts
+              spinner.stop();
+              console.log();
               firstChunk = false;
             }
             responseBuffer += chunk;
             process.stdout.write(chalk.green(chunk));
           });
 
-          if (firstChunk) spinner.stop(); // Stop if stream returned nothing
-          console.log('\n'); // Add spacing after stream completes
+          if (firstChunk) spinner.stop();
+          console.log('\n');
           if (!firstChunk) saveHistory('Grammar Check', textToCheck, responseBuffer);
         }
       } else {
         const modeTag = isSimpleMode ? '[Simple]' : `[Lang: ${currentLang}]`;
         const spinner = ora(`Translating ${chalk.dim(modeTag)}...`).start();
         spinner.color = 'yellow';
-        
+
         let firstChunk = true;
         let responseBuffer = '';
         await callDeepSeekStream(getTranslatePrompt(currentLang, isSimpleMode), input, (chunk) => {
           if (firstChunk) {
-            spinner.stop(); // Clear spinner when stream starts
+            spinner.stop();
+            console.log();
             firstChunk = false;
           }
           responseBuffer += chunk;
           process.stdout.write(chalk.yellow(chunk));
         });
 
-        if (firstChunk) spinner.stop(); // Stop if stream returned nothing
-        console.log('\n'); // Add spacing after stream completes
+        if (firstChunk) spinner.stop();
+        console.log('\n');
         if (!firstChunk) saveHistory('Translation', input, responseBuffer);
       }
     } catch (error) {

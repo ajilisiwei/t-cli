@@ -59,7 +59,7 @@ export function saveGeneratedNote(date, content) {
     const notesDir = getNotesDir();
     fs.mkdirSync(notesDir, { recursive: true });
     fs.writeFileSync(path.join(notesDir, `${date}.md`), content, 'utf8');
-  } catch (_) {
-    // Silent — never crash the REPL
+  } catch (error) {
+    console.error(`\x1b[33mWarning: Failed to save note: ${error.message}\x1b[0m`);
   }
 }

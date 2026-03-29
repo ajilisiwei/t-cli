@@ -40,7 +40,13 @@ export function saveHistory(type, input, response) {
     const time = getTimeString();
 
     let header = '';
-    if (!fs.existsSync(filePath)) {
+    try {
+      const stat = fs.statSync(filePath);
+      if (stat.size === 0) {
+        header = `# t-cli Learning History — ${today}\n\n---\n`;
+      }
+    } catch (err) {
+      // File doesn't exist, add header
       header = `# t-cli Learning History — ${today}\n\n---\n`;
     }
 
@@ -57,8 +63,25 @@ export function saveHistory(type, input, response) {
     ].join('\n');
 
     fs.appendFileSync(filePath, header + entry, 'utf8');
-  } catch (_) {
-    // Silent — never crash the REPL
+
+    // Update metadata cache
+    try {
+      const metaPath = path.join(historyDir, 'meta.json');
+      let metadata = {};
+      try {
+        if (fs.existsSync(metaPath)) {
+          metadata = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+        }
+      } catch (err) {
+        // Ignore metadata read errors
+      }
+      metadata[today] = (metadata[today] || 0) + 1;
+      fs.writeFileSync(metaPath, JSON.stringify(metadata), 'utf8');
+    } catch (metaErr) {
+      // Silently ignore metadata update failures
+    }
+  } catch (error) {
+    console.error(`\x1b[33mWarning: Failed to save history: ${error.message}\x1b[0m`);
   }
 }
 
@@ -71,16 +94,34 @@ export function listHistory() {
     const historyDir = getHistoryDir();
     if (!fs.existsSync(historyDir)) return [];
 
-    return fs.readdirSync(historyDir)
+    // Try to load metadata first
+    const metaPath = path.join(historyDir, 'meta.json');
+    let metadata = {};
+    try {
+      if (fs.existsSync(metaPath)) {
+        metadata = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+      }
+    } catch (err) {
+      // Ignore metadata errors, fall back to full scan
+      metadata = {};
+    }
+
+    const entries = fs.readdirSync(historyDir)
       .filter(f => /^\d{4}-\d{2}-\d{2}\.md$/.test(f))
       .sort()
       .reverse()
       .map(f => {
-        const date = f.replace('.md', '');
-        const content = fs.readFileSync(path.join(historyDir, f), 'utf8');
-        const count = (content.match(/^## \[/gm) || []).length;
+        const date = f.slice(0, -3); // Remove .md suffix
+        // Use cached count if available, otherwise scan file
+        let count = metadata[date];
+        if (count === undefined) {
+          const content = fs.readFileSync(path.join(historyDir, f), 'utf8');
+          count = (content.match(/^## \[/gm) || []).length;
+        }
         return { date, count };
       });
+
+    return entries;
   } catch (_) {
     return [];
   }
