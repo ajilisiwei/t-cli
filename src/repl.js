@@ -9,6 +9,23 @@ import { loadConfig, saveConfig } from './config.js';
 import { saveHistory, listHistory, readHistory, getHistoryDir } from './history.js';
 import { listGeneratedNotes, readGeneratedNote, saveGeneratedNote, getNotesDir } from './notes.js';
 
+// Hack to fix macOS Terminal / iTerm2 inline IME cursor desync bug.
+// Node.js readline uses \x1b[nG (absolute cursor positioning) which macOS IME fails to track properly
+// during Chinese backspacing or middle-of-line insertion, causing text to be inserted backwards or scrambled.
+// We intercept stdout to replace absolute \x1b[nG with a carriage return \r and N-1 relative \x1b[C (right arrows).
+// This forces the IME to correctly sync its internal cursor column state with the physical terminal cursor.
+const originalWrite = process.stdout.write;
+process.stdout.write = function(chunk, encoding, cb) {
+  if (typeof chunk === 'string') {
+    chunk = chunk.replace(/\x1b\[(\d+)G/g, (match, p1) => {
+      const n = parseInt(p1, 10);
+      if (n === 1) return '\r';
+      return '\r' + '\x1b[C'.repeat(n - 1);
+    });
+  }
+  return originalWrite.call(this, chunk, encoding, cb);
+};
+
 const config = loadConfig();
 let currentLang = config.lang;
 let isSimpleMode = config.isSimpleMode;
