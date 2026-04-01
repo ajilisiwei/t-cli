@@ -36,7 +36,11 @@ function completer(line) {
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
-  prompt: chalk.cyan('t-cli ❯ '),
+  // Note: We use a plain string without chalk colors for the prompt.
+  // Using ANSI escape codes (like chalk.cyan) in the readline prompt
+  // causes severe cursor placement bugs and chaotic text rendering
+  // when using Chinese IME and backspacing.
+  prompt: 't-cli > ',
   completer
 });
 
