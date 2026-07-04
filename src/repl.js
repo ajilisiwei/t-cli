@@ -1,407 +1,388 @@
-import readline from 'node:readline';
 import process from 'node:process';
-import chalk from 'chalk';
-import boxen from 'boxen';
-import ora from 'ora';
+import React, { useMemo, useRef, useState } from 'react';
+import { Box, Text, render, useApp } from 'ink';
+import Spinner from 'ink-spinner';
+import TextInput from 'ink-text-input';
 import { callDeepSeekStream } from './api.js';
 import { getTranslatePrompt, getCheckPrompt, getNoteGenPrompt } from './prompts.js';
 import { loadConfig, saveConfig } from './config.js';
 import { saveHistory, listHistory, readHistory, getHistoryDir } from './history.js';
 import { listGeneratedNotes, readGeneratedNote, saveGeneratedNote, getNotesDir } from './notes.js';
 
-// Hack to fix macOS Terminal / iTerm2 inline IME cursor desync bug.
-// Node.js readline uses \x1b[nG (absolute cursor positioning) which macOS IME fails to track properly
-// during Chinese backspacing or middle-of-line insertion, causing text to be inserted backwards or scrambled.
-// We intercept stdout to replace absolute \x1b[nG with a carriage return \r and N-1 relative \x1b[C (right arrows).
-// This forces the IME to correctly sync its internal cursor column state with the physical terminal cursor.
-const originalWrite = process.stdout.write;
-process.stdout.write = function(chunk, encoding, cb) {
-  if (typeof chunk === 'string') {
-    chunk = chunk.replace(/\x1b\[(\d+)G/g, (match, p1) => {
-      const n = parseInt(p1, 10);
-      if (n === 1) return '\r';
-      return '\r' + '\x1b[C'.repeat(n - 1);
-    });
-  }
-  return originalWrite.call(this, chunk, encoding, cb);
-};
+const h = React.createElement;
 
-const config = loadConfig();
-let currentLang = config.lang;
-let isSimpleMode = config.isSimpleMode;
-
-function completer(line) {
-  const completions = [
-    '/check ',
-    '/clear',
-    '/history',
-    '/history today',
-    '/lang en',
-    '/lang zh',
-    '/mode simple',
-    '/mode detail',
-    '/notes',
-    '/notes today',
-    '/notes regen today',
-    'exit',
-    'quit'
-  ];
-  const hits = completions.filter((c) => c.startsWith(line));
-  return [hits.length ? hits : [], line];
+function createIdFactory() {
+  let id = 0;
+  return () => {
+    id += 1;
+    return id;
+  };
 }
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-  // Note: We use a plain string without chalk colors for the prompt.
-  // Using ANSI escape codes (like chalk.cyan) in the readline prompt
-  // causes severe cursor placement bugs and chaotic text rendering
-  // when using Chinese IME and backspacing.
-  prompt: 't-cli > ',
-  completer
-});
+const nextId = createIdFactory();
 
-export function startRepl() {
-  const printWelcome = () => {
-    const title = chalk.bold.cyan('✨ t-cli Translator');
-    
-    const lines = [
-      title,
-      '',
-      chalk.dim('Type any text directly to translate (Auto EN/ZH)'),
-      '',
-      chalk.bold('Commands'),
-      `  ${chalk.cyan('/check <text>')}  ${chalk.dim('Grammar check & native examples')}`,
-      `  ${chalk.cyan('/lang <en|zh>')}  ${chalk.dim(`Switch explanation lang (Current: ${currentLang})`)}`,
-      `  ${chalk.cyan('/mode <s|d>')}    ${chalk.dim(`Toggle output detail (Current: ${isSimpleMode ? 'simple' : 'detail'})`)}`,
-      `  ${chalk.cyan('/history')}       ${chalk.dim('Browse raw daily learning history')}`,
-      `  ${chalk.cyan('/notes')}         ${chalk.dim('Generate AI learning notes from history')}`,
-      `  ${chalk.cyan('/clear')}         ${chalk.dim('Clear terminal screen')}`,
-      `  ${chalk.cyan('exit')}           ${chalk.dim('Quit the application')}`
-    ].join('\n');
+function makeMessage(text, options = {}) {
+  return {
+    id: nextId(),
+    text,
+    color: options.color || 'white',
+    dim: Boolean(options.dim),
+    bold: Boolean(options.bold)
+  };
+}
 
-    const welcomeBox = boxen(lines, {
-      padding: 1,
-      margin: { top: 1, bottom: 1 },
-      borderStyle: 'round',
-      borderColor: 'gray',
-      align: 'left'
-    });
+function buildWelcomeMessages(lang, isSimpleMode) {
+  const modeText = isSimpleMode ? 'simple' : 'detail';
+  return [
+    makeMessage('t-cli Translator', { color: 'cyan', bold: true }),
+    makeMessage('Type any text directly to translate (Auto EN/ZH).', { dim: true }),
+    makeMessage(`Current settings: lang=${lang}, mode=${modeText}`, { dim: true }),
+    makeMessage('Commands:', { bold: true }),
+    makeMessage('/check <text>  Grammar check and polishing', { color: 'green' }),
+    makeMessage('/lang <en|zh>  Switch explanation language', { color: 'green' }),
+    makeMessage('/mode <s|d>    Toggle output detail mode', { color: 'green' }),
+    makeMessage('/history        Browse daily history', { color: 'green' }),
+    makeMessage('/notes          Generate or view AI notes', { color: 'green' }),
+    makeMessage('/clear          Clear screen', { color: 'green' }),
+    makeMessage('exit | quit     Quit application', { color: 'green' })
+  ];
+}
 
-    console.log(welcomeBox);
+function todayString() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function parseCommandArg(input, commandName) {
+  return input.slice(commandName.length).trim();
+}
+
+function App() {
+  const { exit } = useApp();
+  const initialConfig = useMemo(() => loadConfig(), []);
+
+  const [currentLang, setCurrentLang] = useState(initialConfig.lang);
+  const [isSimpleMode, setIsSimpleMode] = useState(initialConfig.isSimpleMode);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [activeStream, setActiveStream] = useState(null);
+  const [messages, setMessages] = useState(() => buildWelcomeMessages(initialConfig.lang, initialConfig.isSimpleMode));
+
+  const loadingRef = useRef(false);
+  loadingRef.current = isLoading;
+
+  const appendMessage = (text, options = {}) => {
+    if (!text) return;
+    setMessages((prev) => [...prev, makeMessage(text, options)]);
   };
 
-  printWelcome();
-  
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) {
-    console.log(chalk.red.bold('Error: DEEPSEEK_API_KEY environment variable not found!'));
-    console.log(chalk.yellow('Please configure your DeepSeek API Key in your environment or .env file.'));
-    console.log(chalk.yellow('Example: export DEEPSEEK_API_KEY="sk-xxxxxxxxxxx"'));
-    process.exit(1);
-  }
+  const clearOutput = () => {
+    setMessages(buildWelcomeMessages(currentLang, isSimpleMode));
+    setActiveStream(null);
+  };
 
-  rl.prompt();
+  const streamAndRender = async ({
+    systemPrompt,
+    userText,
+    streamColor,
+    loadingText,
+    onCompleted
+  }) => {
+    setIsLoading(true);
+    setActiveStream({ color: streamColor, text: '' });
 
-  function renderHistory(date) {
+    if (loadingText) {
+      appendMessage(loadingText, { color: 'cyan' });
+    }
+
+    let responseBuffer = '';
+    try {
+      await callDeepSeekStream(systemPrompt, userText, (chunk) => {
+        responseBuffer += chunk;
+        setActiveStream((prev) => {
+          const previous = prev || { color: streamColor, text: '' };
+          return { ...previous, text: previous.text + chunk };
+        });
+      });
+
+      const output = responseBuffer.trim();
+      if (output) {
+        appendMessage(output, { color: streamColor });
+        if (onCompleted) onCompleted(responseBuffer);
+      }
+    } catch (error) {
+      appendMessage(`Error occurred: ${error.message}`, { color: 'red' });
+    } finally {
+      setActiveStream(null);
+      setIsLoading(false);
+    }
+  };
+
+  const runCheck = async (fullInput) => {
+    const textToCheck = fullInput.slice(7).trim();
+    if (!textToCheck) {
+      appendMessage('Tip: Please enter text after /check.', { color: 'yellow' });
+      return;
+    }
+
+    await streamAndRender({
+      systemPrompt: getCheckPrompt(currentLang, isSimpleMode),
+      userText: textToCheck,
+      streamColor: 'green',
+      loadingText: 'Checking grammar and polishing...',
+      onCompleted: (rawResponse) => {
+        saveHistory('Grammar Check', textToCheck, rawResponse);
+      }
+    });
+  };
+
+  const runTranslate = async (text) => {
+    await streamAndRender({
+      systemPrompt: getTranslatePrompt(currentLang, isSimpleMode),
+      userText: text,
+      streamColor: 'yellow',
+      loadingText: 'Translating...',
+      onCompleted: (rawResponse) => {
+        saveHistory('Translation', text, rawResponse);
+      }
+    });
+  };
+
+  const runHistoryCommand = (fullInput) => {
+    const arg = parseCommandArg(fullInput, '/history');
+
+    if (!arg) {
+      const entries = listHistory();
+      if (entries.length === 0) {
+        appendMessage('No history yet. Start translating to create your first record!', { color: 'yellow' });
+        appendMessage(`History saved to: ${getHistoryDir()}`, { dim: true });
+        return;
+      }
+
+      const lines = ['Learning History'];
+      const today = todayString();
+      for (const { date, count } of entries) {
+        const todaySuffix = date === today ? ' (today)' : '';
+        const entryText = `${date}${todaySuffix}  ${count} ${count === 1 ? 'entry' : 'entries'}`;
+        lines.push(entryText);
+      }
+      lines.push('Use /history today or /history <YYYY-MM-DD> to read.');
+      appendMessage(lines.join('\n'));
+      return;
+    }
+
+    const date = arg === 'today' ? todayString() : arg;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      appendMessage('Tip: Use /history, /history today, or /history <YYYY-MM-DD>.', { color: 'yellow' });
+      return;
+    }
+
     const content = readHistory(date);
     if (!content) {
-      console.log(chalk.yellow(`No history found for ${date}.`));
-      return;
-    }
-    for (const line of content.split('\n')) {
-      if (line.startsWith('# ')) {
-        console.log(chalk.bold.cyan('\n' + line.slice(2)));
-      } else if (line.startsWith('## ')) {
-        console.log(chalk.bold('\n' + line.slice(3)));
-      } else if (line.startsWith('**Input:**')) {
-        console.log(chalk.dim(line.replace('**Input:**', 'Input:')));
-      } else if (line === '---') {
-        console.log(chalk.dim('─'.repeat(44)));
-      } else {
-        console.log(chalk.white(line));
-      }
-    }
-    console.log('');
-  }
-
-  function renderGeneratedNote(content) {
-    console.log('');
-    for (const line of content.split('\n')) {
-      if (line.startsWith('# ')) {
-        console.log(chalk.bold.magenta(line.slice(2)));
-      } else if (line.startsWith('## ')) {
-        console.log(chalk.bold.cyan('\n' + line.slice(3)));
-      } else if (line.startsWith('- **') || line.startsWith('* **')) {
-        const highlighted = line.replace(/\*\*(.+?)\*\*/g, (_, term) => chalk.yellow(term));
-        console.log(chalk.white(highlighted));
-      } else if (line.startsWith('- ') || line.startsWith('* ')) {
-        console.log(chalk.white(line));
-      } else if (line === '---') {
-        console.log(chalk.dim('─'.repeat(44)));
-      } else if (line.startsWith('*Generated')) {
-        console.log(chalk.dim(line.replace(/\*/g, '')));
-      } else {
-        console.log(chalk.white(line));
-      }
-    }
-    console.log('');
-  }
-
-  rl.on('line', async (line) => {
-    const input = line.trim();
-    if (!input) {
-      rl.prompt();
+      appendMessage(`No history found for ${date}.`, { color: 'yellow' });
       return;
     }
 
-    const lowerInput = input.toLowerCase();
+    appendMessage(content);
+  };
+
+  const runNotesCommand = async (fullInput) => {
+    const arg = parseCommandArg(fullInput, '/notes');
+
+    if (!arg) {
+      const entries = listGeneratedNotes();
+      if (entries.length === 0) {
+        appendMessage('No AI notes yet.', { color: 'yellow' });
+        appendMessage('Use /notes today to generate your first learning note.', { dim: true });
+        appendMessage(`Notes saved to: ${getNotesDir()}`, { dim: true });
+        return;
+      }
+
+      const lines = ['AI Learning Notes'];
+      const today = todayString();
+      for (const { date } of entries) {
+        lines.push(date === today ? `${date} (today)` : date);
+      }
+      lines.push('Use /notes today or /notes <YYYY-MM-DD> to read.');
+      appendMessage(lines.join('\n'), { color: 'magenta' });
+      return;
+    }
+
+    let forceRegen = false;
+    let dateArg = arg;
+    const noteParts = arg.split(/\s+/);
+    if (noteParts[0] === 'regen' && noteParts.length > 1) {
+      forceRegen = true;
+      dateArg = noteParts.slice(1).join(' ');
+    }
+
+    if (dateArg === 'today') {
+      dateArg = todayString();
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateArg)) {
+      appendMessage('Tip: Use /notes, /notes today, /notes <YYYY-MM-DD>, or /notes regen today.', { color: 'yellow' });
+      return;
+    }
+
+    if (!forceRegen) {
+      const existing = readGeneratedNote(dateArg);
+      if (existing) {
+        appendMessage(existing, { color: 'magenta' });
+        return;
+      }
+    }
+
+    const historyContent = readHistory(dateArg);
+    if (!historyContent) {
+      appendMessage(`No history found for ${dateArg}. Translate something first!`, { color: 'yellow' });
+      return;
+    }
+    if ((historyContent.match(/^## \[/gm) || []).length === 0) {
+      appendMessage(`No history entries for ${dateArg} yet.`, { color: 'yellow' });
+      return;
+    }
+
+    const maxHistoryChars = 12000;
+    const historyToUse = historyContent.length > maxHistoryChars
+      ? `${historyContent.slice(0, maxHistoryChars)}\n\n[History truncated due to length...]`
+      : historyContent;
+    const userText = `Date: ${dateArg}\n\n${historyToUse}`;
+
+    await streamAndRender({
+      systemPrompt: getNoteGenPrompt(currentLang),
+      userText,
+      streamColor: 'magenta',
+      loadingText: `Generating AI learning note for ${dateArg}...`,
+      onCompleted: (rawResponse) => {
+        if (rawResponse.trim()) {
+          saveGeneratedNote(dateArg, rawResponse);
+          appendMessage(`Note saved. Use /notes ${dateArg} to view again.`, { dim: true });
+        }
+      }
+    });
+  };
+
+  const handleCommand = async (rawInput) => {
+    const inputText = rawInput.trim();
+    if (!inputText) return;
+
+    const lowerInput = inputText.toLowerCase();
+
     if (lowerInput === 'exit' || lowerInput === 'quit') {
-      console.log(chalk.green('Goodbye!'));
-      process.exit(0);
+      exit();
+      return;
     }
 
     if (lowerInput === '/clear') {
-      console.clear();
-      printWelcome();
-      rl.prompt();
+      clearOutput();
       return;
     }
 
     if (lowerInput.startsWith('/lang ')) {
       const targetLang = lowerInput.slice(6).trim();
-      if (targetLang === 'en') {
-        currentLang = 'en';
-        saveConfig({ lang: 'en' });
-        console.log(chalk.green('✓ Explanation language set to: English.'));
-      } else if (targetLang === 'zh') {
-        currentLang = 'zh';
-        saveConfig({ lang: 'zh' });
-        console.log(chalk.green('✓ 解释说明语言已切换为: 中文.'));
+      if (targetLang === 'en' || targetLang === 'zh') {
+        setCurrentLang(targetLang);
+        saveConfig({ lang: targetLang });
+        appendMessage(
+          targetLang === 'en'
+            ? 'Explanation language set to: English.'
+            : 'Explanation language set to: Chinese (中文).',
+          { color: 'green' }
+        );
       } else {
-        console.log(chalk.yellow('Tip: Invalid language. Use "/lang en" or "/lang zh".'));
+        appendMessage('Tip: Invalid language. Use /lang en or /lang zh.', { color: 'yellow' });
       }
-      rl.prompt();
       return;
     }
 
     if (lowerInput.startsWith('/mode ')) {
       const targetMode = lowerInput.slice(6).trim();
       if (targetMode === 'simple' || targetMode === 's') {
-        isSimpleMode = true;
+        setIsSimpleMode(true);
         saveConfig({ isSimpleMode: true });
-        console.log(chalk.green('✓ Mode set to: Simple (Translations/Corrections only).'));
+        appendMessage('Mode set to: Simple.', { color: 'green' });
       } else if (targetMode === 'detail' || targetMode === 'd') {
-        isSimpleMode = false;
+        setIsSimpleMode(false);
         saveConfig({ isSimpleMode: false });
-        console.log(chalk.green('✓ Mode set to: Detail (Explanations and alternatives enabled).'));
+        appendMessage('Mode set to: Detail.', { color: 'green' });
       } else {
-        console.log(chalk.yellow('Tip: Invalid mode. Use "/mode <s|d>".'));
+        appendMessage('Tip: Invalid mode. Use /mode <s|d>.', { color: 'yellow' });
       }
-      rl.prompt();
       return;
     }
 
     if (lowerInput === '/history' || lowerInput.startsWith('/history ')) {
-      const parts = input.split(/\s+/);
-      const arg = parts.length > 1 ? parts.slice(1).join(' ') : '';
-
-      if (arg === '') {
-        const entries = listHistory();
-        if (entries.length === 0) {
-          console.log(chalk.yellow('No history yet. Start translating to create your first record!'));
-          console.log(chalk.dim(`History saved to: ${getHistoryDir()}`));
-        } else {
-          console.log(chalk.bold.cyan('\n  Learning History\n'));
-          const today = new Date().toISOString().slice(0, 10);
-          for (const { date, count } of entries) {
-            const label = date === today
-              ? chalk.cyan(date) + chalk.dim(' (today)')
-              : chalk.white(date);
-            console.log(`  ${label}  ${chalk.dim(`${count} ${count === 1 ? 'entry' : 'entries'}`)}`);
-          }
-          console.log(chalk.dim(`\n  Use /history today or /history <YYYY-MM-DD> to read.\n`));
-        }
-      } else if (arg === 'today') {
-        renderHistory(new Date().toISOString().slice(0, 10));
-      } else if (/^\d{4}-\d{2}-\d{2}$/.test(arg)) {
-        renderHistory(arg);
-      } else {
-        console.log(chalk.yellow('Tip: Use /history, /history today, or /history <YYYY-MM-DD>.'));
-      }
-
-      rl.prompt();
+      runHistoryCommand(inputText);
       return;
     }
 
     if (lowerInput === '/notes' || lowerInput.startsWith('/notes ')) {
-      const parts = input.split(/\s+/);
-      const arg = parts.length > 1 ? parts.slice(1).join(' ') : '';
-
-      if (arg === '') {
-        // List all generated notes
-        const entries = listGeneratedNotes();
-        if (entries.length === 0) {
-          console.log(chalk.yellow('No AI notes yet.'));
-          console.log(chalk.dim('Use /notes today to generate your first learning note.'));
-          console.log(chalk.dim(`Notes saved to: ${getNotesDir()}`));
-        } else {
-          console.log(chalk.bold.magenta('\n  AI Learning Notes\n'));
-          const today = new Date().toISOString().slice(0, 10);
-          for (const { date } of entries) {
-            const label = date === today
-              ? chalk.cyan(date) + chalk.dim(' (today)')
-              : chalk.white(date);
-            console.log(`  ${label}`);
-          }
-          console.log(chalk.dim('\n  Use /notes today or /notes <YYYY-MM-DD> to read.\n'));
-        }
-        rl.prompt();
-        return;
-      }
-
-      // Parse regen flag
-      let forceRegen = false;
-      let dateArg = arg;
-      const subParts = arg.split(/\s+/);
-      if (subParts[0] === 'regen' && subParts.length > 1) {
-        forceRegen = true;
-        dateArg = subParts.slice(1).join(' ');
-      } else {
-        dateArg = arg;
-      }
-
-      // Resolve 'today'
-      const today = new Date().toISOString().slice(0, 10);
-      if (dateArg === 'today') dateArg = today;
-
-      // Validate date format
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateArg)) {
-        console.log(chalk.yellow('Tip: Use /notes, /notes today, /notes <YYYY-MM-DD>, or /notes regen today.'));
-        rl.prompt();
-        return;
-      }
-
-      // If not forcing regen, show existing note
-      if (!forceRegen) {
-        const existing = readGeneratedNote(dateArg);
-        if (existing) {
-          renderGeneratedNote(existing);
-          rl.prompt();
-          return;
-        }
-      }
-
-      // Check history exists and has entries
-      const historyContent = readHistory(dateArg);
-      if (!historyContent) {
-        console.log(chalk.yellow(`No history found for ${dateArg}. Translate something first!`));
-        rl.prompt();
-        return;
-      }
-      if ((historyContent.match(/^## \[/gm) || []).length === 0) {
-        console.log(chalk.yellow(`No history entries for ${dateArg} yet.`));
-        rl.prompt();
-        return;
-      }
-
-      // Generate via LLM
-      try {
-        const spinner = ora(`Generating AI learning note for ${chalk.cyan(dateArg)}...`).start();
-        spinner.color = 'magenta';
-
-        let firstChunk = true;
-        let noteBuffer = '';
-
-        // Truncate history to prevent exceeding API context limits
-        const maxHistoryChars = 12000;
-        let historyToUse = historyContent;
-        if (historyContent.length > maxHistoryChars) {
-          historyToUse = historyContent.slice(0, maxHistoryChars) +
-            '\n\n[History truncated due to length...]';
-        }
-
-        const userText = `Date: ${dateArg}\n\n${historyToUse}`;
-
-        await callDeepSeekStream(getNoteGenPrompt(currentLang), userText, (chunk) => {
-          if (firstChunk) {
-            spinner.stop();
-            console.log(chalk.bold.magenta(`\n  AI Learning Note — ${dateArg}\n`));
-            firstChunk = false;
-          }
-          noteBuffer += chunk;
-          process.stdout.write(chalk.white(chunk));
-        });
-
-        if (firstChunk) spinner.stop();
-        console.log('\n');
-
-        if (noteBuffer) {
-          saveGeneratedNote(dateArg, noteBuffer);
-          console.log(chalk.dim(`  Note saved. Use /notes ${dateArg} to view again.\n`));
-        }
-      } catch (error) {
-        console.log(chalk.red.bold('\nError generating note: ') + chalk.red(error.message) + '\n');
-      }
-
-      rl.prompt();
+      await runNotesCommand(inputText);
       return;
     }
 
-    try {
-      if (input.startsWith('/check ')) {
-        const textToCheck = input.slice(7).trim();
-        if (!textToCheck) {
-          console.log(chalk.yellow('Tip: Please enter the English sentence you want to check after /check.'));
-        } else {
-          const modeTag = isSimpleMode ? '[Simple]' : `[Lang: ${currentLang}]`;
-          const spinner = ora(`Checking grammar and polishing ${chalk.dim(modeTag)}...`).start();
-          spinner.color = 'cyan';
-
-          let firstChunk = true;
-          let responseBuffer = '';
-          await callDeepSeekStream(getCheckPrompt(currentLang, isSimpleMode), textToCheck, (chunk) => {
-            if (firstChunk) {
-              spinner.stop();
-              console.log();
-              firstChunk = false;
-            }
-            responseBuffer += chunk;
-            process.stdout.write(chalk.green(chunk));
-          });
-
-          if (firstChunk) spinner.stop();
-          console.log('\n');
-          if (!firstChunk) saveHistory('Grammar Check', textToCheck, responseBuffer);
-        }
-      } else {
-        const modeTag = isSimpleMode ? '[Simple]' : `[Lang: ${currentLang}]`;
-        const spinner = ora(`Translating ${chalk.dim(modeTag)}...`).start();
-        spinner.color = 'yellow';
-
-        let firstChunk = true;
-        let responseBuffer = '';
-        await callDeepSeekStream(getTranslatePrompt(currentLang, isSimpleMode), input, (chunk) => {
-          if (firstChunk) {
-            spinner.stop();
-            console.log();
-            firstChunk = false;
-          }
-          responseBuffer += chunk;
-          process.stdout.write(chalk.yellow(chunk));
-        });
-
-        if (firstChunk) spinner.stop();
-        console.log('\n');
-        if (!firstChunk) saveHistory('Translation', input, responseBuffer);
-      }
-    } catch (error) {
-      console.log(chalk.red.bold('\nError occurred: ') + chalk.red(error.message) + '\n');
+    if (inputText.startsWith('/check ')) {
+      await runCheck(inputText);
+      return;
     }
 
-    rl.prompt();
-  }).on('close', () => {
-    console.log(chalk.green('\nGoodbye!'));
-    process.exit(0);
-  });
+    await runTranslate(inputText);
+  };
+
+  const onSubmitInput = (value) => {
+    if (loadingRef.current) return;
+    setInput('');
+    void handleCommand(value);
+  };
+
+  const statusMode = isSimpleMode ? 'simple' : 'detail';
+
+  return h(
+    Box,
+    { flexDirection: 'column' },
+    h(Box, { flexDirection: 'column', marginBottom: 1 },
+      messages.map((msg) => h(
+        Text,
+        {
+          key: msg.id,
+          color: msg.color,
+          dimColor: msg.dim,
+          bold: msg.bold
+        },
+        msg.text
+      )),
+      activeStream ? h(Text, { color: activeStream.color }, activeStream.text) : null
+    ),
+    h(
+      Box,
+      { marginBottom: 1 },
+      isLoading
+        ? h(Text, { color: 'cyan' }, h(Spinner, { type: 'dots' }), ' Processing...')
+        : h(Text, { dimColor: true }, `Ready  lang=${currentLang}  mode=${statusMode}`)
+    ),
+    h(
+      Box,
+      null,
+      h(Text, { color: 'cyan' }, 't-cli > '),
+      h(TextInput, {
+        value: input,
+        onChange: setInput,
+        onSubmit: onSubmitInput,
+        focus: !isLoading,
+        placeholder: isLoading ? 'Please wait...' : 'Type text or command...'
+      })
+    )
+  );
+}
+
+export function startRepl() {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) {
+    console.log('Error: DEEPSEEK_API_KEY environment variable not found!');
+    console.log('Please configure your DeepSeek API Key in your environment or .env file.');
+    console.log('Example: export DEEPSEEK_API_KEY="sk-xxxxxxxxxxx"');
+    process.exit(1);
+  }
+
+  render(h(App));
 }

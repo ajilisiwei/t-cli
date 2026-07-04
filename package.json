@@ -20,9 +20,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "boxen": "^8.0.1",
-    "chalk": "^5.3.0",
     "dotenv": "^16.4.5",
-    "ora": "^9.3.0"
+    "ink": "^7.0.0",
+    "ink-spinner": "^5.0.0",
+    "ink-text-input": "^6.0.0",
+    "react": "^19.2.5"
   }
 }
