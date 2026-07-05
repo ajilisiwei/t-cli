@@ -4,7 +4,7 @@ import { Box, Text, render, useApp } from 'ink';
 import Spinner from 'ink-spinner';
 import TextInput from 'ink-text-input';
 import { callDeepSeekStream } from './api.js';
-import { getTranslatePrompt, getCheckPrompt, getNoteGenPrompt } from './prompts.js';
+import { getTranslatePrompt, getCheckPrompt, getNoteGenPrompt, buildSourceMessage } from './prompts.js';
 import { loadConfig, saveConfig } from './config.js';
 import { saveHistory, listHistory, readHistory, getHistoryDir } from './history.js';
 import { listGeneratedNotes, readGeneratedNote, saveGeneratedNote, getNotesDir } from './notes.js';
@@ -126,7 +126,7 @@ function App() {
 
     await streamAndRender({
       systemPrompt: getCheckPrompt(currentLang, isSimpleMode),
-      userText: textToCheck,
+      userText: buildSourceMessage(textToCheck, 'check'),
       streamColor: 'green',
       loadingText: 'Checking grammar and polishing...',
       onCompleted: (rawResponse) => {
@@ -138,7 +138,7 @@ function App() {
   const runTranslate = async (text) => {
     await streamAndRender({
       systemPrompt: getTranslatePrompt(currentLang, isSimpleMode),
-      userText: text,
+      userText: buildSourceMessage(text, 'translate'),
       streamColor: 'yellow',
       loadingText: 'Translating...',
       onCompleted: (rawResponse) => {
