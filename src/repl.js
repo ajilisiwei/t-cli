@@ -1,6 +1,6 @@
 import process from 'node:process';
 import React, { useMemo, useRef, useState } from 'react';
-import { Box, Text, render, useApp } from 'ink';
+import { Box, Text, render, useApp, useInput } from 'ink';
 import Spinner from 'ink-spinner';
 import TextInput from 'ink-text-input';
 import { callDeepSeekStream } from './api.js';
@@ -8,6 +8,10 @@ import { getTranslatePrompt, getCheckPrompt, getNoteGenPrompt, buildSourceMessag
 import { loadConfig, saveConfig } from './config.js';
 import { saveHistory, listHistory, readHistory, getHistoryDir } from './history.js';
 import { listGeneratedNotes, readGeneratedNote, saveGeneratedNote, getNotesDir } from './notes.js';
+import { isWordLookup } from './utils/detect.js';
+import { extractSpeakable } from './utils/speakable.js';
+import { pushHistory, navigateHistory } from './utils/inputHistory.js';
+import * as tts from './tts.js';
 
 const h = React.createElement;
 
@@ -43,6 +47,7 @@ function buildWelcomeMessages(lang, isSimpleMode) {
     makeMessage('/mode <s|d>    Toggle output detail mode', { color: 'green' }),
     makeMessage('/history        Browse daily history', { color: 'green' }),
     makeMessage('/notes          Generate or view AI notes', { color: 'green' }),
+    makeMessage('/say            Read the last result aloud (/say stop to cancel)', { color: 'green' }),
     makeMessage('/clear          Clear screen', { color: 'green' }),
     makeMessage('exit | quit     Quit application', { color: 'green' })
   ];
@@ -64,7 +69,14 @@ function App() {
   const [isSimpleMode, setIsSimpleMode] = useState(initialConfig.isSimpleMode);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingLabel, setLoadingLabel] = useState('Processing...');
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [activeStream, setActiveStream] = useState(null);
+  const [inputHistory, setInputHistory] = useState([]);
+  const [inputEpoch, setInputEpoch] = useState(0);
+  const lastSpeakableRef = useRef(null);
+  const historyIndexRef = useRef(null);
+  const draftRef = useRef('');
   const [messages, setMessages] = useState(() => buildWelcomeMessages(initialConfig.lang, initialConfig.isSimpleMode));
 
   const loadingRef = useRef(false);
@@ -88,11 +100,8 @@ function App() {
     onCompleted
   }) => {
     setIsLoading(true);
+    setLoadingLabel(loadingText || 'Processing...');
     setActiveStream({ color: streamColor, text: '' });
-
-    if (loadingText) {
-      appendMessage(loadingText, { color: 'cyan' });
-    }
 
     let responseBuffer = '';
     try {
@@ -130,18 +139,25 @@ function App() {
       streamColor: 'green',
       loadingText: 'Checking grammar and polishing...',
       onCompleted: (rawResponse) => {
+        // Detail-mode check output starts with analysis prose, not the
+        // corrected sentence, so only simple mode is speakable.
+        if (isSimpleMode) {
+          lastSpeakableRef.current = extractSpeakable(rawResponse, true);
+        }
         saveHistory('Grammar Check', textToCheck, rawResponse);
       }
     });
   };
 
   const runTranslate = async (text) => {
+    const wordLookup = isWordLookup(text);
     await streamAndRender({
-      systemPrompt: getTranslatePrompt(currentLang, isSimpleMode),
+      systemPrompt: getTranslatePrompt(currentLang, isSimpleMode, wordLookup),
       userText: buildSourceMessage(text, 'translate'),
       streamColor: 'yellow',
-      loadingText: 'Translating...',
+      loadingText: wordLookup ? 'Looking up word...' : 'Translating...',
       onCompleted: (rawResponse) => {
+        lastSpeakableRef.current = extractSpeakable(rawResponse, isSimpleMode);
         saveHistory('Translation', text, rawResponse);
       }
     });
@@ -262,13 +278,50 @@ function App() {
     });
   };
 
+  const runSayCommand = async (fullInput) => {
+    const arg = parseCommandArg(fullInput, '/say');
+
+    if (arg === 'stop') {
+      tts.stop();
+      setIsSpeaking(false);
+      return;
+    }
+
+    if (arg) {
+      appendMessage('Tip: Use /say to read the last result, /say stop to cancel.', { color: 'yellow' });
+      return;
+    }
+
+    const text = lastSpeakableRef.current;
+    if (!text) {
+      appendMessage('Nothing to read yet. Translate something first!', { color: 'yellow' });
+      return;
+    }
+
+    setIsSpeaking(true);
+    try {
+      await tts.speak(text, {
+        onWarn: (message) => appendMessage(message, { color: 'yellow' })
+      });
+    } catch (error) {
+      appendMessage(`Speech failed: ${error.message}`, { color: 'red' });
+    } finally {
+      if (!tts.isSpeaking()) {
+        setIsSpeaking(false);
+      }
+    }
+  };
+
   const handleCommand = async (rawInput) => {
     const inputText = rawInput.trim();
     if (!inputText) return;
 
+    appendMessage(`t-cli > ${inputText}`, { dim: true });
+
     const lowerInput = inputText.toLowerCase();
 
     if (lowerInput === 'exit' || lowerInput === 'quit') {
+      tts.stop();
       exit();
       return;
     }
@@ -311,6 +364,11 @@ function App() {
       return;
     }
 
+    if (lowerInput === '/say' || lowerInput.startsWith('/say ')) {
+      await runSayCommand(inputText);
+      return;
+    }
+
     if (lowerInput === '/history' || lowerInput.startsWith('/history ')) {
       runHistoryCommand(inputText);
       return;
@@ -331,9 +389,37 @@ function App() {
 
   const onSubmitInput = (value) => {
     if (loadingRef.current) return;
+    setInputHistory((prev) => pushHistory(prev, value));
+    historyIndexRef.current = null;
+    draftRef.current = '';
     setInput('');
     void handleCommand(value);
   };
+
+  const onChangeInput = (value) => {
+    // Typing starts a fresh draft; the next up-arrow resumes from the newest entry.
+    historyIndexRef.current = null;
+    setInput(value);
+  };
+
+  useInput((_char, key) => {
+    if (loadingRef.current) return;
+    if (!key.upArrow && !key.downArrow) return;
+    if (key.upArrow && historyIndexRef.current === null) {
+      draftRef.current = input;
+    }
+    const move = navigateHistory(
+      inputHistory,
+      historyIndexRef.current,
+      key.upArrow ? 'up' : 'down',
+      draftRef.current
+    );
+    if (!move) return;
+    historyIndexRef.current = move.index;
+    setInput(move.text);
+    // Remount TextInput so its internal cursor lands at the end of the recalled text.
+    setInputEpoch((prev) => prev + 1);
+  });
 
   const statusMode = isSimpleMode ? 'simple' : 'detail';
 
@@ -357,16 +443,19 @@ function App() {
       Box,
       { marginBottom: 1 },
       isLoading
-        ? h(Text, { color: 'cyan' }, h(Spinner, { type: 'dots' }), ' Processing...')
-        : h(Text, { dimColor: true }, `Ready  lang=${currentLang}  mode=${statusMode}`)
+        ? h(Text, { color: 'cyan' }, h(Spinner, { type: 'dots' }), ` ${loadingLabel}`)
+        : isSpeaking
+          ? h(Text, { color: 'magenta' }, '🔊 Speaking... (/say stop to cancel)')
+          : h(Text, { dimColor: true }, `Ready  lang=${currentLang}  mode=${statusMode}`)
     ),
     h(
       Box,
       null,
       h(Text, { color: 'cyan' }, 't-cli > '),
       h(TextInput, {
+        key: `history-${inputEpoch}`,
         value: input,
-        onChange: setInput,
+        onChange: onChangeInput,
         onSubmit: onSubmitInput,
         focus: !isLoading,
         placeholder: isLoading ? 'Please wait...' : 'Type text or command...'

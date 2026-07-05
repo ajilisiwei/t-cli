@@ -8,8 +8,11 @@ A minimalist, stateless CLI tool powered by the DeepSeek API for interactive Eng
 3. **Grammar Check (`/check`)**: Points out grammar and phrasing errors in English sentences, providing 2-3 native, authentic alternatives.
 4. **Explanation Language Toggle (`/lang`)**: Toggle AI explanations between English (default) and Chinese using `/lang en` or `/lang zh`.
 5. **Mode Toggle (`/mode`)**: Switch between detail mode (default) and simple mode (`/mode simple`). Simple mode only outputs the direct translation or correction without any extra explanation.
-6. **Clear Screen (`/clear`)**: Instantly clears the terminal output for a fresh view.
-7. **Stateless Requests**: No contextual memory between prompts, drastically reducing API token consumption.
+6. **Word Lookup with IPA**: When the input is a single word or short term, the English result includes its American IPA transcription (e.g. `apple /ˈæp.əl/`).
+7. **Text-to-Speech (`/say`)**: Reads the last translation aloud with Microsoft Edge neural voices (`msedge-tts`), falling back to the local `say` command when offline. Use `/say stop` to cancel.
+8. **Clear Screen (`/clear`)**: Instantly clears the terminal output for a fresh view.
+9. **Stateless Requests**: No contextual memory between prompts, drastically reducing API token consumption.
+10. **Input History (`↑`/`↓`)**: Recall previously entered text and commands with the arrow keys, readline-style. Pressing `↓` past the newest entry restores your unsubmitted draft.
 
 ## Installation
 
@@ -70,6 +73,12 @@ t-cli > 你好，今天天气真不错。
 
 t-cli > This tool is very useful for me.
 # 翻译: 这个工具对我来说非常有用。
+
+t-cli > 苹果
+# apple /ˈæp.əl/
+
+t-cli > /say
+# Reads "apple" aloud. Use /say stop to cancel playback.
 
 t-cli > /check He don't know nothing about the project.
 # 语法检查与润色结果:

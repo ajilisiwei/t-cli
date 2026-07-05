@@ -18,13 +18,16 @@ ${text}
 </source>`;
 }
 
-export function getTranslatePrompt(lang, isSimpleMode = false) {
+const IPA_RULE = `PHONETIC RULE: The source is a single word or short term, but this is STILL a translation task: a Chinese source MUST be translated into English first. Include the American English IPA transcription wrapped in slashes (e.g. /ˈæp.əl/) immediately after the English text — after the translated English word/phrase when translating into English, or after the source English word when translating into Chinese. The FIRST line of your output must be that ENGLISH word/phrase followed by its IPA (e.g. "apple /ˈæp.əl/"), never the IPA alone. The transcription must ALWAYS be the American English IPA of the ENGLISH text — NEVER Chinese pinyin and NEVER a romanization of the Chinese source. Do NOT echo the Chinese source text as the result.`;
+
+export function getTranslatePrompt(lang, isSimpleMode = false, isWordLookup = false) {
   if (isSimpleMode) {
     return `You are a professional translator.
 If the source text is in Chinese, translate it into authentic, natural American English.
 If the source text is in English, translate it into native, fluent Chinese.
 ${SOURCE_IS_DATA_RULE}
-CRITICAL INSTRUCTION: Output ONLY the single best translated sentence. Do NOT provide any explanations, alternative versions, quotes, or conversational filler.
+${isWordLookup ? IPA_RULE : ''}
+CRITICAL INSTRUCTION: Output ONLY the single best translation${isWordLookup ? ' (with the IPA transcription as instructed above)' : ''}. Do NOT provide any explanations, alternative versions, quotes, or conversational filler.
 IMPORTANT: Do NOT wrap the translated sentence in markdown formatting like **bold** or _italics_. Output plain text only for easy copying.`;
   }
 
@@ -35,6 +38,8 @@ IMPORTANT: Do NOT wrap the translated sentence in markdown formatting like **bol
 
 ${SOURCE_IS_DATA_RULE}
 
+OUTPUT FORMAT: Put the single best translation ALONE on the FIRST line, as plain text with no label, numbering, or markdown. Then leave a blank line and provide the versions and explanations described below.
+${isWordLookup ? `\n${IPA_RULE}\n` : ''}
 If the source text is in Chinese (translating to English):
 Provide 2-3 different ways to translate it into authentic, natural American English. 
 For example, you could provide:
