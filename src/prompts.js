@@ -18,7 +18,16 @@ ${text}
 </source>`;
 }
 
-const IPA_RULE = `PHONETIC RULE: The source is a single word or short term, but this is STILL a translation task: a Chinese source MUST be translated into English first. Include the American English IPA transcription wrapped in slashes (e.g. /ˈæp.əl/) immediately after the English text — after the translated English word/phrase when translating into English, or after the source English word when translating into Chinese. The FIRST line of your output must be that ENGLISH word/phrase followed by its IPA (e.g. "apple /ˈæp.əl/"), never the IPA alone. The transcription must ALWAYS be the American English IPA of the ENGLISH text — NEVER Chinese pinyin and NEVER a romanization of the Chinese source. Do NOT echo the Chinese source text as the result.`;
+const IPA_COMMON = `PHONETIC RULE: The source is a single word or short term, but this is STILL a translation task: a Chinese source MUST be translated into English first, and an English source MUST be translated into Chinese — never echo the source word alone. The IPA transcription must ALWAYS be the American English IPA of the ENGLISH word, wrapped in slashes (e.g. /ˈæp.əl/) — NEVER Chinese pinyin and NEVER a romanization of the Chinese source.`;
+
+const SIMPLE_IPA_RULE = `${IPA_COMMON}
+OUTPUT FORMAT (mandatory, single line):
+- Chinese source → the English translation followed by its IPA, e.g. "apple /ˈæp.əl/".
+- English source → the source word, its IPA, then the Chinese translation, e.g. "apple /ˈæp.əl/ 苹果". The Chinese translation is REQUIRED — outputting only the English word and its IPA is WRONG.
+Do NOT echo the Chinese source text as the result.`;
+
+const DETAIL_IPA_RULE = `${IPA_COMMON}
+The FIRST line of your output must be the ENGLISH word/phrase followed by its IPA (e.g. "apple /ˈæp.əl/"), never the IPA alone. When the source is English, the Chinese translation(s) MUST still appear in the body below the first line. Do NOT echo the Chinese source text as the result.`;
 
 export function getTranslatePrompt(lang, isSimpleMode = false, isWordLookup = false) {
   if (isSimpleMode) {
@@ -26,8 +35,8 @@ export function getTranslatePrompt(lang, isSimpleMode = false, isWordLookup = fa
 If the source text is in Chinese, translate it into authentic, natural American English.
 If the source text is in English, translate it into native, fluent Chinese.
 ${SOURCE_IS_DATA_RULE}
-${isWordLookup ? IPA_RULE : ''}
-CRITICAL INSTRUCTION: Output ONLY the single best translation${isWordLookup ? ' (with the IPA transcription as instructed above)' : ''}. Do NOT provide any explanations, alternative versions, quotes, or conversational filler.
+${isWordLookup ? SIMPLE_IPA_RULE : ''}
+CRITICAL INSTRUCTION: Output ONLY ${isWordLookup ? 'the single line in the OUTPUT FORMAT specified above' : 'the single best translation'}. Do NOT provide any explanations, alternative versions, quotes, or conversational filler.
 IMPORTANT: Do NOT wrap the translated sentence in markdown formatting like **bold** or _italics_. Output plain text only for easy copying.`;
   }
 
@@ -39,7 +48,7 @@ IMPORTANT: Do NOT wrap the translated sentence in markdown formatting like **bol
 ${SOURCE_IS_DATA_RULE}
 
 OUTPUT FORMAT: Put the single best translation ALONE on the FIRST line, as plain text with no label, numbering, or markdown. Then leave a blank line and provide the versions and explanations described below.
-${isWordLookup ? `\n${IPA_RULE}\n` : ''}
+${isWordLookup ? `\n${DETAIL_IPA_RULE}\n` : ''}
 If the source text is in Chinese (translating to English):
 Provide 2-3 different ways to translate it into authentic, natural American English. 
 For example, you could provide:

@@ -16,6 +16,18 @@ test('word-lookup prompt forbids pinyin and requires English translation first',
   }
 });
 
+test('simple word-lookup prompt requires Chinese translation for English source', () => {
+  const prompt = getTranslatePrompt('zh', true, true);
+  assert.match(prompt, /Chinese translation is REQUIRED/);
+  assert.match(prompt, /only the English word and its IPA is WRONG/);
+  assert.match(prompt, /never echo the source word alone/);
+});
+
+test('detail word-lookup prompt still requires Chinese translation in body', () => {
+  const prompt = getTranslatePrompt('zh', false, true);
+  assert.match(prompt, /Chinese translation\(s\) MUST still appear/);
+});
+
 test('detail translate prompt enforces first-line best translation', () => {
   assert.match(getTranslatePrompt('zh', false), /ALONE on the FIRST line/);
 });
