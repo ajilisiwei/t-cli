@@ -1,6 +1,6 @@
 {
   "name": "t-cli-translator",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "A stateless CLI tool for EN/ZH translation and English grammar checking using DeepSeek API.",
   "main": "src/repl.js",
   "type": "module",
