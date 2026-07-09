@@ -231,7 +231,7 @@ def auto_fix_action():
             sys.exit(0)
 
     # 5. Commit and push
-    branch = os.getenv("GITHUB_HEAD_REF") or os.getenv("GITHUB_REF_NAME", "")
+    branch = os.getenv("FIX_BRANCH") or os.getenv("GITHUB_HEAD_REF") or os.getenv("GITHUB_REF_NAME", "")
     subprocess.run(["git", "commit", "-m", "fix(ci): auto-fix CI failure [AI]"], check=False)
     push_result = subprocess.run(
         ["git", "push", "origin", f"HEAD:{branch}"],

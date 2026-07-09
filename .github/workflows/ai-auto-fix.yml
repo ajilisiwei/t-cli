@@ -55,5 +55,5 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           AI_ACTION: auto_fix
           FAILED_RUN_ID: ${{ github.event.workflow_run.id }}
-          GITHUB_HEAD_REF: ${{ github.event.workflow_run.head_branch }}
+          FIX_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: python .github/scripts/ai_agent.py
