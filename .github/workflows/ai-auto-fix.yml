@@ -1,0 +1,59 @@
+# AI Auto-Fix: automatically fixes failing CI tests
+# Triggered when the CI workflow completes with failure.
+# AI reads the logs, generates a fix, commits and pushes.
+#
+# Safety: only fixes source code (src/), never modifies tests (test/).
+# If AI is unsure, it outputs UNSURE: and exits without pushing.
+
+name: AI Auto-Fix
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: auto-fix-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+jobs:
+  auto-fix:
+    # Only run when CI fails, and not on main branch (avoid infinite loops)
+    if: >
+      github.event.workflow_run.conclusion == 'failure'
+      && github.event.workflow_run.head_branch != 'main'
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout failed branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install openai
+
+      - name: Setup GitHub CLI auth
+        run: echo "${{ github.token }}" | gh auth login --with-token
+
+      - name: AI Auto-Fix
+        id: ai
+        env:
+          LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'deepseek' }}
+          LLM_MODEL:    ${{ vars.LLM_MODEL    || 'deepseek-chat' }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          AI_ACTION: auto_fix
+          FAILED_RUN_ID: ${{ github.event.workflow_run.id }}
+          GITHUB_HEAD_REF: ${{ github.event.workflow_run.head_branch }}
+        run: python .github/scripts/ai_agent.py

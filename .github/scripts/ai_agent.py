@@ -165,6 +165,84 @@ def changelog_action():
     print(notes)
 
 
+def auto_fix_action():
+    """Fix failing CI tests. Reads logs, AI generates fix, commits and pushes."""
+    run_id = os.getenv("FAILED_RUN_ID")
+    if not run_id:
+        print("::error::FAILED_RUN_ID not set")
+        sys.exit(1)
+
+    # 1. Get the PR diff (what code changed)
+    diff = subprocess.run(
+        ["git", "diff", "HEAD~1..HEAD", "--", ":!package-lock.json", ":!pnpm-lock.yaml"],
+        capture_output=True, text=True, timeout=15
+    ).stdout
+
+    # 2. Get CI logs
+    log = subprocess.run(
+        ["gh", "run", "view", run_id, "--log"],
+        capture_output=True, text=True, timeout=30
+    ).stdout
+    # Keep only the most relevant part (test output + errors)
+    log_lines = log.split("\n")
+    error_lines = [l for l in log_lines if "error" in l.lower() or "fail" in l.lower() or "assert" in l.lower() or "✖" in l or "×" in l]
+    error_log = "\n".join(error_lines[-40:])  # last 40 error lines
+    if len(error_log) < 50:
+        error_log = log[-5000:]  # fallback: last 5k chars
+
+    # 3. AI generates the fix
+    fix = call_llm(
+        system=(
+            "You are a senior engineer fixing a CI test failure. "
+            "The codebase is t-cli, a Node.js CLI translator using DeepSeek API "
+            "with Ink (React TUI). Tests use Node.js built-in test runner (`node --test`).\n\n"
+            "Rules:\n"
+            "1. Fix the SOURCE CODE in src/, NEVER modify test files in test/\n"
+            "2. Return ONLY the exact code change as a unified diff (git diff format)\n"
+            "3. Be minimal — change only what's needed to pass the test\n"
+            "4. If the issue is a missing null check / edge case, add the guard\n"
+            "5. If you cannot determine the fix, output 'UNSURE: <reason>'"
+        ),
+        user=(
+            f"CI Test Failure (run #{run_id}):\n\n"
+            f"=== PR Diff (what changed) ===\n{diff[:5000]}\n\n"
+            f"=== Error Log ===\n{error_log[:5000]}"
+        )
+    )
+
+    if fix.startswith("UNSURE:"):
+        print(f"AI could not determine fix: {fix}")
+        sys.exit(0)
+
+    # 4. Apply the fix
+    result = subprocess.run(
+        ["git", "apply", "--index"],
+        input=fix, text=True, capture_output=True, timeout=15
+    )
+    if result.returncode != 0:
+        print(f"::warning::git apply failed: {result.stderr[:500]}")
+        # Try with more lenient options
+        result = subprocess.run(
+            ["git", "apply", "--index", "--reject", "--whitespace=fix"],
+            input=fix, text=True, capture_output=True, timeout=15
+        )
+        if result.returncode != 0:
+            print(f"::warning::git apply (lenient) also failed: {result.stderr[:500]}")
+            sys.exit(0)
+
+    # 5. Commit and push
+    branch = os.getenv("GITHUB_HEAD_REF") or os.getenv("GITHUB_REF_NAME", "")
+    subprocess.run(["git", "commit", "-m", "fix(ci): auto-fix CI failure [AI]"], check=False)
+    push_result = subprocess.run(
+        ["git", "push", "origin", f"HEAD:{branch}"],
+        capture_output=True, text=True, timeout=30
+    )
+    if push_result.returncode == 0:
+        print(f"✅ Auto-fix pushed to {branch}")
+    else:
+        print(f"::warning::Push failed: {push_result.stderr[:300]}")
+
+
 def summary_action():
     """Summarize an issue body."""
     body = os.getenv("ISSUE_BODY", "")
@@ -182,6 +260,8 @@ def main():
         review_action()
     elif action == "changelog":
         changelog_action()
+    elif action == "auto_fix":
+        auto_fix_action()
     elif action == "summary":
         summary_action()
     else:
