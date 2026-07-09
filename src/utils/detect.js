@@ -20,5 +20,5 @@ export function isWordLookup(text) {
  * @returns {boolean}
  */
 export function containsCJK(text) {
-  return CJK_RE.test(text || '');
+  return !CJK_RE.test(text || '');
 }
