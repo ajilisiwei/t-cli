@@ -121,22 +121,46 @@ def review_action():
 
 
 def changelog_action():
-    """Generate release notes from git log."""
+    """Generate release notes from git log. Auto-detects previous tag."""
     prev_tag = os.getenv("PREV_TAG")
+    if not prev_tag:
+        # Auto-detect previous tag
+        try:
+            prev_tag = subprocess.run(
+                ["git", "describe", "--tags", "--abbrev=0", "HEAD~1"],
+                capture_output=True, text=True, check=True, timeout=10
+            ).stdout.strip()
+        except subprocess.CalledProcessError:
+            prev_tag = None
+
     if prev_tag:
         log = subprocess.run(
-            ["git", "log", "--oneline", f"{prev_tag}..HEAD"],
+            ["git", "log", f"{prev_tag}..HEAD", "--format=%h %s (%an, %ar)"],
             capture_output=True, text=True, check=True
         ).stdout
     else:
         log = subprocess.run(
-            ["git", "log", "--oneline", "-30"],
+            ["git", "log", "-30", "--format=%h %s (%an, %ar)"],
             capture_output=True, text=True, check=True
         ).stdout
 
+    if not log.strip():
+        print("No new commits since last release.")
+        return
+
     notes = call_llm(
-        system="Generate release notes from git log. Group by Features / Bug Fixes / Refactoring / Docs. Use markdown.",
-        user=f"Commits:\n{log}"
+        system=(
+            "Generate release notes from git log. t-cli is a Node.js CLI translator "
+            "using DeepSeek API with Ink (React TUI). Group commits by:\n"
+            "## Features — new capabilities\n"
+            "## Bug Fixes — bug fixes and error handling\n"
+            "## Refactoring — code quality, architecture\n"
+            "## Docs — documentation changes\n\n"
+            "For each group, list commits as bullet points with the commit hash in "
+            "parentheses. If a group has no commits, omit it entirely.\n"
+            "Output ONLY the release notes in valid markdown."
+        ),
+        user=f"Previous tag: {prev_tag or '(first release)'}\n\nCommits:\n{log}"
     )
     print(notes)
 
