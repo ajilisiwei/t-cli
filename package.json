@@ -1,6 +1,6 @@
 {
   "name": "t-cli-translator",
-  "version": "1.0.0",
+  "version": "1.0.5",
   "description": "A stateless CLI tool for EN/ZH translation and English grammar checking using DeepSeek API.",
   "main": "src/repl.js",
   "type": "module",
@@ -8,7 +8,9 @@
     "t-cli": "./bin/t-cli.js"
   },
   "scripts": {
-    "start": "node ./bin/t-cli.js"
+    "start": "node ./bin/t-cli.js",
+    "test": "node --test",
+    "release:local": "npm version patch --no-git-tag-version && npm install -g --prefix \"$HOME/.npm-global\" \"$(npm pack | tail -1)\" && rm -f t-cli-translator-*.tgz"
   },
   "keywords": [
     "cli",
@@ -20,7 +22,11 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "chalk": "^5.3.0",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "ink": "^7.0.0",
+    "ink-spinner": "^5.0.0",
+    "ink-text-input": "^6.0.0",
+    "msedge-tts": "^2.0.6",
+    "react": "^19.2.5"
   }
 }

@@ -1,0 +1,69 @@
+name: AI PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+# === Cost & Concurrency Safeguards ===
+concurrency:
+  group: ai-review-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Python deps
+        run: pip install openai
+
+      - name: AI Code Review
+        id: ai
+        env:
+          # === Model selection — change these via GitHub Variables ===
+          LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'openai' }}
+          LLM_MODEL:    ${{ vars.LLM_MODEL    || 'gpt-4o' }}
+
+          # === API Keys — set the one matching your provider ===
+          # OpenAI
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # Anthropic
+          # ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # DeepSeek
+          # DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          # OpenRouter (200+ models through one API)
+          # OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: python .github/scripts/ai_agent.py
+
+      - name: Post Review Comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const review = fs.readFileSync('review.md', 'utf8').trim();
+            if (!review || review === 'No diff to review.') {
+              console.log('No content to post.');
+              return;
+            }
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: context.issue.number,
+              body: review
+            });
+
+      - name: Warning — No API Key
+        if: env.LLM_PROVIDER != 'ollama' && (!secrets.OPENAI_API_KEY && !secrets.DEEPSEEK_API_KEY && !secrets.OPENROUTER_API_KEY && !secrets.ANTHROPIC_API_KEY && !secrets.LLM_API_KEY)
+        run: |
+          echo "::warning::No API key found for LLM_PROVIDER=$LLM_PROVIDER."
+          echo "::warning::Set ${{ vars.LLM_PROVIDER || 'openai' }}'s API key as a repository secret."
+          echo "::warning::Or use 'ollama' for local model (requires self-hosted runner)."

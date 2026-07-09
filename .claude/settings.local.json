@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(claude:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(node --check src/repl.js)",
+      "Bash(node --check src/history.js)",
+      "Bash(node --check src/notes.js)",
+      "Bash(node --check src/prompts.js)",
+      "Bash(npm run:*)",
+      "Bash(node -c src/repl.js)",
+      "Bash(node -c src/history.js)",
+      "Bash(node -c src/notes.js)",
+      "Bash(git push:*)"
+    ]
+  },
+  "remote": {
+    "defaultEnvironmentId": "env_01QBTQKBh3xf3DrAFvdThkgR"
+  }
+}
