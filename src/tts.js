@@ -28,7 +28,7 @@ let session = null;
  * @returns {string}
  */
 export function detectVoice(text) {
-  return containsCJK(text) ? VOICES.zh : VOICES.en;
+  return containsCJK(text) ? VOICES.en : VOICES.zh;
 }
 
 export function isSpeaking() {
