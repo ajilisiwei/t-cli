@@ -221,7 +221,6 @@ def auto_fix_action():
     )
     if result.returncode != 0:
         print(f"::warning::git apply failed: {result.stderr[:500]}")
-        # Try with more lenient options
         result = subprocess.run(
             ["git", "apply", "--index", "--reject", "--whitespace=fix"],
             input=fix, text=True, capture_output=True, timeout=15
@@ -230,7 +229,17 @@ def auto_fix_action():
             print(f"::warning::git apply (lenient) also failed: {result.stderr[:500]}")
             sys.exit(0)
 
-    # 5. Commit and push
+    # 5. Configure git identity (runner may not have one)
+    subprocess.run(["git", "config", "user.email", "ai-auto-fix[bot]@users.noreply.github.com"], capture_output=True)
+    subprocess.run(["git", "config", "user.name", "AI Auto-Fix Bot"], capture_output=True)
+
+    # 6. Check if anything changed
+    status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True).stdout
+    if not status.strip():
+        print("No changes to commit.")
+        sys.exit(0)
+
+    # 7. Commit and push
     branch = os.getenv("FIX_BRANCH") or os.getenv("GITHUB_HEAD_REF") or os.getenv("GITHUB_REF_NAME", "")
     subprocess.run(["git", "commit", "-m", "fix(ci): auto-fix CI failure [AI]"], check=False)
     push_result = subprocess.run(
