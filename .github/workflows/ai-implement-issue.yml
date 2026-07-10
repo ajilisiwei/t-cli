@@ -20,12 +20,13 @@ jobs:
       && !github.event.issue.pull_request
 
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GH_PAT || github.token }}
 
       - uses: actions/setup-python@v5
         with:
@@ -34,7 +35,7 @@ jobs:
       - name: Install deps
         run: pip install openai
 
-      - name: AI Implement — plan + generate code + push branch
+      - name: AI Implement — plan + generate code + commit
         id: ai
         env:
           LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'deepseek' }}
@@ -42,29 +43,31 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           AI_ACTION: implement_issue
           ISSUE_NUMBER: ${{ github.event.issue.number }}
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
         run: python .github/scripts/ai_agent.py
 
-      - name: Create Pull Request
-        if: steps.ai.outputs.branch != ''
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ github.token }}
-          branch: ${{ steps.ai.outputs.branch }}
-          title: ${{ steps.ai.outputs.pr_title }}
-          body-path: ${{ steps.ai.outputs.pr_body_path }}
-          delete-branch: true
-
-      - name: Post result on issue
+      - name: Push branch and create PR
         if: steps.ai.outputs.branch != ''
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
         run: |
-          PR_URL="https://github.com/${{ github.repository }}/pull/${{ steps.create-pr.outputs.pull-request-number }}"
+          BRANCH="${{ steps.ai.outputs.branch }}"
+          git push origin "HEAD:${BRANCH}" 2>&1
+
+          PR_URL=$(gh pr create \
+            --base main \
+            --head "${BRANCH}" \
+            --title "${{ steps.ai.outputs.pr_title }}" \
+            --body-file "${{ steps.ai.outputs.pr_body_path }}" \
+            2>&1)
+
+          echo "PR: ${PR_URL}"
+          echo "pr_url=${PR_URL}" >> $GITHUB_OUTPUT
+
           gh issue comment ${{ github.event.issue.number }} \
             --body "🤖 @coder has implemented this issue!
 
           PR: ${PR_URL}
-          Branch: \`${{ steps.ai.outputs.branch }}\`
+          Branch: \`${BRANCH}\`
 
-          Please review the PR before merging."
+          Please review the PR before merging." 2>&1

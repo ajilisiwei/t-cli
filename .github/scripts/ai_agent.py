@@ -544,6 +544,16 @@ def implement_issue_action():
 
     print(f"  ✓ Changes committed locally on branch: {branch}")
 
+    # Push the branch
+    push_result = subprocess.run(
+        ["git", "push", "origin", branch],
+        capture_output=True, text=True, timeout=30
+    )
+    if push_result.returncode != 0:
+        print(f"::warning::Push failed: {push_result.stderr[:300]}")
+        sys.exit(0)
+    print(f"  ✓ Branch pushed: {branch}")
+
     # Write PR body to file for downstream action
     pr_body = (
         f"## AI-Generated Implementation\n\n"
