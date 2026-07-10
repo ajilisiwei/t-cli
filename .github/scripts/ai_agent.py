@@ -344,6 +344,80 @@ def security_triage_action():
             f.write("\n".join(pr_body))
 
 
+def issue_triage_action():
+    """Scan open issues, AI classifies and applies labels."""
+    import json, re
+
+    gh_token = os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
+    if not gh_token:
+        print("::error::GH_TOKEN not set")
+        sys.exit(1)
+
+    # 1. Fetch open issues with no labels (untriaged)
+    result = subprocess.run(
+        ["gh", "issue", "list", "--state", "open", "--limit", "20",
+         "--json", "number,title,body,labels,createdAt,comments"],
+        capture_output=True, text=True, timeout=30
+    )
+    if result.returncode != 0:
+        print(f"::error::gh issue list failed: {result.stderr}")
+        sys.exit(1)
+
+    issues = json.loads(result.stdout)
+    if not issues:
+        _write_output("report", "No open issues to triage.")
+        return
+
+    # 2. AI classifies each issue
+    for issue in issues:
+        existing_labels = [l["name"] for l in issue.get("labels", [])]
+        # Skip already-triaged issues (have type labels)
+        if any(l in ["bug", "feature", "enhancement", "question", "docs"] for l in existing_labels):
+            continue
+
+        analysis = call_llm(
+            system=(
+                "Classify this GitHub issue for t-cli, a Node.js CLI translator. "
+                "Return ONLY a JSON object with:\n"
+                "{\n"
+                '  "type": "bug|feature|question|docs|refactor",\n'
+                '  "priority": "critical|high|medium|low",\n'
+                '  "summary": "one-line summary (max 80 chars)"\n'
+                "}\n"
+                "Base the type and priority on the issue content."
+            ),
+            user=f"Issue #{issue['number']}: {issue['title']}\n\n{issue['body'][:2000] or '(no description)'}"
+        )
+
+        try:
+            # Extract JSON from response (handle markdown-wrapped output)
+            json_match = re.search(r'\{[^}]+\}', analysis, re.DOTALL)
+            if json_match:
+                parsed = json.loads(json_match.group())
+            else:
+                parsed = json.loads(analysis)
+
+            issue_type = parsed.get("type", "question")
+            priority = parsed.get("priority", "medium")
+
+            # Map to GitHub labels
+            labels_to_add = [issue_type]
+            if priority in ("critical", "high"):
+                labels_to_add.append("priority:" + priority)
+
+            subprocess.run(
+                ["gh", "issue", "edit", str(issue["number"]),
+                 "--add-label", ",".join(labels_to_add)],
+                capture_output=True, timeout=15
+            )
+            print(f"Issue #{issue['number']}: {issue_type}/{priority} → labels: {labels_to_add}")
+
+        except (json.JSONDecodeError, KeyError) as e:
+            print(f"::warning::Issue #{issue['number']}: parse error: {e}, raw: {analysis[:200]}")
+
+    _write_output("report", f"Triaged {len(issues)} issues.")
+
+
 def summary_action():
     """Summarize an issue body."""
     body = os.getenv("ISSUE_BODY", "")
@@ -365,6 +439,8 @@ def main():
         auto_fix_action()
     elif action == "security_triage":
         security_triage_action()
+    elif action == "issue_triage":
+        issue_triage_action()
     elif action == "summary":
         summary_action()
     else:
