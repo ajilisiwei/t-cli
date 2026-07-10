@@ -42,3 +42,12 @@ export function toTitleCase(text) {
   if (!text) return '';
   return text.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
+
+/**
+ * Check if a string is empty or only whitespace.
+ * @param {string} text
+ * @returns {boolean}
+ */
+export function isEmptyOrWhitespace(text) {
+  return !text || text.trim() === '';
+}
