@@ -563,15 +563,9 @@ def implement_issue_action():
 
     print(f"  ✓ Changes committed locally on branch: {branch}")
 
-    # Push the branch using GH_PAT if available
-    gh_pat = os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
-    pat_prefix = gh_pat[:10] + "..." if gh_pat and len(gh_pat) > 10 else "empty"
-    print(f"  Token type: {pat_prefix}")
-    repo = os.getenv("GITHUB_REPOSITORY", "ajilisiwei/t-cli")
-    # Use oauth2 format for PAT compatibility
-    remote_url = f"https://oauth2:{gh_pat}@github.com/{repo}.git"
+    # Push the branch
     push_result = subprocess.run(
-        ["git", "push", remote_url, f"HEAD:refs/heads/{branch}"],
+        ["git", "push", "origin", f"HEAD:{branch}"],
         capture_output=True, text=True, timeout=30
     )
     if push_result.returncode != 0:
