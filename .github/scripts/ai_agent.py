@@ -580,8 +580,8 @@ def implement_issue_action():
         capture_output=True
     )
     push_result = subprocess.run(
-        ["git", "push", "-v", "origin", f"HEAD:{branch}"],
-        capture_output=True, text=True, timeout=30
+        f"git push -v origin HEAD:{branch} 2>&1",
+        capture_output=True, text=True, timeout=30, shell=True
     )
     if push_result.returncode != 0:
         print(f"::warning::Push failed (exit={push_result.returncode})")
