@@ -344,6 +344,30 @@ def security_triage_action():
             f.write("\n".join(pr_body))
 
 
+def test_suggestion_action():
+    """Suggest unit tests for new/modified code in a PR diff."""
+    diff = get_diff()
+    if not diff.strip():
+        _write_output("suggestion", "No code changes to analyze.")
+        return
+
+    suggestion = call_llm(
+        system=(
+            "You are a testing expert reviewing a PR for t-cli, a Node.js CLI "
+            "translator using Ink (React TUI). Tests use Node.js built-in test "
+            "runner (`node --test`).\n\n"
+            "For each new or modified function/class, suggest a unit test:\n"
+            "1. What to test (function name + purpose)\n"
+            "2. Key edge cases to cover\n"
+            "3. Example test code snippet (concise, use `node:test` and `node:assert/strict`)\n\n"
+            "Focus on the CHANGED code only. If no test-worthy changes exist, "
+            "say 'No test-worthy changes detected.'"
+        ),
+        user=f"PR diff:\n```diff\n{diff[:8000]}\n```"
+    )
+    _write_output("suggestion", suggestion)
+
+
 def issue_triage_action():
     """Scan open issues, AI classifies and applies labels."""
     import json, re
@@ -482,6 +506,8 @@ def main():
         security_triage_action()
     elif action == "issue_triage":
         issue_triage_action()
+    elif action == "test_suggestion":
+        test_suggestion_action()
     elif action == "summary":
         summary_action()
     else:
