@@ -1,0 +1,57 @@
+# AI Issue Implementer — implements features from issue comments
+# Triggered by "@coder" in any issue comment.
+# AI reads the issue, plans the implementation, generates code,
+# creates a branch, commits, pushes, and opens a Draft PR.
+
+name: AI Issue Implementer
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: ai-implement-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  implement:
+    # Only run on real issues (not PR comments) when @coder is mentioned
+    if: >
+      contains(github.event.comment.body, '@coder')
+      && !github.event.issue.pull_request
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install openai
+
+      - name: AI Implement Issue
+        id: ai
+        env:
+          LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'deepseek' }}
+          LLM_MODEL:    ${{ vars.LLM_MODEL    || 'deepseek-chat' }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          AI_ACTION: implement_issue
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          GH_TOKEN: ${{ github.token }}
+        run: python .github/scripts/ai_agent.py
+
+      - name: Print Result
+        run: |
+          echo "=== Implementation Result ==="
+          echo "PR: ${{ steps.ai.outputs.pr_url }}"

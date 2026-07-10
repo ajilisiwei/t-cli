@@ -371,6 +371,220 @@ def test_suggestion_action():
         f.write(suggestion)
 
 
+def implement_issue_action():
+    """Implement a feature described in an issue. Triggered by @coder comment."""
+    import json, re
+
+    issue_number = os.getenv("ISSUE_NUMBER")
+    gh_token = os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
+    if not issue_number or not gh_token:
+        print("::error::ISSUE_NUMBER and GH_TOKEN required")
+        sys.exit(1)
+
+    # ── 1. Get issue + comment context ──
+    result = subprocess.run(
+        ["gh", "issue", "view", issue_number,
+         "--json", "title,body,labels,author,number"],
+        capture_output=True, text=True, timeout=15
+    )
+    if result.returncode != 0:
+        print(f"::error::gh issue view failed: {result.stderr}")
+        sys.exit(1)
+    issue = json.loads(result.stdout)
+    issue_title = issue["title"]
+    issue_body = issue.get("body") or "(no description)"
+    print(f"Implementing issue #{issue_number}: {issue_title}")
+
+    # ── 2. Get project structure ──
+    structure = ""
+    try:
+        # Walk src/ directory to find exports
+        src_lines = []
+        for dirpath, dirs, files in os.walk("src"):
+            dirs[:] = [d for d in dirs if not d.startswith("_")]
+            for f in sorted(files):
+                if f.endswith(".js"):
+                    path = os.path.join(dirpath, f)
+                    exports = set()
+                    with open(path) as fh:
+                        for line in fh:
+                            m = re.match(r"export (?:function|const|class|default )?(\w+)", line)
+                            if m:
+                                exports.add(m.group(1))
+                    label = ", ".join(sorted(exports)) if exports else "(no exports)"
+                    src_lines.append(f"  {path}  -> exports: {label}")
+        structure = "\n".join(src_lines)
+    except Exception:
+        structure = "(could not read structure)"
+
+    # Also get entry point
+    pkg_json = ""
+    try:
+        with open("package.json") as f:
+            pkg = json.load(f)
+            pkg_json = f"Entry: {pkg.get('bin', {})}\nDeps: {json.dumps(pkg.get('dependencies', {}), indent=2)}"
+    except Exception:
+        pkg_json = "(no package.json)"
+
+    project_context = f"### Project Structure\n{structure}\n### Package\n{pkg_json}"
+
+    # ── 3. AI Plans the implementation ──
+    plan = call_llm(
+        system=(
+            "You are implementing a feature for t-cli, a Node.js CLI translator "
+            "using DeepSeek API with Ink (React TUI). "
+            "Analyze the issue and the existing codebase, then produce a JSON plan:\n\n"
+            "{\n"
+            '  "summary": "one-line description of what to build",\n'
+            '  "files_to_create": ["src/utils/newfile.js"],\n'
+            '  "files_to_modify": ["src/repl.js"],\n'
+            '  "approach": "concise technical approach",\n'
+            '  "test_changes": "describe what tests to add/modify"\n'
+            "}\n\n"
+            "Rules:\n"
+            "- Keep changes minimal. Prefer adding new functions over modifying existing ones.\n"
+            "- Only list files that actually need changes.\n"
+            "- New utility functions go in src/utils/.\n"
+            "- New commands go in src/repl.js.\n"
+            "- Follow existing code patterns (JSDoc, export style, error handling)."
+        ),
+        user=(
+            f"Issue #{issue_number}: {issue_title}\n\n"
+            f"{issue_body[:3000]}\n\n"
+            f"{project_context}"
+        )
+    )
+    print(f"=== AI Plan ===\n{plan}\n")
+
+    # Parse JSON from the plan
+    try:
+        json_match = re.search(r'\{[^}]+\}', plan, re.DOTALL)
+        parsed = json.loads(json_match.group()) if json_match else json.loads(plan)
+        files_to_create = parsed.get("files_to_create", [])
+        files_to_modify = parsed.get("files_to_modify", [])
+        approach = parsed.get("approach", "No approach specified")
+    except (json.JSONDecodeError, AttributeError) as e:
+        print(f"::warning::Could not parse plan JSON: {e}")
+        print(f"Raw plan:\n{plan}")
+        # Fallback: treat the whole plan as approach
+        files_to_create = []
+        files_to_modify = []
+        approach = plan[:500]
+
+    # ── 4. Generate implementation code per file ──
+    all_files = files_to_create + files_to_modify
+    if not all_files:
+        # AI didn't specify files; ask what to generate
+        print("No files specified in plan, generating single implementation...")
+
+    changes_made = []
+    for filepath in all_files:
+        existing_code = ""
+        existing_context = "(new file)"
+        if filepath in files_to_modify:
+            try:
+                with open(filepath) as f:
+                    existing_code = f.read()
+                existing_context = f"Existing code:\n```\n{existing_code[:5000]}\n```"
+            except FileNotFoundError:
+                existing_code = "(file does not exist yet)"
+                existing_context = "(new file)"
+                files_to_create.append(filepath)
+
+        code = call_llm(
+            system=(
+                "Generate the implementation code for this file in t-cli. "
+                "Output ONLY the complete file content inside a code block.\n\n"
+                "Rules:\n"
+                "- Use ES module syntax (import/export)\n"
+                "- Include JSDoc comments for all exports\n"
+                "- Handle edge cases and null inputs\n"
+                "- Follow existing code style (error handling, logging, naming)\n"
+                "- If modifying an existing file, output the ENTIRE updated file"
+            ),
+            user=(
+                f"Issue: {issue_title}\n\n"
+                f"Approach: {approach}\n\n"
+                f"File: {filepath}\n"
+                f"{existing_context}"
+            )
+        )
+
+        # Extract code block content
+        code_match = re.search(r'```(?:javascript|js|)?\n([\s\S]*?)\n```', code)
+        final_code = code_match.group(1) if code_match else code
+
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        with open(filepath, "w") as f:
+            f.write(final_code)
+        changes_made.append(filepath)
+        print(f"  ✓ {filepath} {'created' if filepath in files_to_create else 'updated'}")
+
+    if not changes_made:
+        print("::warning::No files were changed. Skipping PR creation.")
+        sys.exit(0)
+
+    # ── 5. Create branch, commit, push, PR (Draft) ──
+    branch = f"ai/issue-{issue_number}"
+    subprocess.run(["git", "config", "user.email", "ai-coder[bot]@users.noreply.github.com"],
+                   capture_output=True)
+    subprocess.run(["git", "config", "user.name", "AI Coder Bot"], capture_output=True)
+
+    # Stash any unrelated changes
+    subprocess.run(["git", "stash"], capture_output=True)
+    subprocess.run(["git", "checkout", "-b", branch], capture_output=True)
+    subprocess.run(["git", "add", "-A"], capture_output=True)
+
+    commit_result = subprocess.run(
+        ["git", "commit", "-m", f"feat: implement #{issue_number} - {issue_title[:60]}"],
+        capture_output=True, text=True
+    )
+    if commit_result.returncode != 0:
+        print(f"::warning::Commit failed: {commit_result.stderr[:300]}")
+        sys.exit(0)
+
+    push_result = subprocess.run(
+        ["git", "push", "origin", branch],
+        capture_output=True, text=True, timeout=30
+    )
+    if push_result.returncode != 0:
+        print(f"::warning::Push failed: {push_result.stderr[:300]}")
+        sys.exit(0)
+
+    # Create PR as Draft
+    pr_body = (
+        f"## AI-Generated Implementation\n\n"
+        f"This PR implements **{issue_title}**\n\n"
+        f"### Issue\n"
+        f"Closes #{issue_number}\n\n"
+        f"### Approach\n{approach}\n\n"
+        f"### Files Changed\n" +
+        "\n".join(f"- {f}" for f in changes_made) +
+        "\n\n---\n*🤖 Generated by @coder — please review before merging*"
+    )
+    pr_result = subprocess.run(
+        ["gh", "pr", "create",
+         "--base", os.getenv("GITHUB_BASE_REF", "main"),
+         "--head", branch,
+         "--title", f"feat: {issue_title[:80]}",
+         "--body", pr_body,
+         "--draft"],
+        capture_output=True, text=True, timeout=30
+    )
+    pr_url = pr_result.stdout.strip() if pr_result.returncode == 0 else "(PR creation failed)"
+
+    # Post result comment on issue
+    subprocess.run(
+        ["gh", "issue", "comment", issue_number,
+         "--body", f"🤖 @coder has implemented this issue!\n\nPR: {pr_url}\n\nBranch: `{branch}`\n\nPlease review the PR before merging."],
+        capture_output=True, timeout=15
+    )
+
+    print(f"✅ PR created: {pr_url}")
+    _write_output("pr_url", pr_url)
+
+
 def issue_triage_action():
     """Scan open issues, AI classifies and applies labels."""
     import json, re
@@ -511,6 +725,8 @@ def main():
         issue_triage_action()
     elif action == "test_suggestion":
         test_suggestion_action()
+    elif action == "implement_issue":
+        implement_issue_action()
     elif action == "summary":
         summary_action()
     else:
