@@ -49,17 +49,21 @@ jobs:
       - name: Push branch and create PR
         if: steps.ai.outputs.branch != ''
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           BRANCH="${{ steps.ai.outputs.branch }}"
-          git push origin "HEAD:${BRANCH}" 2>&1
 
-          if [ -n "${{ secrets.GH_PAT }}" ]; then
-            PR_JSON=$(curl -s -X POST \
-              -H "Authorization: token $GH_TOKEN" \
-              -H "Accept: application/vnd.github.v3+json" \
-              "https://api.github.com/repos/${{ github.repository }}/pulls" \
-              -d "$(cat <<EOJD
+          # Push using GH_PAT
+          git remote set-url origin "https://oauth2:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git push origin "HEAD:${BRANCH}" 2>&1
+          echo "Branch pushed: ${BRANCH}"
+
+          # Create PR via REST API
+          PR_JSON=$(curl -s -X POST \
+            -H "Authorization: token $GH_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls" \
+            -d "$(cat <<EOJD
           {
             "title": "${{ steps.ai.outputs.pr_title }}",
             "head": "${BRANCH}",
@@ -70,29 +74,14 @@ jobs:
           EOJD
           )" 2>&1)
 
-            PR_URL=$(echo "$PR_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('html_url','ERROR: '+str(d)))" 2>&1)
-            echo "PR: ${PR_URL}"
-            echo "pr_url=${PR_URL}" >> $GITHUB_OUTPUT
+          PR_URL=$(echo "$PR_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('html_url','ERROR: '+str(d)))" 2>&1)
+          echo "PR: ${PR_URL}"
 
-            gh issue comment ${{ github.event.issue.number }} \
-              --body "🤖 @coder has implemented this issue!
+          gh issue comment ${{ github.event.issue.number }} \
+            --body "🤖 @coder has implemented this issue!
 
           PR: ${PR_URL}
           Branch: \`${BRANCH}\`
 
           Please review the Draft PR before merging." 2>&1
-          else
-            echo "::warning::Cannot create PR automatically."
-            echo "::warning::Add a GH_PAT secret (Settings → Secrets → Actions) to enable auto-PR."
-            echo "::warning::For now, manually create a PR from branch '${BRANCH}' to main."
 
-            gh issue comment ${{ github.event.issue.number }} \
-              --body "🤖 @coder has implemented this issue!
-
-          Branch: \`${BRANCH}\`
-
-          To create a PR, go to:
-          https://github.com/${{ github.repository }}/compare/main...${BRANCH}?expand=1
-
-          *To enable automatic PR creation, add a \`GH_PAT\` secret to this repository.*" 2>&1
-          fi

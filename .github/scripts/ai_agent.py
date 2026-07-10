@@ -563,21 +563,6 @@ def implement_issue_action():
 
     print(f"  ✓ Changes committed locally on branch: {branch}")
 
-    # Push the branch (remote was set by checkout with GH_PAT token)
-    # Show what's been committed
-    subprocess.run(["git", "log", "--oneline", "-1"], check=False)
-    subprocess.run(["git", "--no-pager", "diff", "--stat", "HEAD~1"], check=False)
-    push_result = subprocess.run(
-        f"git push origin HEAD:{branch} 2>&1",
-        capture_output=True, text=True, timeout=30, shell=True
-    )
-    if push_result.returncode != 0:
-        print(f"::warning::Push failed (exit={push_result.returncode})")
-        print(f"::warning::stderr: {push_result.stderr.strip()[-500:]}")
-        print(f"::warning::stdout: {push_result.stdout.strip()[-500:]}")
-        sys.exit(0)
-    print(f"  ✓ Branch pushed: {branch}")
-
     # Write PR body to file for downstream action
     pr_body = (
         f"## AI-Generated Implementation\n\n"
