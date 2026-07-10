@@ -56,11 +56,6 @@ jobs:
       - name: Install deps
         run: pip install openai
 
-      - name: Setup GitHub CLI auth
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: echo "$GH_TOKEN" | gh auth login --with-token
-
       - name: AI Auto-Fix
         id: ai
         env:
@@ -70,4 +65,7 @@ jobs:
           AI_ACTION: auto_fix
           FAILED_RUN_ID: ${{ github.event.workflow_run.id }}
           FIX_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          # gh reads GH_TOKEN natively (used by the script's `gh run view` to fetch CI logs).
+          # A separate `gh auth login` step would fail: gh refuses --with-token when GH_TOKEN is set.
+          GH_TOKEN: ${{ github.token }}
         run: python .github/scripts/ai_agent.py
