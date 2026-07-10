@@ -63,7 +63,7 @@ jobs:
           BRANCH: ${{ steps.ai.outputs.branch }}
         run: git push origin --force "HEAD:${BRANCH}"
 
-      - name: Create PR
+      - name: Create or update PR
         if: steps.ai.outputs.branch != ''
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
@@ -71,20 +71,32 @@ jobs:
           PR_TITLE: ${{ steps.ai.outputs.pr_title }}
           PR_BODY_PATH: ${{ steps.ai.outputs.pr_body_path }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
+          VERIFIED: ${{ steps.ai.outputs.verified }}
         run: |
           # gh passes --title/--body-file as argv, so untrusted values can't inject shell/JSON.
-          PR_URL=$(gh pr create \
-            --base main \
-            --head "$BRANCH" \
-            --title "$PR_TITLE" \
-            --body-file "$PR_BODY_PATH" \
-            --draft)
-          echo "PR: ${PR_URL}"
+          # The issue branch (ai/issue-N) is stable, so a re-run must UPDATE the existing PR
+          # rather than fail on "a pull request already exists".
+          existing=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh pr edit "$existing" --title "$PR_TITLE" --body-file "$PR_BODY_PATH"
+            PR_URL=$(gh pr view "$existing" --json url --jq .url)
+            echo "Updated existing PR: ${PR_URL}"
+          else
+            PR_URL=$(gh pr create --base main --head "$BRANCH" \
+              --title "$PR_TITLE" --body-file "$PR_BODY_PATH" --draft)
+            echo "Created PR: ${PR_URL}"
+          fi
 
+          if [ "$VERIFIED" = "true" ]; then
+            STATUS="✅ automated verification passed — ready for review"
+          else
+            STATUS="⚠️ automated verification FAILED — do NOT merge as-is (see PR body)"
+          fi
           gh issue comment "$ISSUE_NUMBER" --body "$(printf '%s\n' \
-            "🤖 @coder has implemented this issue!" \
+            "🤖 @coder implemented this issue." \
             "" \
             "PR: ${PR_URL}" \
+            "Status: ${STATUS}" \
             "Branch: \`${BRANCH}\`" \
             "" \
-            "Please review the Draft PR before merging.")"
+            "Review the Draft PR before merging.")"
