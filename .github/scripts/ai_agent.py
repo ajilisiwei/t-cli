@@ -456,10 +456,29 @@ def implement_issue_action():
     )
     print(f"=== AI Plan ===\n{plan}\n")
 
-    # Parse JSON from the plan
+    # Parse JSON from the plan (handle nested objects and markdown-wrapped output)
     try:
-        json_match = re.search(r'\{[^}]+\}', plan, re.DOTALL)
-        parsed = json.loads(json_match.group()) if json_match else json.loads(plan)
+        # Try to extract JSON from markdown code block first
+        json_block = re.search(r'```(?:json)?\s*([\s\S]*?)```', plan)
+        plan_str = json_block.group(1) if json_block else plan
+        # Find the outermost JSON object
+        brace_start = plan_str.index("{")
+        brace_depth = 0
+        brace_end = -1
+        for i in range(brace_start, len(plan_str)):
+            if plan_str[i] == "{":
+                brace_depth += 1
+            elif plan_str[i] == "}":
+                brace_depth -= 1
+                if brace_depth == 0:
+                    brace_end = i + 1
+                    break
+        if brace_end > brace_start:
+            plan_str = plan_str[brace_start:brace_end]
+        else:
+            raise ValueError("No matching closing brace found")
+
+        parsed = json.loads(plan_str)
         files_to_create = parsed.get("files_to_create", [])
         files_to_modify = parsed.get("files_to_modify", [])
         approach = parsed.get("approach", "No approach specified")
