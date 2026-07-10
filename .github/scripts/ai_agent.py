@@ -617,6 +617,25 @@ def _verify_generated(files, export_map, original_exports):
     return ok, report
 
 
+def _apply_diff(diff_text):
+    """Apply a unified diff to the working tree, tolerating the line-number and
+    whitespace sloppiness typical of LLM-generated diffs. `git apply` is atomic
+    without --reject, so a failed attempt leaves the tree untouched. Returns True
+    on success."""
+    if not diff_text.strip():
+        return False
+    attempts = (
+        ["git", "apply", "--recount", "--whitespace=fix"],
+        ["git", "apply", "--recount", "-C1", "--whitespace=fix"],
+        ["git", "apply", "--recount", "--unidiff-zero", "--whitespace=fix"],
+    )
+    for cmd in attempts:
+        r = subprocess.run(cmd, input=diff_text, text=True, capture_output=True, timeout=15)
+        if r.returncode == 0:
+            return True
+    return False
+
+
 def implement_issue_action():
     """Implement a feature described in an issue. Triggered by @coder comment."""
     import json, re
@@ -742,29 +761,66 @@ def implement_issue_action():
         m = re.search(r'```(?:javascript|js|jsx|ts|)?\n?([\s\S]*?)```', raw)
         return (m.group(1) if m else raw).strip() + "\n"
 
-    # ── 4. Generate each file (immediate retry if it comes back truncated) ──
-    changes_made = []
-    for filepath in all_files:
-        is_modify = filepath in files_to_modify and os.path.exists(filepath)
-        if is_modify:
-            with open(filepath) as f:
-                existing_context = f"Existing content (reproduce IN FULL with your change applied):\n```\n{f.read()}\n```"
-        else:
-            existing_context = "(this is a NEW file)"
-
-        final_code = _gen_file(filepath, existing_context)
-        if _find_placeholders(final_code):
+    def _full_rewrite(filepath, existing_context):
+        """Whole-file generation with an immediate retry if it comes back truncated."""
+        code = _gen_file(filepath, existing_context)
+        if _find_placeholders(code):
             print(f"::warning::{filepath}: placeholder/truncation detected — retrying once")
-            final_code = _gen_file(
+            code = _gen_file(
                 filepath, existing_context,
                 extra="Your previous output used forbidden placeholder comments and truncated the "
                       "file. Re-output the COMPLETE file with every line present and NO "
                       "ellipsis / 'rest of' / 'unchanged' comments."
             )
-
         os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
         with open(filepath, "w") as f:
-            f.write(final_code)
+            f.write(code)
+
+    def _gen_diff(filepath, existing_code):
+        """Ask for a minimal unified diff for an existing file (touches only the
+        lines the feature needs, so unrelated code/exports can't be dropped)."""
+        raw = call_llm(
+            system=(
+                "Produce a MINIMAL unified diff (git format) applying the requested change to "
+                "ONE existing file. Output ONLY the diff inside a single ```diff code block.\n\n"
+                "Rules:\n"
+                f"- Use exactly these file headers:\n  --- a/{filepath}\n  +++ b/{filepath}\n"
+                "- Include a @@ hunk header and ~3 lines of unchanged context around each edit.\n"
+                "- Change ONLY what the feature needs; do NOT touch or restate unrelated code.\n"
+                "- Do NOT rewrite the whole file and do NOT emit placeholder comments.\n"
+                "- Import only real exports from the API reference (exact name and path)."
+                + INJECTION_GUARD
+            ),
+            user=(
+                _fenced("issue", f"{issue_title}\n\nApproach: {approach}")
+                + f"\n\n{project_context}\n\nFile to modify: {filepath}\n"
+                + f"Current content:\n```\n{existing_code}\n```"
+            )
+        )
+        m = re.search(r'```(?:diff|patch)?\n?([\s\S]*?)```', raw)
+        return (m.group(1) if m else raw).strip() + "\n"
+
+    # ── 4. Generate each file ──
+    # New files: whole-file generation. Existing files: try a minimal diff first
+    # (can't drop unrelated code), fall back to a full rewrite if it won't apply.
+    changes_made = []
+    for filepath in all_files:
+        is_modify = filepath in files_to_modify and os.path.exists(filepath)
+        if is_modify:
+            with open(filepath) as f:
+                existing_code = f.read()
+            diff = _gen_diff(filepath, existing_code)
+            if _apply_diff(diff):
+                changes_made.append(filepath)
+                print(f"  ✓ {filepath} patched via diff")
+                continue
+            print(f"::warning::{filepath}: diff did not apply — falling back to full rewrite")
+            _full_rewrite(
+                filepath,
+                f"Existing content (reproduce IN FULL with your change applied):\n```\n{existing_code}\n```"
+            )
+        else:
+            _full_rewrite(filepath, "(this is a NEW file)")
         changes_made.append(filepath)
         print(f"  ✓ {filepath} {'updated' if is_modify else 'created'}")
 
