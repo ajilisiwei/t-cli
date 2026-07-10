@@ -550,7 +550,8 @@ def implement_issue_action():
         capture_output=True, text=True, timeout=30
     )
     if push_result.returncode != 0:
-        print(f"::warning::Push failed: {push_result.stderr[:300]}")
+        print(f"::warning::Push failed (exit={push_result.returncode}): {push_result.stderr.strip()[-500:]}")
+        print(f"::debug::stdout={push_result.stdout.strip()[-200:]}")
         sys.exit(0)
     print(f"  ✓ Branch pushed: {branch}")
 
