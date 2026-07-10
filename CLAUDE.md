@@ -27,6 +27,17 @@ A minimalist, stateless CLI translation tool using DeepSeek API, rendered as an 
   - `utils/speakable.js`: `extractSpeakable()` — derives the text `/say` reads aloud from a raw response (first line in detail mode, IPA/markdown stripped).
   - `utils/inputHistory.js`: Pure helpers behind the REPL's arrow-key input history (`pushHistory`, `navigateHistory`).
 
+## Constraints for Code Changes (READ before modifying the TUI)
+
+This app is an **Ink (React for terminals) TUI that owns `stdin` in raw mode**. Any command — especially interactive/multi-step ones — MUST follow the existing control model:
+
+- **Output**: append to the message log via the component's `appendMessage` helper, or stream via `streamAndRender`. NEVER use `console.log`, `process.stdout.write`, or `process.stderr.write` for UI — Ink manages the frame and raw writes corrupt it (they leak above/around the live render).
+- **Input**: read through Ink components (`ink-text-input`) and React state. NEVER use Node `readline`, `process.stdin.on('data')`, or `process.stdin.setRawMode()` — they fight Ink for stdin and **permanently break key decoding** (e.g. arrow keys start printing `^[[A` and history navigation dies), even if only created once and closed.
+- **Interactive/multi-step commands** (quiz, wizards, confirmations): model them as a **React state machine** — hold step/awaiting-answer in state and route the existing input box's submissions into that machine. Do NOT write a blocking `async` loop that reads stdin directly; there is only one input surface and Ink drives it.
+- **Reuse existing patterns**: mirror how `runCheck` / `runNotesCommand` stream output and how the single `TextInput` + `useInput` handle input. New utilities go in `src/utils/` as pure/logic helpers that the `App` component orchestrates — keep I/O and React concerns in `repl.js`, not in utils.
+
+> These are hard constraints: unit tests and `node --check` will pass even when they are violated, but the running TUI breaks. Verify interactive changes by actually running the app.
+
 ## Testing Notes
 
 - Unit tests cover pure logic (`detect`, `speakable`, `prompts`). Prompt-behavior changes should also be verified against the live API with adversarial inputs (instruction-like text must be translated, not executed).
