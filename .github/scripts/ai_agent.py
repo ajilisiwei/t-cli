@@ -563,24 +563,12 @@ def implement_issue_action():
 
     print(f"  ✓ Changes committed locally on branch: {branch}")
 
-    # Push the branch using the origin remote with stored credentials
-    gh_token = os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN", "")
-    prefix = gh_token[:8] if len(gh_token) > 8 else "short"
-    print(f"  Token prefix: {prefix}...")
-    # First ensure the remote URL has a valid token
-    subprocess.run(
-        ["git", "config", "--local", "credential.helper", ""],
-        capture_output=True
-    )
-    # Set the remote to use GH_TOKEN directly (from env)
-    repo = os.getenv("GITHUB_REPOSITORY", "")
-    remote_with_token = f"https://oauth2:{gh_token}@github.com/{repo}.git"
-    subprocess.run(
-        ["git", "remote", "set-url", "origin", remote_with_token],
-        capture_output=True
-    )
+    # Push the branch (remote was set by checkout with GH_PAT token)
+    # Show what's been committed
+    subprocess.run(["git", "log", "--oneline", "-1"], check=False)
+    subprocess.run(["git", "--no-pager", "diff", "--stat", "HEAD~1"], check=False)
     push_result = subprocess.run(
-        f"git push -v origin HEAD:{branch} 2>&1",
+        f"git push origin HEAD:{branch} 2>&1",
         capture_output=True, text=True, timeout=30, shell=True
     )
     if push_result.returncode != 0:
