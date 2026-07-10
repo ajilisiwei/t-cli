@@ -666,9 +666,21 @@ def implement_issue_action():
         pkg_info = f"Entry: {pkg.get('bin', {})}\nDependencies: {', '.join((pkg.get('dependencies') or {}).keys())}"
     except Exception:
         pkg_info = "(no package.json)"
+    # Project conventions/architecture so generated code respects the FRAMEWORK
+    # control model (e.g. Ink owns stdin), not just the module API. Static gates
+    # (syntax/imports/tests) can't catch framework-model violations; the docs can.
+    conventions = ""
+    for cand in ("CLAUDE.md", ".github/CLAUDE.md", "AGENTS.md"):
+        if os.path.exists(cand):
+            try:
+                conventions = open(cand).read()[:6000]
+            except OSError:
+                conventions = ""
+            break
     project_context = (
         "### Module API reference — import ONLY these exact names from these exact paths\n"
         f"{api_ref}\n\n### Package\n{pkg_info}"
+        + (f"\n\n### Project conventions & architecture — follow STRICTLY\n{conventions}" if conventions else "")
     )
 
     # ── 3. Plan ──
@@ -745,6 +757,10 @@ def implement_issue_action():
         "- When modifying a file, reproduce the ENTIRE original content with your change applied, "
         "keeping every existing import, export, function and the render/entry code intact.\n"
         "- Import ONLY real exports from the API reference, using the exact path and name.\n"
+        "- OBEY the project conventions/architecture in the context — especially the UI/IO "
+        "control model. This is an Ink TUI that owns stdin; never use readline, console.log, "
+        "process.stdout.write, or setRawMode for interaction; drive I/O the way existing "
+        "commands do (append/stream helpers + ink-text-input + React state).\n"
         "- ESM syntax, JSDoc on exports, handle null/edge cases, match existing style."
         + INJECTION_GUARD
     )
@@ -788,7 +804,10 @@ def implement_issue_action():
                 "- Include a @@ hunk header and ~3 lines of unchanged context around each edit.\n"
                 "- Change ONLY what the feature needs; do NOT touch or restate unrelated code.\n"
                 "- Do NOT rewrite the whole file and do NOT emit placeholder comments.\n"
-                "- Import only real exports from the API reference (exact name and path)."
+                "- Import only real exports from the API reference (exact name and path).\n"
+                "- OBEY the project conventions/architecture in the context — especially the UI/IO "
+                "control model (Ink owns stdin: no readline/console.log/setRawMode for interaction; "
+                "use the existing append/stream helpers + ink-text-input + React state)."
                 + INJECTION_GUARD
             ),
             user=(
