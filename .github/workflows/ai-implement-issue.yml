@@ -15,9 +15,12 @@ concurrency:
 
 jobs:
   implement:
+    # Only trusted users may trigger AI implementation:
+    # any commenter could otherwise burn API budget and inject prompts via the issue body.
     if: >
       contains(github.event.comment.body, '@coder')
       && !github.event.issue.pull_request
+      && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
 
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -48,39 +51,32 @@ jobs:
 
       - name: Push branch
         if: steps.ai.outputs.branch != ''
-        run: |
-          BRANCH="${{ steps.ai.outputs.branch }}"
-          git push origin --force "HEAD:${BRANCH}" 2>&1
+        env:
+          BRANCH: ${{ steps.ai.outputs.branch }}
+        run: git push origin --force "HEAD:${BRANCH}"
 
       - name: Create PR
         if: steps.ai.outputs.branch != ''
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
+          BRANCH: ${{ steps.ai.outputs.branch }}
+          PR_TITLE: ${{ steps.ai.outputs.pr_title }}
+          PR_BODY_PATH: ${{ steps.ai.outputs.pr_body_path }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
-          BRANCH="${{ steps.ai.outputs.branch }}"
-
-          PR_JSON=$(curl -s -X POST \
-            -H "Authorization: token $GH_TOKEN" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/repos/${{ github.repository }}/pulls" \
-            -d "$(cat <<EOJD
-          {
-            "title": "${{ steps.ai.outputs.pr_title }}",
-            "head": "${BRANCH}",
-            "base": "main",
-            "body": $(cat ${{ steps.ai.outputs.pr_body_path }} | python3 -c "import json,sys; print(json.dumps(sys.stdin.read()))"),
-            "draft": true
-          }
-          EOJD
-          )" 2>&1)
-
-          PR_URL=$(echo "$PR_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('html_url','ERROR: '+str(d)))" 2>&1)
+          # gh passes --title/--body-file as argv, so untrusted values can't inject shell/JSON.
+          PR_URL=$(gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "$PR_TITLE" \
+            --body-file "$PR_BODY_PATH" \
+            --draft)
           echo "PR: ${PR_URL}"
 
-          gh issue comment ${{ github.event.issue.number }} \
-            --body "🤖 @coder has implemented this issue!
-
-          PR: ${PR_URL}
-          Branch: \`${BRANCH}\`
-
-          Please review the Draft PR before merging." 2>&1
+          gh issue comment "$ISSUE_NUMBER" --body "$(printf '%s\n' \
+            "🤖 @coder has implemented this issue!" \
+            "" \
+            "PR: ${PR_URL}" \
+            "Branch: \`${BRANCH}\`" \
+            "" \
+            "Please review the Draft PR before merging.")"
