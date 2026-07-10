@@ -32,3 +32,13 @@ export function isURL(text) {
   if (!text) return false;
   return text.startsWith('http://') || text.startsWith('https://');
 }
+
+/**
+ * Convert a string to title case (first letter of each word capitalized).
+ * @param {string} text
+ * @returns {string}
+ */
+export function toTitleCase(text) {
+  if (!text) return '';
+  return text.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
