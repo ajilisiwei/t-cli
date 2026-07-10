@@ -75,16 +75,26 @@ jobs:
         run: |
           # gh passes --title/--body-file as argv, so untrusted values can't inject shell/JSON.
           # The issue branch (ai/issue-N) is stable, so a re-run must UPDATE the existing PR
-          # rather than fail on "a pull request already exists".
-          existing=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number')
-          if [ -n "$existing" ]; then
-            gh pr edit "$existing" --title "$PR_TITLE" --body-file "$PR_BODY_PATH"
-            PR_URL=$(gh pr view "$existing" --json url --jq .url)
-            echo "Updated existing PR: ${PR_URL}"
-          else
-            PR_URL=$(gh pr create --base main --head "$BRANCH" \
-              --title "$PR_TITLE" --body-file "$PR_BODY_PATH" --draft)
+          # rather than fail on "already exists". `gh pr list/edit` use a GraphQL query that
+          # needs read:org scope, which GH_PAT (repo scope) lacks — so use the REST API.
+          OWNER="${GITHUB_REPOSITORY%/*}"
+          set +e
+          PR_URL=$(gh pr create --base main --head "$BRANCH" \
+            --title "$PR_TITLE" --body-file "$PR_BODY_PATH" --draft 2>create_err.txt)
+          rc=$?
+          set -e
+          if [ "$rc" -eq 0 ]; then
             echo "Created PR: ${PR_URL}"
+          else
+            cat create_err.txt
+            NUM=$(gh api "repos/${GITHUB_REPOSITORY}/pulls?head=${OWNER}:${BRANCH}&state=open" --jq '.[0].number')
+            if [ -z "$NUM" ]; then
+              echo "::error::could not create or locate a PR for ${BRANCH}"; exit 1
+            fi
+            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/pulls/${NUM}" \
+              -f title="$PR_TITLE" -f body="$(cat "$PR_BODY_PATH")" >/dev/null
+            PR_URL="https://github.com/${GITHUB_REPOSITORY}/pull/${NUM}"
+            echo "Updated existing PR: ${PR_URL}"
           fi
 
           if [ "$VERIFIED" = "true" ]; then
