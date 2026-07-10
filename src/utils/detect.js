@@ -51,3 +51,17 @@ export function toTitleCase(text) {
 export function isEmptyOrWhitespace(text) {
   return !text || text.trim() === '';
 }
+
+/**
+ * Count the number of words in a string.
+ * Words are defined as sequences of non-whitespace characters separated by whitespace.
+ * Returns 0 for null, undefined, or empty strings.
+ * @param {string} text - The input string to count words from
+ * @returns {number} The number of words in the string
+ */
+export function wordCount(text) {
+  if (!text) return 0;
+  const trimmed = text.trim();
+  if (!trimmed) return 0;
+  return trimmed.split(/\s+/).filter(word => word.length > 0).length;
+}
