@@ -565,14 +565,16 @@ def implement_issue_action():
 
     # Push the branch using GH_PAT if available
     gh_pat = os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
-    remote_url = f"https://x-access-token:{gh_pat}@github.com/{os.getenv('GITHUB_REPOSITORY', 'ajilisiwei/t-cli')}.git"
+    repo = os.getenv("GITHUB_REPOSITORY", "ajilisiwei/t-cli")
+    remote_url = f"https://x-access-token:{gh_pat}@github.com/{repo}.git"
     push_result = subprocess.run(
-        ["git", "push", remote_url, branch],
+        ["git", "push", remote_url, f"HEAD:refs/heads/{branch}"],
         capture_output=True, text=True, timeout=30
     )
     if push_result.returncode != 0:
-        print(f"::warning::Push failed (exit={push_result.returncode}): {push_result.stderr.strip()[-500:]}")
-        print(f"::debug::stdout={push_result.stdout.strip()[-200:]}")
+        print(f"::warning::Push failed (exit={push_result.returncode})")
+        print(f"::warning::stderr: {push_result.stderr.strip()[-500:]}")
+        print(f"::warning::stdout: {push_result.stdout.strip()[-500:]}")
         sys.exit(0)
     print(f"  ✓ Branch pushed: {branch}")
 
