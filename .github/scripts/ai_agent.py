@@ -470,6 +470,153 @@ def test_suggestion_action():
         f.write(suggestion)
 
 
+# === Code-generation helpers (used by implement_issue_action) ===
+
+def _scan_exports(root="src"):
+    """Walk `root` and return (export_map, api_reference_text).
+
+    export_map: {normalized_path: [exported_name, ...]} — for static import validation.
+    api_reference_text: export signatures so the model imports real symbols, not guesses.
+    """
+    import re
+    export_map = {}
+    blocks = []
+    sig_re = re.compile(r"\s*export\s+(?:default\s+)?(?:async\s+)?(?:function|const|class)\s+(\w+)(.*)")
+    for dirpath, dirs, files in os.walk(root):
+        dirs[:] = [d for d in dirs if not d.startswith("_") and d != "node_modules"]
+        for fname in sorted(files):
+            if not fname.endswith(".js"):
+                continue
+            path = os.path.normpath(os.path.join(dirpath, fname))
+            names, sigs = [], []
+            try:
+                with open(path) as fh:
+                    for line in fh:
+                        m = sig_re.match(line)
+                        if m:
+                            names.append(m.group(1))
+                            sigs.append(line.strip().rstrip("{").strip())
+            except OSError:
+                continue
+            export_map[path] = names
+            if sigs:
+                blocks.append(f"{path}:\n  " + "\n  ".join(sigs))
+    return export_map, "\n".join(blocks)
+
+
+_PLACEHOLDER_PHRASES = (
+    "rest of the", "rest of existing", "rest of your", "existing code continues",
+    "existing code remains", "code continues below", "for brevity", "keep existing code",
+    "remainder of the file", "same as before", "remains unchanged", "logic remains",
+)
+
+
+def _find_placeholders(code):
+    """Return comment lines that look like 'skip the rest of the file' placeholders —
+    the classic way an LLM silently truncates a large file it was told to reproduce."""
+    bad = []
+    for raw in code.splitlines():
+        s = raw.strip()
+        if not (s.startswith("//") or s.startswith("*") or s.startswith("/*")):
+            continue
+        low = s.lower()
+        if any(p in low for p in _PLACEHOLDER_PHRASES):
+            bad.append(s[:120])
+        elif ("..." in low or "…" in low) and any(
+            k in low for k in ("rest", "existing", "remaining", "omitted", "unchanged")
+        ):
+            bad.append(s[:120])
+    return bad
+
+
+def _validate_imports(files, export_map):
+    """Static check: every local (./ or ../) named import must resolve to a file that
+    actually exports the symbol. Catches hallucinated imports without executing code."""
+    import re
+    errors = []
+    named_re = re.compile(r"import\s+(?:\w+\s*,\s*)?\{([^}]*)\}\s+from\s+['\"](\.[^'\"]+)['\"]")
+    path_re = re.compile(r"from\s+['\"](\.[^'\"]+)['\"]")
+    for fp in files:
+        if not fp.endswith(".js"):
+            continue
+        try:
+            src = open(fp).read()
+        except OSError:
+            continue
+        base = os.path.dirname(fp)
+        # Every local import path must resolve to an existing file.
+        for pm in path_re.finditer(src):
+            target = os.path.normpath(os.path.join(base, pm.group(1)))
+            if not os.path.exists(target):
+                errors.append(f"{fp}: import path '{pm.group(1)}' resolves to '{target}', which does not exist")
+        # Every named import must be a real export of its (existing) target.
+        for m in named_re.finditer(src):
+            names = [n.strip().split(" as ")[0].strip() for n in m.group(1).split(",") if n.strip()]
+            target = os.path.normpath(os.path.join(base, m.group(2)))
+            avail = export_map.get(target)
+            if avail is None:
+                continue  # not a scanned src module (or missing path already reported)
+            for n in names:
+                if n and n not in avail:
+                    errors.append(
+                        f"{fp}: imports {{{n}}} from '{m.group(2)}', but that module exports: "
+                        f"{', '.join(avail) or '(none)'}"
+                    )
+    return errors
+
+
+def _verify_generated(files, export_map, original_exports):
+    """Gate generated code: no truncation placeholders, valid syntax, resolvable imports,
+    no dropped pre-existing exports, and a passing test suite. Returns (ok, report_lines)."""
+    report = []
+    ok = True
+    js_files = [f for f in files if f.endswith(".js")]
+
+    # 1. Truncation placeholders
+    for fp in js_files:
+        try:
+            ph = _find_placeholders(open(fp).read())
+        except OSError:
+            ph = []
+        if ph:
+            ok = False
+            report.append(f"❌ {fp}: truncated with placeholder comment → {ph[0]}")
+
+    # 2. Syntax
+    for fp in js_files:
+        r = subprocess.run(["node", "--check", fp], capture_output=True, text=True, timeout=30)
+        if r.returncode != 0:
+            ok = False
+            last = r.stderr.strip().splitlines()[-1] if r.stderr.strip() else "syntax error"
+            report.append(f"❌ {fp}: syntax error → {last}")
+
+    # 3. Resolvable, real imports
+    for e in _validate_imports(js_files, export_map):
+        ok = False
+        report.append(f"❌ {e}")
+
+    # 4. No pre-existing export silently dropped (e.g. losing startRepl from repl.js)
+    for fp, orig in original_exports.items():
+        now = set(export_map.get(os.path.normpath(fp), []))
+        missing = set(orig) - now
+        if missing:
+            ok = False
+            report.append(f"❌ {fp}: dropped existing export(s): {', '.join(sorted(missing))}")
+
+    # 5. Test suite
+    t = subprocess.run(["npm", "test"], capture_output=True, text=True, timeout=300)
+    if t.returncode != 0:
+        ok = False
+        tail = (t.stdout + t.stderr).strip().splitlines()[-8:]
+        report.append("❌ npm test failed:\n    " + "\n    ".join(tail))
+    else:
+        report.append("✅ npm test passed")
+
+    if ok:
+        report.insert(0, "✅ placeholders, syntax, imports, exports and tests all OK")
+    return ok, report
+
+
 def implement_issue_action():
     """Implement a feature described in an issue. Triggered by @coder comment."""
     import json, re
@@ -477,75 +624,53 @@ def implement_issue_action():
     issue_number = os.getenv("ISSUE_NUMBER")
     gh_token = os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
     if not issue_number or not gh_token:
-        print("::error::ISSUE_NUMBER and GH_TOKEN required")
-        sys.exit(1)
+        _fail("ISSUE_NUMBER and GH_TOKEN required")
 
-    # ── 1. Get issue + comment context ──
+    # ── 1. Issue context ──
     result = subprocess.run(
         ["gh", "issue", "view", issue_number,
          "--json", "title,body,labels,author,number"],
         capture_output=True, text=True, timeout=15
     )
     if result.returncode != 0:
-        print(f"::error::gh issue view failed: {result.stderr}")
-        sys.exit(1)
+        _fail(f"gh issue view failed: {result.stderr}")
     issue = json.loads(result.stdout)
     issue_title = issue["title"]
     issue_body = issue.get("body") or "(no description)"
     print(f"Implementing issue #{issue_number}: {issue_title}")
 
-    # ── 2. Get project structure ──
-    structure = ""
-    try:
-        # Walk src/ directory to find exports
-        src_lines = []
-        for dirpath, dirs, files in os.walk("src"):
-            dirs[:] = [d for d in dirs if not d.startswith("_")]
-            for f in sorted(files):
-                if f.endswith(".js"):
-                    path = os.path.join(dirpath, f)
-                    exports = set()
-                    with open(path) as fh:
-                        for line in fh:
-                            m = re.match(r"export (?:function|const|class|default )?(\w+)", line)
-                            if m:
-                                exports.add(m.group(1))
-                    label = ", ".join(sorted(exports)) if exports else "(no exports)"
-                    src_lines.append(f"  {path}  -> exports: {label}")
-        structure = "\n".join(src_lines)
-    except Exception:
-        structure = "(could not read structure)"
-
-    # Also get entry point
-    pkg_json = ""
+    # ── 2. Real project API (exact exports + signatures) so imports aren't guessed ──
+    export_map, api_ref = _scan_exports("src")
     try:
         with open("package.json") as f:
             pkg = json.load(f)
-            pkg_json = f"Entry: {pkg.get('bin', {})}\nDeps: {json.dumps(pkg.get('dependencies', {}), indent=2)}"
+        pkg_info = f"Entry: {pkg.get('bin', {})}\nDependencies: {', '.join((pkg.get('dependencies') or {}).keys())}"
     except Exception:
-        pkg_json = "(no package.json)"
+        pkg_info = "(no package.json)"
+    project_context = (
+        "### Module API reference — import ONLY these exact names from these exact paths\n"
+        f"{api_ref}\n\n### Package\n{pkg_info}"
+    )
 
-    project_context = f"### Project Structure\n{structure}\n### Package\n{pkg_json}"
-
-    # ── 3. AI Plans the implementation ──
+    # ── 3. Plan ──
     plan = call_llm(
         system=(
-            "You are implementing a feature for t-cli, a Node.js CLI translator "
-            "using DeepSeek API with Ink (React TUI). "
-            "Analyze the issue and the existing codebase, then produce a JSON plan:\n\n"
+            "You are implementing a feature for t-cli, a Node.js CLI translator using the "
+            "DeepSeek API rendered with Ink (React for terminals via React.createElement — no JSX). "
+            "Produce a JSON plan:\n\n"
             "{\n"
-            '  "summary": "one-line description of what to build",\n'
+            '  "summary": "one-line description",\n'
             '  "files_to_create": ["src/utils/newfile.js"],\n'
             '  "files_to_modify": ["src/repl.js"],\n'
-            '  "approach": "concise technical approach",\n'
-            '  "test_changes": "describe what tests to add/modify"\n'
+            '  "approach": "concise technical approach naming the exact existing functions to reuse",\n'
+            '  "test_changes": "tests to add"\n'
             "}\n\n"
             "Rules:\n"
-            "- Keep changes minimal. Prefer adding new functions over modifying existing ones.\n"
-            "- Only list files that actually need changes.\n"
-            "- New utility functions go in src/utils/.\n"
-            "- New commands go in src/repl.js.\n"
-            "- Follow existing code patterns (JSDoc, export style, error handling)."
+            "- Prefer ADDING new files/functions over modifying large existing files.\n"
+            "- Only list files that genuinely need changes.\n"
+            "- New utilities go in src/utils/; new REPL commands go in src/repl.js.\n"
+            "- Reuse existing exports from the API reference; never invent module names or paths.\n"
+            "- Follow existing patterns (ESM, JSDoc, error handling)."
             + INJECTION_GUARD
         ),
         user=(
@@ -557,99 +682,131 @@ def implement_issue_action():
 
     # Parse JSON from the plan (handle nested objects and markdown-wrapped output)
     try:
-        # Try to extract JSON from markdown code block first
         json_block = re.search(r'```(?:json)?\s*([\s\S]*?)```', plan)
         plan_str = json_block.group(1) if json_block else plan
-        # Find the outermost JSON object
         brace_start = plan_str.index("{")
-        brace_depth = 0
-        brace_end = -1
+        depth, brace_end = 0, -1
         for i in range(brace_start, len(plan_str)):
             if plan_str[i] == "{":
-                brace_depth += 1
+                depth += 1
             elif plan_str[i] == "}":
-                brace_depth -= 1
-                if brace_depth == 0:
+                depth -= 1
+                if depth == 0:
                     brace_end = i + 1
                     break
-        if brace_end > brace_start:
-            plan_str = plan_str[brace_start:brace_end]
-        else:
-            raise ValueError("No matching closing brace found")
-
+        plan_str = plan_str[brace_start:brace_end] if brace_end > brace_start else plan_str
         parsed = json.loads(plan_str)
-        files_to_create = parsed.get("files_to_create", [])
-        files_to_modify = parsed.get("files_to_modify", [])
+        files_to_create = parsed.get("files_to_create", []) or []
+        files_to_modify = parsed.get("files_to_modify", []) or []
         approach = parsed.get("approach", "No approach specified")
-    except (json.JSONDecodeError, AttributeError) as e:
+    except (json.JSONDecodeError, AttributeError, ValueError) as e:
         print(f"::warning::Could not parse plan JSON: {e}")
         print(f"Raw plan:\n{plan}")
-        # Fallback: treat the whole plan as approach
-        files_to_create = []
-        files_to_modify = []
+        files_to_create, files_to_modify = [], []
         approach = plan[:500]
 
-    # ── 4. Generate implementation code per file ──
-    all_files = files_to_create + files_to_modify
+    all_files = list(dict.fromkeys(files_to_create + files_to_modify))
     if not all_files:
-        # AI didn't specify files; ask what to generate
-        print("No files specified in plan, generating single implementation...")
+        _notice("Plan specified no files to change — nothing to implement.")
+        sys.exit(0)
 
-    changes_made = []
-    for filepath in all_files:
-        existing_code = ""
-        existing_context = "(new file)"
-        if filepath in files_to_modify:
-            try:
-                with open(filepath) as f:
-                    existing_code = f.read()
-                existing_context = f"Existing code:\n```\n{existing_code[:5000]}\n```"
-            except FileNotFoundError:
-                existing_code = "(file does not exist yet)"
-                existing_context = "(new file)"
-                files_to_create.append(filepath)
+    # Remember what modified files exported, so we can detect accidental deletions later.
+    original_exports = {
+        fp: list(export_map.get(os.path.normpath(fp), []))
+        for fp in files_to_modify if os.path.exists(fp)
+    }
 
-        code = call_llm(
-            system=(
-                "Generate the implementation code for this file in t-cli. "
-                "Output ONLY the complete file content inside a code block.\n\n"
-                "Rules:\n"
-                "- Use ES module syntax (import/export)\n"
-                "- Include JSDoc comments for all exports\n"
-                "- Handle edge cases and null inputs\n"
-                "- Follow existing code style (error handling, logging, naming)\n"
-                "- If modifying an existing file, output the ENTIRE updated file"
-                + INJECTION_GUARD
-            ),
+    codegen_system = (
+        "Generate the COMPLETE content of ONE file for t-cli (Node.js, ESM, Ink via "
+        "React.createElement — no JSX). Output ONLY the file content in a single code block.\n\n"
+        "CRITICAL rules:\n"
+        "- Output EVERY line of the file. NEVER abbreviate. NEVER write placeholder comments "
+        "such as '// ... rest of existing code', '// existing code continues', '// unchanged', "
+        "or a bare '...'. Such placeholders CORRUPT the file and are rejected.\n"
+        "- When modifying a file, reproduce the ENTIRE original content with your change applied, "
+        "keeping every existing import, export, function and the render/entry code intact.\n"
+        "- Import ONLY real exports from the API reference, using the exact path and name.\n"
+        "- ESM syntax, JSDoc on exports, handle null/edge cases, match existing style."
+        + INJECTION_GUARD
+    )
+
+    def _gen_file(filepath, existing_context, extra=""):
+        raw = call_llm(
+            system=codegen_system,
             user=(
                 _fenced("issue", f"{issue_title}\n\nApproach: {approach}")
-                + f"\n\nFile: {filepath}\n"
-                f"{existing_context}"
+                + f"\n\n{project_context}\n\nTarget file: {filepath}\n{existing_context}"
+                + (f"\n\n{extra}" if extra else "")
             )
         )
+        m = re.search(r'```(?:javascript|js|jsx|ts|)?\n?([\s\S]*?)```', raw)
+        return (m.group(1) if m else raw).strip() + "\n"
 
-        # Extract code block content
-        code_match = re.search(r'```(?:javascript|js|)?\n([\s\S]*?)\n```', code)
-        final_code = code_match.group(1) if code_match else code
+    # ── 4. Generate each file (immediate retry if it comes back truncated) ──
+    changes_made = []
+    for filepath in all_files:
+        is_modify = filepath in files_to_modify and os.path.exists(filepath)
+        if is_modify:
+            with open(filepath) as f:
+                existing_context = f"Existing content (reproduce IN FULL with your change applied):\n```\n{f.read()}\n```"
+        else:
+            existing_context = "(this is a NEW file)"
 
-        # Ensure directory exists
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        final_code = _gen_file(filepath, existing_context)
+        if _find_placeholders(final_code):
+            print(f"::warning::{filepath}: placeholder/truncation detected — retrying once")
+            final_code = _gen_file(
+                filepath, existing_context,
+                extra="Your previous output used forbidden placeholder comments and truncated the "
+                      "file. Re-output the COMPLETE file with every line present and NO "
+                      "ellipsis / 'rest of' / 'unchanged' comments."
+            )
+
+        os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
         with open(filepath, "w") as f:
             f.write(final_code)
         changes_made.append(filepath)
-        print(f"  ✓ {filepath} {'created' if filepath in files_to_create else 'updated'}")
+        print(f"  ✓ {filepath} {'updated' if is_modify else 'created'}")
 
     if not changes_made:
-        print("::warning::No files were changed. Skipping PR creation.")
+        _notice("No files were generated.")
         sys.exit(0)
 
-    # ── 5. Create branch and push changes ──
+    # ── 5. Verify, with one automated repair round on failure ──
+    export_map, _ = _scan_exports("src")  # refresh: new files are now importable
+    ok, report = _verify_generated(changes_made, export_map, original_exports)
+    if not ok:
+        print("::warning::Verification failed — attempting one repair round")
+        print("\n".join(report))
+        broken = [f for f in changes_made if f.endswith(".js")
+                  and any(f in line for line in report if line.startswith("❌"))]
+        if not broken:  # e.g. only npm test failed with no file named — retry all
+            broken = [f for f in changes_made if f.endswith(".js")]
+        for filepath in broken:
+            with open(filepath) as f:
+                current = f.read()
+            repaired = _gen_file(
+                filepath,
+                existing_context=f"Current (BROKEN) content:\n```\n{current}\n```",
+                extra="This file FAILED automated verification:\n" + "\n".join(report) +
+                      "\n\nFix EVERY issue. Output the complete corrected file — only real exports "
+                      "from the API reference, every line present, no placeholders."
+            )
+            with open(filepath, "w") as f:
+                f.write(repaired)
+        export_map, _ = _scan_exports("src")
+        ok, report = _verify_generated(changes_made, export_map, original_exports)
+
+    print(f"=== Verification: {'passed' if ok else 'FAILED'} ===")
+    print("\n".join(report))
+
+    # ── 6. Commit on the issue branch ──
     branch = f"ai/issue-{issue_number}"
     subprocess.run(["git", "config", "user.email", "ai-coder[bot]@users.noreply.github.com"],
                    capture_output=True)
     subprocess.run(["git", "config", "user.name", "AI Coder Bot"], capture_output=True)
 
-    subprocess.run(["git", "checkout", "-b", branch], capture_output=True)
+    subprocess.run(["git", "checkout", "-B", branch], capture_output=True)
     subprocess.run(["git", "add", "-A"], capture_output=True)
 
     commit_result = subprocess.run(
@@ -657,18 +814,22 @@ def implement_issue_action():
         capture_output=True, text=True
     )
     if commit_result.returncode != 0:
-        print(f"::warning::Commit failed: {commit_result.stderr[:300]}")
+        _notice(f"Nothing to commit: {commit_result.stderr[:200]}")
         sys.exit(0)
 
     print(f"  ✓ Changes committed locally on branch: {branch}")
 
-    # Write PR body to file for downstream action
+    # ── 7. PR body with an honest verification report ──
+    banner = ("> Automated verification PASSED - syntax, imports, exports and tests all OK.\n"
+              if ok else
+              "> Automated verification FAILED - do NOT merge as-is. See the report below.\n")
     pr_body = (
-        f"## AI-Generated Implementation\n\n"
-        f"This PR implements **{issue_title}**\n\n"
+        f"## AI-Generated Implementation\n\n{banner}\n"
+        f"Implements **{issue_title}**\n\n"
         f"### Issue\n"
         f"Closes #{issue_number}\n\n"
         f"### Approach\n{approach}\n\n"
+        f"### Verification\n```\n" + "\n".join(report) + "\n```\n" +
         f"### Files Changed\n" +
         "\n".join(f"- {f}" for f in changes_made) +
         "\n\n---\n*🤖 Generated by @coder \u2014 please review before merging*"
@@ -676,10 +837,11 @@ def implement_issue_action():
     with open("pr-body.md", "w") as f:
         f.write(pr_body)
 
-    print(f"Branch ready: {branch}")
+    print(f"Branch ready: {branch} (verified={ok})")
     _write_output("branch", branch)
     _write_output("pr_title", f"feat: {issue_title[:80]}")
     _write_output("pr_body_path", "pr-body.md")
+    _write_output("verified", "true" if ok else "false")
 
 
 def issue_triage_action():
