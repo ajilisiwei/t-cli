@@ -544,9 +544,11 @@ def implement_issue_action():
 
     print(f"  ✓ Changes committed locally on branch: {branch}")
 
-    # Push the branch
+    # Push the branch using GH_PAT if available
+    gh_pat = os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
+    remote_url = f"https://x-access-token:{gh_pat}@github.com/{os.getenv('GITHUB_REPOSITORY', 'ajilisiwei/t-cli')}.git"
     push_result = subprocess.run(
-        ["git", "push", "origin", branch],
+        ["git", "push", remote_url, branch],
         capture_output=True, text=True, timeout=30
     )
     if push_result.returncode != 0:
