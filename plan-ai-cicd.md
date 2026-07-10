@@ -163,6 +163,15 @@ CI 侧把 diff / issue / audit / git log 裸拼进 prompt。修复：统一 `_fe
 
 **门禁有效性验证**：把新门禁跑在已知损坏的 `ai/issue-32` 上，5 处占位符、3 个幻觉 import、丢失的 `startRepl` 导出**全部捕获**（`ok=False`），同时 `npm test` 仍通过——实证旧管线为何全盲。
 
+### 5.7 修改现有文件改用 diff 补丁（解决大文件重写不可靠）✅
+
+「整体重写」对大文件（如 `repl.js`）不可靠：模型在重抄数百行未改动代码时会截断或丢失无关代码（`startRepl`、`render`）。改为：
+
+- **新增文件**仍整体生成（无「重写既有代码」风险）。
+- **修改现有文件**先让 AI 输出**最小 unified diff**（`_gen_diff`，只碰需要改的行），再 `_apply_diff` 用容错 `git apply`（`--recount` / `-C1` / `--unidiff-zero`，容忍 LLM diff 的行号/空白误差；无 `--reject` 故原子，打不上不留残迹）应用；**打不上则回退整体重写**，验证门禁照样兜底。
+
+**端到端验证（PR #34）**：`/quiz` 需改 `repl.js`——`✓ src/repl.js patched via diff` → `Verification: passed`。`repl.js` 从 477 → 511 行（+34 行真实增量，`startRepl`/`render`/全部既有命令保留），`quiz.js` import 全部为真实符号，PR 横幅 `verification PASSED`，首次产出**可合并**的 draft PR。
+
 ---
 
 ## 端到端验证记录
@@ -205,13 +214,9 @@ CI 侧把 diff / issue / audit / git log 裸拼进 prompt。修复：统一 `_fe
 
 ## 已知遗留与下一步
 
-### 遗留：大文件「整体重写」不可靠（模型能力层面）
+### 大文件修改（已解决 ✅）
 
-`ai-implement-issue` 目前对**修改现有文件**采用「整体重写」范式。对大文件（如 477 行的 `repl.js`）仍会产生语法错 / 丢失导出。**门禁能拦住并标红（绝不静默交付坏码）**，但这类需求只能得到「标记 FAILED、待人工完成」的 PR，而非可直接合并的 PR。纯新增文件（如 `quiz.js`）已能可靠生成。
-
-### 下一步：修改现有文件改用定向 diff/补丁
-
-把 `files_to_modify` 从「整体重写」改为让 AI 输出 **unified diff** 并 `git apply`（类似 `auto_fix`）。小范围改动不碰 `startRepl`/`render`，可靠性大幅提升，能让 `/quiz` 这类需改 `repl.js` 的需求真正产出可合并 PR。
+原「整体重写」范式对大文件不可靠，已在 5.7 改为 **diff 补丁 + 整体重写回退**，并经 `/quiz`（改 `repl.js`）端到端验证产出可合并 PR。`ai-implement-issue` 至此从「安全」推进到「好用」。
 
 ### 其余打磨项（LOW）
 
