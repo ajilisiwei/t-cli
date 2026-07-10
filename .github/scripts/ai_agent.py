@@ -564,14 +564,17 @@ def implement_issue_action():
     print(f"  ✓ Changes committed locally on branch: {branch}")
 
     # Push the branch using the origin remote with stored credentials
+    gh_token = os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN", "")
+    prefix = gh_token[:8] if len(gh_token) > 8 else "short"
+    print(f"  Token prefix: {prefix}...")
     # First ensure the remote URL has a valid token
     subprocess.run(
         ["git", "config", "--local", "credential.helper", ""],
         capture_output=True
     )
     # Set the remote to use GH_TOKEN directly (from env)
-    gh_token = os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN", "")
-    remote_with_token = f"https://x-access-token:{gh_token}@github.com/{os.getenv('GITHUB_REPOSITORY', '')}.git"
+    repo = os.getenv("GITHUB_REPOSITORY", "")
+    remote_with_token = f"https://x-access-token:{gh_token}@github.com/{repo}.git"
     subprocess.run(
         ["git", "remote", "set-url", "origin", remote_with_token],
         capture_output=True
