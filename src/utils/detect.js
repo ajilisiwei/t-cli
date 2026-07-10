@@ -22,3 +22,13 @@ export function isWordLookup(text) {
 export function containsCJK(text) {
   return CJK_RE.test(text || '');
 }
+
+/**
+ * Detect if input is a URL (starts with http:// or https://).
+ * @param {string} text
+ * @returns {boolean}
+ */
+export function isURL(text) {
+  if (!text) return false;
+  return text.startsWith('http://') || text.startsWith('https://');
+}
