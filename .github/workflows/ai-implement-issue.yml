@@ -48,14 +48,7 @@ jobs:
 
       - name: Push branch
         if: steps.ai.outputs.branch != ''
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          set -x
           BRANCH="${{ steps.ai.outputs.branch }}"
-          echo "Remote URL before:"
-          git remote -v
-          git remote set-url origin "https://oauth2:${GH_TOKEN}@github.com/${{ github.repository }}.git"
           git push origin "HEAD:${BRANCH}" 2>&1
-          echo "Exit code: $?"
 
