@@ -353,7 +353,48 @@ def issue_triage_action():
         print("::error::GH_TOKEN not set")
         sys.exit(1)
 
-    # 1. Fetch open issues with no labels (untriaged)
+    # 1. Ensure needed labels exist in the repo
+    NEEDED_LABELS = {
+        "bug": {"color": "d73a4a", "desc": "Something isn't working"},
+        "feature": {"color": "a2eeef", "desc": "New feature or request"},
+        "enhancement": {"color": "a2eeef", "desc": "New feature or request"},
+        "question": {"color": "d876e3", "desc": "Further information is requested"},
+        "docs": {"color": "0075ca", "desc": "Documentation changes"},
+        "refactor": {"color": "bfdadc", "desc": "Code refactoring"},
+        "priority:critical": {"color": "b60205", "desc": "Critical priority"},
+        "priority:high": {"color": "d73a4a", "desc": "High priority"},
+    }
+    existing_labels = set()
+    result = subprocess.run(
+        ["gh", "label", "list", "--limit", "50"],
+        capture_output=True, text=True, timeout=15
+    )
+    if result.returncode == 0:
+        for line in result.stdout.strip().split("\n"):
+            name = line.split("\t")[0] if "\t" in line else line.split()[0] if line else ""
+            if name:
+                existing_labels.add(name)
+
+    for name, cfg in NEEDED_LABELS.items():
+        if name not in existing_labels:
+            subprocess.run(
+                ["gh", "label", "create", name,
+                 "--color", cfg["color"],
+                 "--description", cfg["desc"]],
+                capture_output=True, timeout=10
+            )
+            print(f"  Created label: {name}")
+
+    # Map AI types to actual label names
+    TYPE_LABEL_MAP = {
+        "bug": "bug",
+        "feature": "feature",
+        "question": "question",
+        "docs": "docs",
+        "refactor": "refactor",
+    }
+
+    # 2. Fetch open issues
     result = subprocess.run(
         ["gh", "issue", "list", "--state", "open", "--limit", "20",
          "--json", "number,title,body,labels,createdAt,comments"],
@@ -400,8 +441,8 @@ def issue_triage_action():
             issue_type = parsed.get("type", "question")
             priority = parsed.get("priority", "medium")
 
-            # Map to GitHub labels
-            labels_to_add = [issue_type]
+            # Map to GitHub labels using TYPE_LABEL_MAP
+            labels_to_add = [TYPE_LABEL_MAP.get(issue_type, issue_type)]
             if priority in ("critical", "high"):
                 labels_to_add.append("priority:" + priority)
 
