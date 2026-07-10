@@ -565,6 +565,8 @@ def implement_issue_action():
 
     # Push the branch using GH_PAT if available
     gh_pat = os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
+    pat_prefix = gh_pat[:10] + "..." if gh_pat and len(gh_pat) > 10 else "empty"
+    print(f"  Token type: {pat_prefix}")
     repo = os.getenv("GITHUB_REPOSITORY", "ajilisiwei/t-cli")
     remote_url = f"https://x-access-token:{gh_pat}@github.com/{repo}.git"
     push_result = subprocess.run(
