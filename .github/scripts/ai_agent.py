@@ -574,7 +574,7 @@ def implement_issue_action():
     )
     # Set the remote to use GH_TOKEN directly (from env)
     repo = os.getenv("GITHUB_REPOSITORY", "")
-    remote_with_token = f"https://{gh_token}@github.com/{repo}.git"
+    remote_with_token = f"https://oauth2:{gh_token}@github.com/{repo}.git"
     subprocess.run(
         ["git", "remote", "set-url", "origin", remote_with_token],
         capture_output=True
