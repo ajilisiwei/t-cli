@@ -54,13 +54,23 @@ jobs:
           BRANCH="${{ steps.ai.outputs.branch }}"
           git push origin "HEAD:${BRANCH}" 2>&1
 
-          PR_URL=$(gh pr create \
-            --base main \
-            --head "${BRANCH}" \
-            --title "${{ steps.ai.outputs.pr_title }}" \
-            --body-file "${{ steps.ai.outputs.pr_body_path }}" \
-            2>&1)
+          # Use REST API to create PR (GITHUB_TOKEN can do this via API)
+          PR_JSON=$(curl -s -X POST \
+            -H "Authorization: token $GH_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls" \
+            -d "$(cat <<EOJD
+          {
+            "title": "${{ steps.ai.outputs.pr_title }}",
+            "head": "${BRANCH}",
+            "base": "main",
+            "body": $(cat ${{ steps.ai.outputs.pr_body_path }} | python3 -c "import json,sys; print(json.dumps(sys.stdin.read()))"),
+            "draft": true
+          }
+          EOJD
+          )" 2>&1)
 
+          PR_URL=$(echo "$PR_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('html_url','ERROR: '+str(d)))" 2>&1)
           echo "PR: ${PR_URL}"
           echo "pr_url=${PR_URL}" >> $GITHUB_OUTPUT
 
