@@ -44,6 +44,8 @@ jobs:
         run: python .github/scripts/ai_agent.py
 
       - name: Print report
+        env:
+          REPORT: ${{ steps.ai.outputs.report }}
         run: |
           echo "=== Triage Report ==="
-          echo "${{ steps.ai.outputs.report }}"
+          echo "$REPORT"

@@ -37,7 +37,7 @@ jobs:
         id: audit
         continue-on-error: true
         run: |
-          npm audit --json > audit.json 2>&1 || true
+          npm audit --json > audit.json 2>/dev/null || true
           echo "=== audit summary ==="
           python3 -c "
           import json
@@ -71,11 +71,14 @@ jobs:
         run: python .github/scripts/ai_agent.py
 
       - name: Print summary
+        env:
+          SUMMARY: ${{ steps.ai.outputs.summary }}
+          HAS_CRITICAL: ${{ steps.ai.outputs.has_critical }}
         run: |
           echo "=== AI Analysis ==="
-          echo "${{ steps.ai.outputs.summary }}"
+          echo "$SUMMARY"
           echo ""
-          echo "Critical found: ${{ steps.ai.outputs.has_critical }}"
+          echo "Critical found: $HAS_CRITICAL"
 
       - name: Apply npm audit fix
         if: steps.ai.outputs.has_critical == 'true'
