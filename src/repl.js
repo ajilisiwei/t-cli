@@ -11,6 +11,7 @@ import { listGeneratedNotes, readGeneratedNote, saveGeneratedNote, getNotesDir }
 import { isWordLookup } from './utils/detect.js';
 import { extractSpeakable } from './utils/speakable.js';
 import { pushHistory, navigateHistory } from './utils/inputHistory.js';
+import { getQuizEntries, buildQuizPrompt, parseQuizResponse } from './utils/quiz.js';
 import * as tts from './tts.js';
 
 const h = React.createElement;
@@ -71,6 +72,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingLabel, setLoadingLabel] = useState('Processing...');
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [quizState, setQuizState] = useState(null);
   const [activeStream, setActiveStream] = useState(null);
   const [inputHistory, setInputHistory] = useState([]);
   const [inputEpoch, setInputEpoch] = useState(0);
@@ -85,6 +87,7 @@ function App() {
   const appendMessage = (text, options = {}) => {
     if (!text) return;
     setMessages((prev) => [...prev, makeMessage(text, options)]);
+    if (quizState) setQuizState((prev) => prev ? { ...prev, awaitingAnswer: false } : null);
   };
 
   const clearOutput = () => {
@@ -278,6 +281,100 @@ function App() {
     });
   };
 
+  const runQuizCommand = async (fullInput) => {
+    const arg = parseCommandArg(fullInput, '/quiz');
+    const daysBack = arg ? parseInt(arg, 10) : 7;
+    if (Number.isNaN(daysBack) || daysBack < 1) {
+      appendMessage('Tip: Use /quiz [days] where days is a positive number (default 7).', { color: 'yellow' });
+      return;
+    }
+
+    const entries = getQuizEntries(daysBack);
+    if (entries.length === 0) {
+      appendMessage('No history entries found for the given period. Translate something first!', { color: 'yellow' });
+      return;
+    }
+
+    appendMessage(`Starting quiz with ${entries.length} entries. Type your answers after each question.`, { color: 'cyan' });
+    setQuizState({
+      entries,
+      index: 0,
+      score: 0,
+      total: entries.length,
+      awaitingAnswer: false,
+      currentQuestion: null,
+      userAnswer: ''
+    });
+    await presentQuizQuestion(entries[0], 0, entries.length);
+  };
+
+  const presentQuizQuestion = async (entry, index, total) => {
+    const prompt = buildQuizPrompt([entry]);
+    setIsLoading(true);
+    setLoadingLabel(`Quiz question ${index + 1} of ${total}...`);
+    setActiveStream({ color: 'cyan', text: '' });
+
+    let responseBuffer = '';
+    try {
+      await callDeepSeekStream(prompt, entry.input, (chunk) => {
+        responseBuffer += chunk;
+        setActiveStream((prev) => {
+          const previous = prev || { color: 'cyan', text: '' };
+          return { ...previous, text: previous.text + chunk };
+        });
+      });
+
+      const question = responseBuffer.trim();
+      if (question) {
+        appendMessage(question, { color: 'cyan' });
+        setQuizState((prev) => prev ? { ...prev, currentQuestion: question, awaitingAnswer: true, userAnswer: '' } : null);
+      }
+    } catch (error) {
+      appendMessage(`Quiz error: ${error.message}`, { color: 'red' });
+      setQuizState(null);
+    } finally {
+      setActiveStream(null);
+      setIsLoading(false);
+    }
+  };
+
+  const handleQuizAnswer = async (answer) => {
+    const state = quizState;
+    if (!state || !state.awaitingAnswer) return;
+
+    const entry = state.entries[state.index];
+    const scoringPrompt = `You are a quiz scorer. The user was asked to fill in the blank for this translation entry:\n\nInput: ${entry.input}\nExpected translation: ${entry.response}\n\nThe user answered: "${answer}"\n\nRespond with a JSON object: {"correct": true/false, "explanation": "brief explanation"}`;
+
+    setIsLoading(true);
+    setLoadingLabel('Scoring answer...');
+
+    let responseBuffer = '';
+    try {
+      await callDeepSeekStream(scoringPrompt, '', (chunk) => {
+        responseBuffer += chunk;
+      });
+
+      const result = parseQuizResponse(responseBuffer);
+      const newScore = state.score + (result.correct ? 1 : 0);
+      appendMessage(result.correct ? '✓ Correct!' : `✗ Incorrect. Expected: ${entry.response}`, { color: result.correct ? 'green' : 'red' });
+      if (result.explanation) appendMessage(result.explanation, { dim: true });
+
+      const nextIndex = state.index + 1;
+      if (nextIndex >= state.total) {
+        appendMessage(`Quiz complete! Score: ${newScore}/${state.total}`, { color: 'cyan', bold: true });
+        setQuizState(null);
+      } else {
+        setQuizState((prev) => prev ? { ...prev, index: nextIndex, score: newScore, awaitingAnswer: false } : null);
+        await presentQuizQuestion(state.entries[nextIndex], nextIndex, state.total);
+      }
+    } catch (error) {
+      appendMessage(`Scoring error: ${error.message}`, { color: 'red' });
+      setQuizState(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const runSayCommand = async (fullInput) => {
     const arg = parseCommandArg(fullInput, '/say');
 
@@ -323,6 +420,11 @@ function App() {
     if (lowerInput === 'exit' || lowerInput === 'quit') {
       tts.stop();
       exit();
+      return;
+    }
+
+    if (lowerInput === '/quiz' || lowerInput.startsWith('/quiz ')) {
+      await runQuizCommand(inputText);
       return;
     }
 
@@ -388,6 +490,12 @@ function App() {
   };
 
   const onSubmitInput = (value) => {
+    if (quizState && quizState.awaitingAnswer) {
+      setInputHistory((prev) => pushHistory(prev, value));
+      setInput('');
+      void handleQuizAnswer(value);
+      return;
+    }
     if (loadingRef.current) return;
     setInputHistory((prev) => pushHistory(prev, value));
     historyIndexRef.current = null;
