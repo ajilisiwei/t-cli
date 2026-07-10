@@ -565,7 +565,7 @@ def implement_issue_action():
 
     # Push the branch
     push_result = subprocess.run(
-        ["git", "push", "origin", f"HEAD:{branch}"],
+        ["git", "push", "-v", "origin", f"HEAD:{branch}"],
         capture_output=True, text=True, timeout=30
     )
     if push_result.returncode != 0:
