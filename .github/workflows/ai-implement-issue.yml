@@ -17,9 +17,12 @@ jobs:
   implement:
     # Only trusted users may trigger AI implementation:
     # any commenter could otherwise burn API budget and inject prompts via the issue body.
+    # The final "🤖 ..." status comment is posted with the same PAT (an OWNER) and must NOT
+    # re-trigger this workflow, so bot comments (prefixed 🤖) are excluded.
     if: >
       contains(github.event.comment.body, '@coder')
       && !github.event.issue.pull_request
+      && !startsWith(github.event.comment.body, '🤖')
       && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
 
     runs-on: ubuntu-latest
@@ -102,8 +105,9 @@ jobs:
           else
             STATUS="⚠️ automated verification FAILED — do NOT merge as-is (see PR body)"
           fi
+          # NB: must not contain the '@coder' trigger token, or this comment re-triggers the workflow.
           gh issue comment "$ISSUE_NUMBER" --body "$(printf '%s\n' \
-            "🤖 @coder implemented this issue." \
+            "🤖 Coder bot implemented this issue." \
             "" \
             "PR: ${PR_URL}" \
             "Status: ${STATUS}" \
