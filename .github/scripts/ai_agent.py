@@ -366,6 +366,9 @@ def test_suggestion_action():
         user=f"PR diff:\n```diff\n{diff[:8000]}\n```"
     )
     _write_output("suggestion", suggestion)
+    # Also save to file for downstream Job readability    
+    with open("suggestion.txt", "w") as f:
+        f.write(suggestion)
 
 
 def issue_triage_action():
