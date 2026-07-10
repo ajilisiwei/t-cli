@@ -22,3 +22,32 @@ export function isWordLookup(text) {
 export function containsCJK(text) {
   return CJK_RE.test(text || '');
 }
+
+/**
+ * Detect if input is a URL (starts with http:// or https://).
+ * @param {string} text
+ * @returns {boolean}
+ */
+export function isURL(text) {
+  if (!text) return false;
+  return text.startsWith('http://') || text.startsWith('https://');
+}
+
+/**
+ * Convert a string to title case (first letter of each word capitalized).
+ * @param {string} text
+ * @returns {string}
+ */
+export function toTitleCase(text) {
+  if (!text) return '';
+  return text.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+/**
+ * Check if a string is empty or only whitespace.
+ * @param {string} text
+ * @returns {boolean}
+ */
+export function isEmptyOrWhitespace(text) {
+  return !text || text.trim() === '';
+}

@@ -1,0 +1,82 @@
+name: AI Issue Implementer
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: ai-implement-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  implement:
+    # Only trusted users may trigger AI implementation:
+    # any commenter could otherwise burn API budget and inject prompts via the issue body.
+    if: >
+      contains(github.event.comment.body, '@coder')
+      && !github.event.issue.pull_request
+      && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT || github.token }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install openai
+
+      - name: AI Implement — plan + generate code + commit
+        id: ai
+        env:
+          LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'deepseek' }}
+          LLM_MODEL:    ${{ vars.LLM_MODEL    || 'deepseek-chat' }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          AI_ACTION: implement_issue
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
+        run: python .github/scripts/ai_agent.py
+
+      - name: Push branch
+        if: steps.ai.outputs.branch != ''
+        env:
+          BRANCH: ${{ steps.ai.outputs.branch }}
+        run: git push origin --force "HEAD:${BRANCH}"
+
+      - name: Create PR
+        if: steps.ai.outputs.branch != ''
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          BRANCH: ${{ steps.ai.outputs.branch }}
+          PR_TITLE: ${{ steps.ai.outputs.pr_title }}
+          PR_BODY_PATH: ${{ steps.ai.outputs.pr_body_path }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          # gh passes --title/--body-file as argv, so untrusted values can't inject shell/JSON.
+          PR_URL=$(gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "$PR_TITLE" \
+            --body-file "$PR_BODY_PATH" \
+            --draft)
+          echo "PR: ${PR_URL}"
+
+          gh issue comment "$ISSUE_NUMBER" --body "$(printf '%s\n' \
+            "🤖 @coder has implemented this issue!" \
+            "" \
+            "PR: ${PR_URL}" \
+            "Branch: \`${BRANCH}\`" \
+            "" \
+            "Please review the Draft PR before merging.")"
