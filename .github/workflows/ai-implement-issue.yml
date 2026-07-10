@@ -11,7 +11,10 @@ permissions:
 
 concurrency:
   group: ai-implement-${{ github.event.issue.number }}
-  cancel-in-progress: true
+  # Do NOT cancel in progress: every issue comment (incl. the bot's own completion
+  # comment, which is skipped by the job `if`) enters this group; cancelling would
+  # let a to-be-skipped run kill a legitimate in-progress implementation.
+  cancel-in-progress: false
 
 jobs:
   implement:
