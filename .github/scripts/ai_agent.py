@@ -567,10 +567,11 @@ def implement_issue_action():
          "--base", os.getenv("GITHUB_BASE_REF", "main"),
          "--head", branch,
          "--title", f"feat: {issue_title[:80]}",
-         "--body", pr_body,
-         "--draft"],
+         "--body", pr_body],
         capture_output=True, text=True, timeout=30
     )
+    if pr_result.returncode != 0:
+        print(f"  gh pr create stderr: {pr_result.stderr[:300]}")
     pr_url = pr_result.stdout.strip() if pr_result.returncode == 0 else "(PR creation failed)"
 
     # Post result comment on issue
