@@ -4,6 +4,10 @@
 #
 # Safety: only fixes source code (src/), never modifies tests (test/).
 # If AI is unsure, it outputs UNSURE: and exits without pushing.
+#
+# The push uses GH_PAT so it re-triggers CI (a github.token push does not,
+# by GitHub's anti-recursion rule) — closing the fix -> push -> re-verify loop.
+# Falls back to github.token when no PAT is set (push works, but CI won't re-run).
 
 name: AI Auto-Fix
 
@@ -35,7 +39,7 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_branch }}
           fetch-depth: 0
-          token: ${{ github.token }}
+          token: ${{ secrets.GH_PAT || github.token }}
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:

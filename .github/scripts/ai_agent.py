@@ -231,12 +231,24 @@ def changelog_action():
     print(notes)
 
 
+AUTO_FIX_COMMIT_MSG = "fix(ci): auto-fix CI failure [AI]"
+
+
 def auto_fix_action():
     """Fix failing CI tests. Reads logs, AI generates fix, commits and pushes."""
     run_id = os.getenv("FAILED_RUN_ID")
     if not run_id:
-        print("::error::FAILED_RUN_ID not set")
-        sys.exit(1)
+        _fail("FAILED_RUN_ID not set")
+
+    # Loop guard: once we push a fix with GH_PAT, CI re-runs; if it still fails,
+    # HEAD is already our own auto-fix commit — stop instead of fixing our fix.
+    head_subject = subprocess.run(
+        ["git", "log", "-1", "--format=%s"],
+        capture_output=True, text=True, timeout=10
+    ).stdout.strip()
+    if head_subject == AUTO_FIX_COMMIT_MSG:
+        _notice("HEAD is already an AI auto-fix commit — skipping to avoid a fix loop.")
+        sys.exit(0)
 
     # 1. Get the PR diff (what code changed)
     diff = subprocess.run(
@@ -325,7 +337,7 @@ def auto_fix_action():
 
     # 7. Commit and push
     branch = os.getenv("FIX_BRANCH") or os.getenv("GITHUB_HEAD_REF") or os.getenv("GITHUB_REF_NAME", "")
-    subprocess.run(["git", "commit", "-m", "fix(ci): auto-fix CI failure [AI]"], check=False)
+    subprocess.run(["git", "commit", "-m", AUTO_FIX_COMMIT_MSG], check=False)
     push_result = subprocess.run(
         ["git", "push", "origin", f"HEAD:{branch}"],
         capture_output=True, text=True, timeout=30
