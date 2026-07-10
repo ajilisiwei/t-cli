@@ -568,7 +568,8 @@ def implement_issue_action():
     pat_prefix = gh_pat[:10] + "..." if gh_pat and len(gh_pat) > 10 else "empty"
     print(f"  Token type: {pat_prefix}")
     repo = os.getenv("GITHUB_REPOSITORY", "ajilisiwei/t-cli")
-    remote_url = f"https://x-access-token:{gh_pat}@github.com/{repo}.git"
+    # Use oauth2 format for PAT compatibility
+    remote_url = f"https://oauth2:{gh_pat}@github.com/{repo}.git"
     push_result = subprocess.run(
         ["git", "push", remote_url, f"HEAD:refs/heads/{branch}"],
         capture_output=True, text=True, timeout=30
