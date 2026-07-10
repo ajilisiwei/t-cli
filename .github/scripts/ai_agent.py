@@ -47,6 +47,46 @@ else:
     client = OpenAI(base_url=cfg["base_url"], api_key=api_key)
 
 
+# === Observability ===
+# Track LLM token usage so scheduled jobs and @coder runs have a visible cost trail.
+_USAGE = {"calls": 0, "prompt": 0, "completion": 0, "total": 0}
+_USAGE_REPORTED = False
+
+
+def _notice(msg: str):
+    """An expected, benign no-op or status update — the job stays green."""
+    print(f"::notice::{msg}")
+
+
+def _fail(msg: str, code: int = 1):
+    """An unexpected failure — surface it (non-zero exit) instead of a silent green run."""
+    print(f"::error::{msg}")
+    _report_usage()
+    sys.exit(code)
+
+
+def _report_usage():
+    """Print an LLM token-usage summary and append it to the GitHub job summary. Idempotent."""
+    global _USAGE_REPORTED
+    if _USAGE_REPORTED or _USAGE["calls"] == 0:
+        return
+    _USAGE_REPORTED = True
+    line = (
+        f"LLM usage: {_USAGE['calls']} call(s), "
+        f"{_USAGE['prompt']} prompt + {_USAGE['completion']} completion "
+        f"= {_USAGE['total']} tokens "
+        f"(action={os.getenv('AI_ACTION', 'review')}, provider={PROVIDER}, model={MODEL})"
+    )
+    _notice(line)
+    summary_path = os.getenv("GITHUB_STEP_SUMMARY")
+    if summary_path:
+        try:
+            with open(summary_path, "a") as f:
+                f.write(f"### 🤖 LLM usage\n\n{line}\n")
+        except OSError:
+            pass
+
+
 def call_llm(system: str, user: str) -> str:
     """Call the configured LLM with system + user messages."""
     resp = client.chat.completions.create(
@@ -58,6 +98,12 @@ def call_llm(system: str, user: str) -> str:
         temperature=0.1,
         max_tokens=4096,
     )
+    usage = getattr(resp, "usage", None)
+    if usage:
+        _USAGE["calls"] += 1
+        _USAGE["prompt"] += getattr(usage, "prompt_tokens", 0) or 0
+        _USAGE["completion"] += getattr(usage, "completion_tokens", 0) or 0
+        _USAGE["total"] += getattr(usage, "total_tokens", 0) or 0
     return resp.choices[0].message.content
 
 
@@ -232,7 +278,8 @@ def auto_fix_action():
     )
 
     if fix.startswith("UNSURE:"):
-        print(f"AI could not determine fix: {fix}")
+        _notice(f"AI could not determine a fix: {fix}")
+        _report_usage()
         sys.exit(0)
 
     # 4. Apply the fix
@@ -247,7 +294,8 @@ def auto_fix_action():
             input=fix, text=True, capture_output=True, timeout=15
         )
         if result.returncode != 0:
-            print(f"::warning::git apply (lenient) also failed: {result.stderr[:500]}")
+            _notice(f"AI-generated diff did not apply cleanly, skipping: {result.stderr[:300]}")
+            _report_usage()
             sys.exit(0)
 
     # 5. Configure git identity (runner may not have one)
@@ -257,7 +305,8 @@ def auto_fix_action():
     # 6. Check if anything changed
     status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True).stdout
     if not status.strip():
-        print("No changes to commit.")
+        _notice("AI fix produced no changes, nothing to commit.")
+        _report_usage()
         sys.exit(0)
 
     # 6.5 Verify the fix actually passes tests before pushing.
@@ -268,8 +317,9 @@ def auto_fix_action():
         capture_output=True, text=True, timeout=300
     )
     if test_result.returncode != 0:
-        print("::warning::Fix did not pass tests — discarding, nothing pushed.")
+        _notice("AI fix did not pass tests — discarding, nothing pushed.")
         print((test_result.stdout + test_result.stderr)[-2000:])
+        _report_usage()
         sys.exit(0)
     print("✅ Tests pass after fix.")
 
@@ -283,7 +333,8 @@ def auto_fix_action():
     if push_result.returncode == 0:
         print(f"✅ Auto-fix pushed to {branch}")
     else:
-        print(f"::warning::Push failed: {push_result.stderr[:300]}")
+        # Push is infrastructure, not AI judgment — a failure here must not be a silent green run.
+        _fail(f"Push to {branch} failed: {push_result.stderr[:300]}")
 
 
 def security_triage_action():
@@ -746,28 +797,29 @@ def summary_action():
     print(summary)
 
 
+ACTIONS = {
+    "review": review_action,
+    "changelog": changelog_action,
+    "auto_fix": auto_fix_action,
+    "security_triage": security_triage_action,
+    "issue_triage": issue_triage_action,
+    "test_suggestion": test_suggestion_action,
+    "implement_issue": implement_issue_action,
+    "summary": summary_action,
+}
+
+
 def main():
     action = os.getenv("AI_ACTION", "review")
+    handler = ACTIONS.get(action)
+    if not handler:
+        _fail(f"Unknown action: {action}")
 
-    if action == "review":
-        review_action()
-    elif action == "changelog":
-        changelog_action()
-    elif action == "auto_fix":
-        auto_fix_action()
-    elif action == "security_triage":
-        security_triage_action()
-    elif action == "issue_triage":
-        issue_triage_action()
-    elif action == "test_suggestion":
-        test_suggestion_action()
-    elif action == "implement_issue":
-        implement_issue_action()
-    elif action == "summary":
-        summary_action()
-    else:
-        print(f"::error::Unknown action: {action}")
-        sys.exit(1)
+    try:
+        handler()
+    finally:
+        # Always surface token usage, even when the action bailed early via sys.exit().
+        _report_usage()
 
 
 if __name__ == "__main__":
