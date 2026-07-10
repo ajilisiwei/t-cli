@@ -525,14 +525,13 @@ def implement_issue_action():
         print("::warning::No files were changed. Skipping PR creation.")
         sys.exit(0)
 
-    # ── 5. Create branch, commit, push, PR (Draft) ──
+    # ── 5. Create branch first, then apply changes ──
     branch = f"ai/issue-{issue_number}"
     subprocess.run(["git", "config", "user.email", "ai-coder[bot]@users.noreply.github.com"],
                    capture_output=True)
     subprocess.run(["git", "config", "user.name", "AI Coder Bot"], capture_output=True)
 
-    # Stash any unrelated changes
-    subprocess.run(["git", "stash"], capture_output=True)
+    # Checkout new branch before making changes
     subprocess.run(["git", "checkout", "-b", branch], capture_output=True)
     subprocess.run(["git", "add", "-A"], capture_output=True)
 
