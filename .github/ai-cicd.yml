@@ -1,0 +1,36 @@
+# AI CI/CD engine config for t-cli. Consumed by ai-cicd-action's engine.
+# See ai-cicd-action/engine/ai-cicd.example.yml for the full schema.
+
+project:
+  name: t-cli
+  description: "Node.js CLI translator using DeepSeek API, rendered with Ink (React for terminals via React.createElement — no JSX)"
+  conventions_file: CLAUDE.md
+
+language: node
+
+commands:
+  test: "npm test"
+  syntax_check: "node --check {file}"
+  audit: "npm audit --json"
+
+layout:
+  source_dir: src
+  test_dir: test
+  file_ext: [".js"]
+
+providers:
+  default: deepseek
+  model: deepseek-chat
+
+engine:
+  backend: api
+  escalate_on_api_failure: true
+
+actions:
+  pr_review: true
+  test_suggestion: true
+  security_triage: true
+  issue_triage: true
+  auto_fix: true
+  implement_issue: true
+  changelog: true

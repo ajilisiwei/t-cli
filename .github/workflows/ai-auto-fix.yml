@@ -1,13 +1,13 @@
 # AI Auto-Fix: automatically fixes failing CI tests
 # Triggered when the CI workflow completes with failure.
-# AI reads the logs, generates a fix, commits and pushes.
+# AI reads the logs, generates a fix, verifies (npm test), commits and pushes.
 #
 # Safety: only fixes source code (src/), never modifies tests (test/).
 # If AI is unsure, it outputs UNSURE: and exits without pushing.
 #
-# The push uses GH_PAT so it re-triggers CI (a github.token push does not,
-# by GitHub's anti-recursion rule) — closing the fix -> push -> re-verify loop.
-# Falls back to github.token when no PAT is set (push works, but CI won't re-run).
+# The push uses the checkout credentials (GH_PAT) so it re-triggers CI (a
+# github.token push does not, by GitHub's anti-recursion rule) — closing the
+# fix -> push -> re-verify loop. Falls back to github.token when no PAT is set.
 
 name: AI Auto-Fix
 
@@ -49,23 +49,16 @@ jobs:
       - name: Install Node deps
         run: npm ci
 
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-        with:
-          python-version: "3.11"
-
-      - name: Install deps
-        run: pip install openai
-
       - name: AI Auto-Fix
         id: ai
-        env:
-          LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'deepseek' }}
-          LLM_MODEL:    ${{ vars.LLM_MODEL    || 'deepseek-chat' }}
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          AI_ACTION: auto_fix
-          FAILED_RUN_ID: ${{ github.event.workflow_run.id }}
-          FIX_BRANCH: ${{ github.event.workflow_run.head_branch }}
-          # gh reads GH_TOKEN natively (used by the script's `gh run view` to fetch CI logs).
-          # A separate `gh auth login` step would fail: gh refuses --with-token when GH_TOKEN is set.
-          GH_TOKEN: ${{ github.token }}
-        run: python .github/scripts/ai_agent.py
+        uses: ajilisiwei/ai-cicd-action@v1
+        with:
+          action: auto_fix
+          llm-provider: ${{ vars.LLM_PROVIDER || 'deepseek' }}
+          llm-model: ${{ vars.LLM_MODEL || 'deepseek-chat' }}
+          llm-api-key: ${{ secrets.DEEPSEEK_API_KEY }}
+          failed-run-id: ${{ github.event.workflow_run.id }}
+          fix-branch: ${{ github.event.workflow_run.head_branch }}
+          # gh (in the engine) reads this to fetch CI logs. The git push reuses the
+          # checkout credentials above (GH_PAT), which is what re-triggers CI.
+          github-token: ${{ github.token }}
