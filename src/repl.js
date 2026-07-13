@@ -11,7 +11,7 @@ import { listGeneratedNotes, readGeneratedNote, saveGeneratedNote, getNotesDir }
 import { isWordLookup } from './utils/detect.js';
 import { extractSpeakable } from './utils/speakable.js';
 import { pushHistory, navigateHistory } from './utils/inputHistory.js';
-import { getQuizEntries, buildQuizPrompt, parseQuizResponse } from './utils/quiz.js';
+import { getQuizEntries, parseQuizResponse } from './utils/quiz.js';
 import * as tts from './tts.js';
 
 const h = React.createElement;
@@ -50,6 +50,7 @@ function buildWelcomeMessages(lang, isSimpleMode) {
     makeMessage('/notes          Generate or view AI notes', { color: 'green' }),
     makeMessage('/say            Read the last result aloud (/say stop to cancel)', { color: 'green' }),
     makeMessage('/clear          Clear screen', { color: 'green' }),
+    makeMessage('/quiz [days]    Active recall quiz from recent history', { color: 'green' }),
     makeMessage('exit | quit     Quit application', { color: 'green' })
   ];
 }
@@ -289,7 +290,7 @@ function App() {
       return;
     }
 
-    const entries = getQuizEntries(daysBack);
+    const entries = await getQuizEntries(daysBack);
     if (entries.length === 0) {
       appendMessage('No history entries found for the given period. Translate something first!', { color: 'yellow' });
       return;
@@ -308,34 +309,11 @@ function App() {
     await presentQuizQuestion(entries[0], 0, entries.length);
   };
 
-  const presentQuizQuestion = async (entry, index, total) => {
-    const prompt = buildQuizPrompt([entry]);
-    setIsLoading(true);
-    setLoadingLabel(`Quiz question ${index + 1} of ${total}...`);
-    setActiveStream({ color: 'cyan', text: '' });
-
-    let responseBuffer = '';
-    try {
-      await callDeepSeekStream(prompt, entry.input, (chunk) => {
-        responseBuffer += chunk;
-        setActiveStream((prev) => {
-          const previous = prev || { color: 'cyan', text: '' };
-          return { ...previous, text: previous.text + chunk };
-        });
-      });
-
-      const question = responseBuffer.trim();
-      if (question) {
-        appendMessage(question, { color: 'cyan' });
-        setQuizState((prev) => prev ? { ...prev, currentQuestion: question, awaitingAnswer: true, userAnswer: '' } : null);
-      }
-    } catch (error) {
-      appendMessage(`Quiz error: ${error.message}`, { color: 'red' });
-      setQuizState(null);
-    } finally {
-      setActiveStream(null);
-      setIsLoading(false);
-    }
+  const presentQuizQuestion = (entry, index, total) => {
+    // The source text IS the question — recall its translation. No LLM call needed.
+    appendMessage(`Q${index + 1}/${total} — Recall the translation for:`, { color: 'cyan', bold: true });
+    appendMessage(entry.source, { color: 'cyan' });
+    setQuizState((prev) => prev ? { ...prev, currentQuestion: entry.source, awaitingAnswer: true, userAnswer: '' } : null);
   };
 
   const handleQuizAnswer = async (answer) => {
@@ -343,7 +321,7 @@ function App() {
     if (!state || !state.awaitingAnswer) return;
 
     const entry = state.entries[state.index];
-    const scoringPrompt = `You are a quiz scorer. The user was asked to fill in the blank for this translation entry:\n\nInput: ${entry.input}\nExpected translation: ${entry.response}\n\nThe user answered: "${answer}"\n\nRespond with a JSON object: {"correct": true/false, "explanation": "brief explanation"}`;
+    const scoringPrompt = `You are a translation quiz scorer.\nSource text: ${entry.source}\nExpected translation: ${entry.target}\nThe user answered: "${answer}"\n\nReply ONLY with a JSON object: {"correct": true or false, "explanation": "one short sentence"}`;
 
     setIsLoading(true);
     setLoadingLabel('Scoring answer...');
@@ -356,7 +334,7 @@ function App() {
 
       const result = parseQuizResponse(responseBuffer);
       const newScore = state.score + (result.correct ? 1 : 0);
-      appendMessage(result.correct ? '✓ Correct!' : `✗ Incorrect. Expected: ${entry.response}`, { color: result.correct ? 'green' : 'red' });
+      appendMessage(result.correct ? '✓ Correct!' : `✗ Incorrect. Expected: ${entry.target}`, { color: result.correct ? 'green' : 'red' });
       if (result.explanation) appendMessage(result.explanation, { dim: true });
 
       const nextIndex = state.index + 1;

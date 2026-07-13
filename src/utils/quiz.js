@@ -28,19 +28,16 @@ export async function getQuizEntries(daysBack = 7) {
   cutoffDate.setDate(cutoffDate.getDate() - daysBack);
   const cutoffStr = cutoffDate.toISOString().split('T')[0];
 
-  const relevantFiles = historyFiles.filter(file => {
-    // Extract date from filename (assumes format YYYY-MM-DD.md)
-    const dateMatch = file.match(/^(\d{4}-\d{2}-\d{2})\.md$/);
-    if (!dateMatch) return false;
-    return dateMatch[1] >= cutoffStr;
-  });
+  // listHistory() returns [{ date, count }], not filenames.
+  const relevantFiles = historyFiles.filter(
+    (h) => h && typeof h.date === 'string' && h.date >= cutoffStr
+  );
 
   const entries = [];
 
-  for (const file of relevantFiles) {
-    const date = file.replace('.md', '');
-    const content = await readHistory(date);
-    
+  for (const { date } of relevantFiles) {
+    const content = readHistory(date);
+
     if (!content) continue;
 
     // Parse history entries - each entry is separated by "---" or newlines
@@ -51,35 +48,23 @@ export async function getQuizEntries(daysBack = 7) {
       const trimmedBlock = block.trim();
       if (!trimmedBlock) continue;
 
-      // Extract type from heading
-      const typeMatch = trimmedBlock.match(/^##\s+(translate|check)/im);
-      if (!typeMatch) continue;
+      // Heading is "## [HH:MM] translate" — a time tag precedes the type.
+      const typeMatch = trimmedBlock.match(/^##\s+(?:\[[^\]]*\]\s+)?(translate|check)/im);
+      if (!typeMatch || typeMatch[1].toLowerCase() !== 'translate') continue;
 
-      const type = typeMatch[1].toLowerCase();
-      
-      // Only include translation entries (not checks) for quiz material
-      if (type !== 'translate') continue;
-
-      // Extract source text
+      // Format: "**Input:** <source>" then the raw translation on following lines
+      // (saveHistory writes no "**Response:**" label).
       const sourceMatch = trimmedBlock.match(/\*\*Input:\*\*\s*(.+)/i);
       if (!sourceMatch) continue;
 
-      // Extract target/response text
-      const targetMatch = trimmedBlock.match(/\*\*Response:\*\*\s*(.+)/i);
-      if (!targetMatch) continue;
-
       const source = sourceMatch[1].trim();
-      const target = targetMatch[1].trim();
+      const target = trimmedBlock
+        .slice(trimmedBlock.indexOf(sourceMatch[0]) + sourceMatch[0].length)
+        .trim();
 
-      // Skip empty entries or entries that are just checks
       if (!source || !target) continue;
 
-      entries.push({
-        date,
-        source,
-        target,
-        type
-      });
+      entries.push({ date, source, target });
     }
   }
 
@@ -93,129 +78,26 @@ export async function getQuizEntries(daysBack = 7) {
 }
 
 /**
- * Build a system prompt for DeepSeek to present quiz entries as fill-in-the-blank questions
- * and score user answers.
- *
- * @param {QuizEntry[]} entries - Array of quiz entries to include in the prompt
- * @returns {string} The constructed system prompt
- * @throws {Error} If entries array is empty
- */
-export function buildQuizPrompt(entries) {
-  if (!Array.isArray(entries) || entries.length === 0) {
-    throw new Error('entries must be a non-empty array');
-  }
-
-  const entryList = entries.map((entry, index) => {
-    return `Entry ${index + 1}:
-- Source: ${entry.source}
-- Target: ${entry.target}
-- Date: ${entry.date}`;
-  }).join('\n\n');
-
-  return `You are an active recall quiz master. I will provide you with translation pairs from my learning history. For each pair, you need to:
-
-1. Present the source text and ask me to provide the translation (fill-in-the-blank style)
-2. Wait for my answer
-3. Score my answer (correct/partially correct/incorrect)
-4. Provide the correct answer and any helpful notes
-
-Here are the entries to quiz me on:
-
-${entryList}
-
-Instructions:
-- Present ONE entry at a time
-- For each entry, first show the source text and ask for the translation
-- After I respond, evaluate my answer and provide:
-  - A score (0-100)
-  - The correct answer
-  - Brief feedback on what I got right/wrong
-- Then move to the next entry
-- At the end, provide a summary of my overall score
-
-Format your response for each entry as:
-QUESTION: [source text]
-[wait for user answer]
-SCORE: [score]/100
-CORRECT: [correct translation]
-FEEDBACK: [brief feedback]`;
-}
-
-/**
- * Parse the raw response from DeepSeek to extract score and corrections.
+ * Parse the scorer's reply for a single answer.
  *
  * @param {string} raw - The raw response string from DeepSeek
- * @returns {Object} Parsed quiz result with score and corrections
- * @property {number} score - The overall score (0-100)
- * @property {Array<{question: string, userAnswer: string, correctAnswer: string, score: number, feedback: string}>} corrections - Array of individual entry results
- * @property {string} summary - Overall summary text if present
+ * @returns {{ correct: boolean, explanation: string }}
  */
 export function parseQuizResponse(raw) {
-  if (!raw || typeof raw !== 'string') {
+  const fallback = { correct: false, explanation: '' };
+  if (!raw || typeof raw !== 'string') return fallback;
+
+  // The scorer is asked to reply with {"correct": bool, "explanation": string}.
+  // Tolerate code fences / surrounding prose by grabbing the first JSON object.
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) return fallback;
+  try {
+    const obj = JSON.parse(match[0]);
     return {
-      score: 0,
-      corrections: [],
-      summary: ''
+      correct: Boolean(obj.correct),
+      explanation: typeof obj.explanation === 'string' ? obj.explanation.trim() : ''
     };
+  } catch (_) {
+    return fallback;
   }
-
-  const corrections = [];
-  let overallScore = 0;
-  let summary = '';
-
-  // Split response into individual entry blocks
-  const entryBlocks = raw.split(/(?=QUESTION:)/i);
-
-  for (const block of entryBlocks) {
-    const trimmedBlock = block.trim();
-    if (!trimmedBlock) continue;
-
-    // Extract question
-    const questionMatch = trimmedBlock.match(/QUESTION:\s*(.+?)(?:\n|$)/i);
-    const question = questionMatch ? questionMatch[1].trim() : '';
-
-    // Extract user answer (text between QUESTION and SCORE)
-    const userAnswerMatch = trimmedBlock.match(/QUESTION:.*?\n([\s\S]*?)(?=SCORE:)/i);
-    const userAnswer = userAnswerMatch ? userAnswerMatch[1].trim() : '';
-
-    // Extract score
-    const scoreMatch = trimmedBlock.match(/SCORE:\s*(\d+)\/100/i);
-    const score = scoreMatch ? parseInt(scoreMatch[1], 10) : 0;
-
-    // Extract correct answer
-    const correctMatch = trimmedBlock.match(/CORRECT:\s*(.+?)(?:\n|$)/i);
-    const correctAnswer = correctMatch ? correctMatch[1].trim() : '';
-
-    // Extract feedback
-    const feedbackMatch = trimmedBlock.match(/FEEDBACK:\s*(.+?)(?:\n|$)/i);
-    const feedback = feedbackMatch ? feedbackMatch[1].trim() : '';
-
-    if (question || correctAnswer) {
-      corrections.push({
-        question,
-        userAnswer,
-        correctAnswer,
-        score,
-        feedback
-      });
-    }
-  }
-
-  // Try to extract overall summary
-  const summaryMatch = raw.match(/SUMMARY:?\s*([\s\S]*?)$/i);
-  if (summaryMatch) {
-    summary = summaryMatch[1].trim();
-  }
-
-  // Calculate overall score from individual scores
-  if (corrections.length > 0) {
-    const totalScore = corrections.reduce((sum, entry) => sum + entry.score, 0);
-    overallScore = Math.round(totalScore / corrections.length);
-  }
-
-  return {
-    score: overallScore,
-    corrections,
-    summary
-  };
 }
