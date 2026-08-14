@@ -8,7 +8,7 @@ import { getTranslatePrompt, getCheckPrompt, getNoteGenPrompt, buildSourceMessag
 import { loadConfig, saveConfig } from './config.js';
 import { saveHistory, listHistory, readHistory, getHistoryDir } from './history.js';
 import { listGeneratedNotes, readGeneratedNote, saveGeneratedNote, getNotesDir } from './notes.js';
-import { isWordLookup } from './utils/detect.js';
+import { isWordLookup, detectSourceLang } from './utils/detect.js';
 import { extractSpeakable } from './utils/speakable.js';
 import { pushHistory, navigateHistory } from './utils/inputHistory.js';
 import { getQuizEntries, parseQuizResponse } from './utils/quiz.js';
@@ -155,8 +155,9 @@ function App() {
 
   const runTranslate = async (text) => {
     const wordLookup = isWordLookup(text);
+    const sourceLang = detectSourceLang(text);
     await streamAndRender({
-      systemPrompt: getTranslatePrompt(currentLang, isSimpleMode, wordLookup),
+      systemPrompt: getTranslatePrompt(currentLang, isSimpleMode, wordLookup, sourceLang),
       userText: buildSourceMessage(text, 'translate'),
       streamColor: 'yellow',
       loadingText: wordLookup ? 'Looking up word...' : 'Translating...',
