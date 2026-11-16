@@ -16,7 +16,7 @@ export async function callDeepSeekStream(systemPrompt, userText, onChunk) {
   }
 
   const payload = {
-    model: 'deepseek-chat',
+    model: process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash',
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userText }

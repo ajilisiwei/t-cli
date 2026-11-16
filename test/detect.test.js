@@ -1,6 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isWordLookup, containsCJK } from '../src/utils/detect.js';
+import { isWordLookup, containsCJK, detectSourceLang } from '../src/utils/detect.js';
+
+test('detectSourceLang: pure Chinese and pure English', () => {
+  assert.equal(detectSourceLang('今天天气真好'), 'zh');
+  assert.equal(detectSourceLang('It works on my machine.'), 'en');
+});
+
+test('detectSourceLang: mixed input with any CJK is Chinese source', () => {
+  assert.equal(detectSourceLang('珠宝估值的wrapped GraphQL API已经部署到开发环境了。'), 'zh');
+  assert.equal(detectSourceLang('这个 bug 很难 debug'), 'zh');
+  assert.equal(detectSourceLang('deploy 到 prod'), 'zh');
+});
+
+test('detectSourceLang: empty input falls back to English', () => {
+  assert.equal(detectSourceLang(''), 'en');
+});
 
 test('isWordLookup: single English words', () => {
   assert.equal(isWordLookup('apple'), true);
