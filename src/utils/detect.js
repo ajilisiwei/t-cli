@@ -24,6 +24,18 @@ export function containsCJK(text) {
 }
 
 /**
+ * Deterministically detect the translation source language.
+ * Any CJK character means the source is Chinese (mixed sentences like
+ * "珠宝估值的wrapped GraphQL API已部署" are Chinese with embedded English
+ * terms), otherwise English. Keeps direction out of the model's hands.
+ * @param {string} text
+ * @returns {'zh'|'en'}
+ */
+export function detectSourceLang(text) {
+  return containsCJK(text) ? 'zh' : 'en';
+}
+
+/**
  * Detect if input is a URL (starts with http:// or https://).
  * @param {string} text
  * @returns {boolean}

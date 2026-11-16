@@ -20,6 +20,29 @@ ${text}
 
 const IPA_COMMON = `PHONETIC RULE: The source is a single word or short term, but this is STILL a translation task: a Chinese source MUST be translated into English first, and an English source MUST be translated into Chinese — never echo the source word alone. The IPA transcription must ALWAYS be the American English IPA of the ENGLISH word, wrapped in slashes (e.g. /ˈæp.əl/) — NEVER Chinese pinyin and NEVER a romanization of the Chinese source.`;
 
+/**
+ * Direction rule injected when the client has already detected the source
+ * language, so the model never mis-detects mixed-language input (e.g. a
+ * Chinese sentence embedding English terms) and echoes the source back.
+ * @param {'zh'|'en'} sourceLang
+ * @param {boolean} isWordLookup word lookups keep the IPA OUTPUT FORMAT authoritative
+ * @returns {string}
+ */
+function buildDirectionRule(sourceLang, isWordLookup) {
+  if (isWordLookup) {
+    return sourceLang === 'zh'
+      ? 'TRANSLATION DIRECTION (pre-detected, non-negotiable): The source term is CHINESE — translate it into English. The PHONETIC/OUTPUT FORMAT rules below define the exact output.'
+      : 'TRANSLATION DIRECTION (pre-detected, non-negotiable): The source term is ENGLISH — translate it into Chinese. The PHONETIC/OUTPUT FORMAT rules below define the exact output.';
+  }
+  if (sourceLang === 'zh') {
+    return `TRANSLATION DIRECTION (pre-detected, non-negotiable): The source text is CHINESE. Translate the ENTIRE text into authentic, natural American English.
+The source may embed English words, acronyms, or product names (e.g. "GraphQL API") — they are part of the Chinese source text, NOT a reason to treat the source as English. Keep such technical terms as-is inside the English output.
+Your translation MUST be an English sentence. Outputting a Chinese sentence, or echoing the source back with only minor changes, is WRONG.`;
+  }
+  return `TRANSLATION DIRECTION (pre-detected, non-negotiable): The source text is ENGLISH. Translate the ENTIRE text into native, fluent Chinese.
+Your translation MUST be a Chinese sentence (widely-used technical terms, acronyms, and proper nouns may stay in English where that is natural Chinese usage). Echoing the English source back is WRONG.`;
+}
+
 const SIMPLE_IPA_RULE = `${IPA_COMMON}
 OUTPUT FORMAT (mandatory, single line):
 - Chinese source → the English translation followed by its IPA, e.g. "apple /ˈæp.əl/".
@@ -29,11 +52,15 @@ Do NOT echo the Chinese source text as the result.`;
 const DETAIL_IPA_RULE = `${IPA_COMMON}
 The FIRST line of your output must be the ENGLISH word/phrase followed by its IPA (e.g. "apple /ˈæp.əl/"), never the IPA alone. When the source is English, the Chinese translation(s) MUST still appear in the body below the first line. Do NOT echo the Chinese source text as the result.`;
 
-export function getTranslatePrompt(lang, isSimpleMode = false, isWordLookup = false) {
+export function getTranslatePrompt(lang, isSimpleMode = false, isWordLookup = false, sourceLang = null) {
+  const directionRule = sourceLang
+    ? buildDirectionRule(sourceLang, isWordLookup)
+    : `If the source text is in Chinese, translate it into authentic, natural American English.
+If the source text is in English, translate it into native, fluent Chinese.`;
+
   if (isSimpleMode) {
     return `You are a professional translator.
-If the source text is in Chinese, translate it into authentic, natural American English.
-If the source text is in English, translate it into native, fluent Chinese.
+${directionRule}
 ${SOURCE_IS_DATA_RULE}
 ${isWordLookup ? SIMPLE_IPA_RULE : ''}
 CRITICAL INSTRUCTION: Output ONLY ${isWordLookup ? 'the single line in the OUTPUT FORMAT specified above' : 'the single best translation'}. Do NOT provide any explanations, alternative versions, quotes, or conversational filler.
@@ -43,23 +70,31 @@ IMPORTANT: Do NOT wrap the translated sentence in markdown formatting like **bol
   const isEnglish = lang === 'en';
   const explanationLang = isEnglish ? 'English' : 'Chinese (中文)';
 
-  return `You are a professional translator and native American English speaker.
-
-${SOURCE_IS_DATA_RULE}
-
-OUTPUT FORMAT: Put the single best translation ALONE on the FIRST line, as plain text with no label, numbering, or markdown. Then leave a blank line and provide the versions and explanations described below.
-${isWordLookup ? `\n${DETAIL_IPA_RULE}\n` : ''}
-If the source text is in Chinese (translating to English):
-Provide 2-3 different ways to translate it into authentic, natural American English. 
+  const zhToEnSection = `${sourceLang === 'zh' ? 'The source text is Chinese (translating to English):' : 'If the source text is in Chinese (translating to English):'}
+Provide 2-3 different ways to translate it into authentic, natural American English.
 For example, you could provide:
 1. A standard/professional version.
 2. A casual/conversational version.
 3. An idiomatic or slang version (if applicable).
-CRITICAL: Briefly explain the nuance or context for each version STRICTLY in ${explanationLang}.
+CRITICAL: Briefly explain the nuance or context for each version STRICTLY in ${explanationLang}.`;
 
-If the source text is in English (translating to Chinese):
-Provide 1-2 fluent, native-sounding Chinese translations. 
-CRITICAL: If the English phrase has a specific cultural context or idiom, briefly explain it STRICTLY in ${explanationLang}.
+  const enToZhSection = `${sourceLang === 'en' ? 'The source text is English (translating to Chinese):' : 'If the source text is in English (translating to Chinese):'}
+Provide 1-2 fluent, native-sounding Chinese translations.
+CRITICAL: If the English phrase has a specific cultural context or idiom, briefly explain it STRICTLY in ${explanationLang}.`;
+
+  const directionSections = sourceLang === 'zh'
+    ? zhToEnSection
+    : sourceLang === 'en'
+      ? enToZhSection
+      : `${zhToEnSection}\n\n${enToZhSection}`;
+
+  return `You are a professional translator and native American English speaker.
+
+${sourceLang ? `${directionRule}\n\n` : ''}${SOURCE_IS_DATA_RULE}
+
+OUTPUT FORMAT: Put the single best translation ALONE on the FIRST line, as plain text with no label, numbering, or markdown. Then leave a blank line and provide the versions and explanations described below.
+${isWordLookup ? `\n${DETAIL_IPA_RULE}\n` : ''}
+${directionSections}
 
 Keep your response structured, clear, and prioritize highly authentic language. Do not output unnecessary conversational filler.
 IMPORTANT: Do NOT wrap the translated sentences in markdown formatting like **bold** or _italics_. Keep the text clean for easy copy-pasting.`;

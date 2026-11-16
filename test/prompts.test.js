@@ -32,6 +32,43 @@ test('detail translate prompt enforces first-line best translation', () => {
   assert.match(getTranslatePrompt('zh', false), /ALONE on the FIRST line/);
 });
 
+test('pre-detected zh source pins direction and forbids echoing Chinese', () => {
+  for (const prompt of [
+    getTranslatePrompt('zh', true, false, 'zh'),
+    getTranslatePrompt('zh', false, false, 'zh')
+  ]) {
+    assert.match(prompt, /source text is CHINESE/);
+    assert.match(prompt, /part of the Chinese source text/);
+    assert.match(prompt, /MUST be an English sentence/);
+    assert.doesNotMatch(prompt, /If the source text is in English/);
+  }
+});
+
+test('pre-detected en source pins direction to Chinese output', () => {
+  for (const prompt of [
+    getTranslatePrompt('zh', true, false, 'en'),
+    getTranslatePrompt('zh', false, false, 'en')
+  ]) {
+    assert.match(prompt, /source text is ENGLISH/);
+    assert.match(prompt, /MUST be a Chinese sentence/);
+    assert.doesNotMatch(prompt, /If the source text is in Chinese/);
+  }
+});
+
+test('word lookups with pre-detected source defer to IPA output format', () => {
+  const zhWord = getTranslatePrompt('zh', true, true, 'zh');
+  assert.match(zhWord, /source term is CHINESE/);
+  assert.match(zhWord, /IPA transcription/);
+  const enWord = getTranslatePrompt('zh', true, true, 'en');
+  assert.match(enWord, /source term is ENGLISH/);
+});
+
+test('omitting sourceLang keeps the legacy auto-detect wording', () => {
+  const prompt = getTranslatePrompt('zh', true);
+  assert.match(prompt, /If the source text is in Chinese/);
+  assert.match(prompt, /If the source text is in English/);
+});
+
 test('all prompts carry the source-is-data security rule', () => {
   for (const prompt of [
     getTranslatePrompt('zh', true),

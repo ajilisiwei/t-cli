@@ -8,9 +8,10 @@ import { getTranslatePrompt, getCheckPrompt, getNoteGenPrompt, buildSourceMessag
 import { loadConfig, saveConfig } from './config.js';
 import { saveHistory, listHistory, readHistory, getHistoryDir } from './history.js';
 import { listGeneratedNotes, readGeneratedNote, saveGeneratedNote, getNotesDir } from './notes.js';
-import { isWordLookup } from './utils/detect.js';
+import { isWordLookup, detectSourceLang } from './utils/detect.js';
 import { extractSpeakable } from './utils/speakable.js';
 import { pushHistory, navigateHistory } from './utils/inputHistory.js';
+import { getQuizEntries, parseQuizResponse } from './utils/quiz.js';
 import * as tts from './tts.js';
 
 const h = React.createElement;
@@ -49,6 +50,7 @@ function buildWelcomeMessages(lang, isSimpleMode) {
     makeMessage('/notes          Generate or view AI notes', { color: 'green' }),
     makeMessage('/say            Read the last result aloud (/say stop to cancel)', { color: 'green' }),
     makeMessage('/clear          Clear screen', { color: 'green' }),
+    makeMessage('/quiz [days]    Active recall quiz from recent history', { color: 'green' }),
     makeMessage('exit | quit     Quit application', { color: 'green' })
   ];
 }
@@ -71,6 +73,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingLabel, setLoadingLabel] = useState('Processing...');
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [quizState, setQuizState] = useState(null);
   const [activeStream, setActiveStream] = useState(null);
   const [inputHistory, setInputHistory] = useState([]);
   const [inputEpoch, setInputEpoch] = useState(0);
@@ -85,6 +88,7 @@ function App() {
   const appendMessage = (text, options = {}) => {
     if (!text) return;
     setMessages((prev) => [...prev, makeMessage(text, options)]);
+    if (quizState) setQuizState((prev) => prev ? { ...prev, awaitingAnswer: false } : null);
   };
 
   const clearOutput = () => {
@@ -151,8 +155,9 @@ function App() {
 
   const runTranslate = async (text) => {
     const wordLookup = isWordLookup(text);
+    const sourceLang = detectSourceLang(text);
     await streamAndRender({
-      systemPrompt: getTranslatePrompt(currentLang, isSimpleMode, wordLookup),
+      systemPrompt: getTranslatePrompt(currentLang, isSimpleMode, wordLookup, sourceLang),
       userText: buildSourceMessage(text, 'translate'),
       streamColor: 'yellow',
       loadingText: wordLookup ? 'Looking up word...' : 'Translating...',
@@ -278,6 +283,77 @@ function App() {
     });
   };
 
+  const runQuizCommand = async (fullInput) => {
+    const arg = parseCommandArg(fullInput, '/quiz');
+    const daysBack = arg ? parseInt(arg, 10) : 7;
+    if (Number.isNaN(daysBack) || daysBack < 1) {
+      appendMessage('Tip: Use /quiz [days] where days is a positive number (default 7).', { color: 'yellow' });
+      return;
+    }
+
+    const entries = await getQuizEntries(daysBack);
+    if (entries.length === 0) {
+      appendMessage('No history entries found for the given period. Translate something first!', { color: 'yellow' });
+      return;
+    }
+
+    appendMessage(`Starting quiz with ${entries.length} entries. Type your answers after each question.`, { color: 'cyan' });
+    setQuizState({
+      entries,
+      index: 0,
+      score: 0,
+      total: entries.length,
+      awaitingAnswer: false,
+      currentQuestion: null,
+      userAnswer: ''
+    });
+    await presentQuizQuestion(entries[0], 0, entries.length);
+  };
+
+  const presentQuizQuestion = (entry, index, total) => {
+    // The source text IS the question — recall its translation. No LLM call needed.
+    appendMessage(`Q${index + 1}/${total} — Recall the translation for:`, { color: 'cyan', bold: true });
+    appendMessage(entry.source, { color: 'cyan' });
+    setQuizState((prev) => prev ? { ...prev, currentQuestion: entry.source, awaitingAnswer: true, userAnswer: '' } : null);
+  };
+
+  const handleQuizAnswer = async (answer) => {
+    const state = quizState;
+    if (!state || !state.awaitingAnswer) return;
+
+    const entry = state.entries[state.index];
+    const scoringPrompt = `You are a translation quiz scorer.\nSource text: ${entry.source}\nExpected translation: ${entry.target}\nThe user answered: "${answer}"\n\nReply ONLY with a JSON object: {"correct": true or false, "explanation": "one short sentence"}`;
+
+    setIsLoading(true);
+    setLoadingLabel('Scoring answer...');
+
+    let responseBuffer = '';
+    try {
+      await callDeepSeekStream(scoringPrompt, '', (chunk) => {
+        responseBuffer += chunk;
+      });
+
+      const result = parseQuizResponse(responseBuffer);
+      const newScore = state.score + (result.correct ? 1 : 0);
+      appendMessage(result.correct ? '✓ Correct!' : `✗ Incorrect. Expected: ${entry.target}`, { color: result.correct ? 'green' : 'red' });
+      if (result.explanation) appendMessage(result.explanation, { dim: true });
+
+      const nextIndex = state.index + 1;
+      if (nextIndex >= state.total) {
+        appendMessage(`Quiz complete! Score: ${newScore}/${state.total}`, { color: 'cyan', bold: true });
+        setQuizState(null);
+      } else {
+        setQuizState((prev) => prev ? { ...prev, index: nextIndex, score: newScore, awaitingAnswer: false } : null);
+        await presentQuizQuestion(state.entries[nextIndex], nextIndex, state.total);
+      }
+    } catch (error) {
+      appendMessage(`Scoring error: ${error.message}`, { color: 'red' });
+      setQuizState(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const runSayCommand = async (fullInput) => {
     const arg = parseCommandArg(fullInput, '/say');
 
@@ -323,6 +399,11 @@ function App() {
     if (lowerInput === 'exit' || lowerInput === 'quit') {
       tts.stop();
       exit();
+      return;
+    }
+
+    if (lowerInput === '/quiz' || lowerInput.startsWith('/quiz ')) {
+      await runQuizCommand(inputText);
       return;
     }
 
@@ -388,6 +469,12 @@ function App() {
   };
 
   const onSubmitInput = (value) => {
+    if (quizState && quizState.awaitingAnswer) {
+      setInputHistory((prev) => pushHistory(prev, value));
+      setInput('');
+      void handleQuizAnswer(value);
+      return;
+    }
     if (loadingRef.current) return;
     setInputHistory((prev) => pushHistory(prev, value));
     historyIndexRef.current = null;
