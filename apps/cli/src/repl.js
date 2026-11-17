@@ -14,6 +14,7 @@ import { extractSpeakable } from '@t-cli/core/speakable';
 import { detectSpellingCorrection } from '@t-cli/core/spelling';
 import { pushHistory, navigateHistory } from './utils/inputHistory.js';
 import { getQuizEntries, parseQuizResponse } from './utils/quiz.js';
+import { useSync } from './sync/useSync.js';
 import * as tts from './tts.js';
 
 const h = React.createElement;
@@ -53,6 +54,9 @@ function buildWelcomeMessages(lang, isSimpleMode) {
     makeMessage('/say            Read the last result aloud (/say stop to cancel)', { color: 'green' }),
     makeMessage('/clear          Clear screen', { color: 'green' }),
     makeMessage('/quiz [days]    Active recall quiz from recent history', { color: 'green' }),
+    makeMessage('/login          Link this CLI to your account (/login cancel to abort)', { color: 'green' }),
+    makeMessage('/logout         Unlink this CLI', { color: 'green' }),
+    makeMessage('/sync [now]     Sync status (/sync now to push immediately)', { color: 'green' }),
     makeMessage('exit | quit     Quit application', { color: 'green' })
   ];
 }
@@ -93,6 +97,15 @@ function App() {
     if (quizState) setQuizState((prev) => prev ? { ...prev, awaitingAnswer: false } : null);
   };
 
+  // Messages from background work (sync, login polling). Unlike appendMessage
+  // it leaves quiz state alone, so a notice never swallows a pending answer.
+  const appendNotice = (text, options = {}) => {
+    if (!text) return;
+    setMessages((prev) => [...prev, makeMessage(text, options)]);
+  };
+
+  const sync = useSync({ notify: appendNotice });
+
   const clearOutput = () => {
     setMessages(buildWelcomeMessages(currentLang, isSimpleMode));
     setActiveStream(null);
@@ -100,10 +113,13 @@ function App() {
 
   // Structured record for sync (outbox.jsonl). A failure must not break the
   // translation flow, so it is surfaced once per session, never via stdout.
+  // A successful write triggers a background push (no-op when sync is off).
   const entryLogWarnedRef = useRef(false);
   const recordEntry = (fields) => {
     const result = recordLiveEntry({ ...fields, mode: isSimpleMode ? 'simple' : 'detail' });
-    if (!result.ok && !entryLogWarnedRef.current) {
+    if (result.ok) {
+      sync.notifyRecorded();
+    } else if (!entryLogWarnedRef.current) {
       entryLogWarnedRef.current = true;
       appendMessage(`Warning: failed to write structured log (${result.error}). Markdown history is unaffected.`, { color: 'yellow' });
     }
@@ -479,6 +495,21 @@ function App() {
       return;
     }
 
+    if (lowerInput === '/login' || lowerInput.startsWith('/login ')) {
+      await sync.runLogin(parseCommandArg(lowerInput, '/login'));
+      return;
+    }
+
+    if (lowerInput === '/logout' || lowerInput.startsWith('/logout ')) {
+      await sync.runLogout();
+      return;
+    }
+
+    if (lowerInput === '/sync' || lowerInput.startsWith('/sync ')) {
+      await sync.runSyncCommand(parseCommandArg(lowerInput, '/sync'));
+      return;
+    }
+
     if (inputText.startsWith('/check ')) {
       await runCheck(inputText);
       return;
@@ -552,7 +583,7 @@ function App() {
         ? h(Text, { color: 'cyan' }, h(Spinner, { type: 'dots' }), ` ${loadingLabel}`)
         : isSpeaking
           ? h(Text, { color: 'magenta' }, '🔊 Speaking... (/say stop to cancel)')
-          : h(Text, { dimColor: true }, `Ready  lang=${currentLang}  mode=${statusMode}`)
+          : h(Text, { dimColor: true }, `Ready  lang=${currentLang}  mode=${statusMode}${sync.indicator ? `  ${sync.indicator}` : ''}`)
     ),
     h(
       Box,

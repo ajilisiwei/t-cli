@@ -13,6 +13,7 @@ A minimalist, stateless CLI tool powered by the DeepSeek API for interactive Eng
 8. **Clear Screen (`/clear`)**: Instantly clears the terminal output for a fresh view.
 9. **Stateless Requests**: No contextual memory between prompts, drastically reducing API token consumption.
 10. **Input History (`↑`/`↓`)**: Recall previously entered text and commands with the arrow keys, readline-style. Pressing `↓` past the newest entry restores your unsubmitted draft.
+11. **Record Sync (`/login`, `/sync`, `/logout`)**: Optionally push every translation / grammar check to your own t-cli sync server (see [Record Sync](#record-sync)).
 
 ## Installation
 
@@ -95,4 +96,23 @@ t-cli > exit
 ```
 
 To quit the tool: Type `exit`, `quit`, or press `Ctrl+C`.
+
+## Record Sync
+
+Every result is also appended to a local outbox (`~/.config/t-cli/outbox.jsonl`). When a sync server is configured and this CLI is logged in, the outbox is pushed to the server in the background (after each result, at startup, and on `/sync now`); acknowledged entries leave the outbox, entries the server rejects for good are moved to `outbox.rejected.jsonl`. Sync never blocks translating, and failures are retried with backoff (up to 5 min) and shown only by `/sync status`.
+
+Sync is off until a server URL is set, either as an environment variable (or in `.env`):
+```bash
+export TCLI_SERVER_URL="https://your-sync-server"
+```
+or as `"serverUrl": "https://your-sync-server"` in `~/.config/t-cli/config.json` (the environment variable wins).
+
+| Command | What it does |
+| --- | --- |
+| `/login` | Shows a 6-digit code and a QR code. Approve it in the mini-program (我的 → 授权 CLI); until that ships, the server admin runs `npm run admin -w @t-cli/server -- approve-device <code> <userId>`. Polling runs in the background; keep using t-cli meanwhile. `/login cancel` aborts. |
+| `/logout` | Revokes this device on the server (best effort) and deletes `~/.config/t-cli/auth.json`. |
+| `/sync status` (or `/sync`) | Server URL, logged-in user/device, pending and rejected counts, last push result, next retry. |
+| `/sync now` | Push immediately (skips any backoff wait). |
+
+Credentials live in `~/.config/t-cli/auth.json` (mode `0600`, honours `XDG_CONFIG_HOME`); tokens are only ever sent to the server they were issued by.
 # t-cli

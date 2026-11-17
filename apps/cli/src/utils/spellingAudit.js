@@ -457,25 +457,9 @@ function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-/**
- * Carry over lines appended to the outbox after it was read. The file may
- * only have grown at the end; any other change aborts the write.
- * @param {{ original: string, current: string, rewritten: string }} args
- *   original: content the rewrite was based on; current: content right
- *   before the rename; rewritten: rewriteOutbox(original).content
- * @returns {{ ok: true, content: string, tail: string } | { ok: false, reason: string }}
- */
-export function mergeConcurrentTail({ original, current, rewritten }) {
-  if (current === original) return { ok: true, content: rewritten, tail: '' };
-  if (!current.startsWith(original)) {
-    return { ok: false, reason: 'outbox changed other than by appending since it was read' };
-  }
-  if (original !== '' && !original.endsWith('\n')) {
-    return { ok: false, reason: 'outbox grew after a last line without a trailing newline' };
-  }
-  const tail = current.slice(original.length);
-  return { ok: true, content: `${rewritten}${tail}`, tail };
-}
+// The outbox tail merge lives with the other outbox I/O in entryLog.js (the
+// sync client rewrites the outbox too); re-exported for existing callers.
+export { mergeConcurrentTail } from '../entryLog.js';
 
 /**
  * Serializable correction plan, to review (and edit) before `--apply`.

@@ -14,7 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { parseArgs } from 'node:util';
-import { getOutboxPath } from '../src/entryLog.js';
+import { getOutboxPath, replaceOutboxContent } from '../src/entryLog.js';
 import {
   MAX_REQUESTS,
   MAX_WORDS_PER_REQUEST,
@@ -26,7 +26,6 @@ import {
   extractCompletionContent,
   findDeterministicCorrections,
   groupCorrections,
-  mergeConcurrentTail,
   parseOutboxContent,
   planBatches,
   rewriteOutbox,
@@ -193,34 +192,19 @@ function loadPlan(planPath, entries) {
 
 /**
  * Rewrite the outbox: backup, rewrite affected lines, carry over lines
- * appended since `original` was read, temp file + rename.
- * @param {string} outboxPath
+ * appended since `original` was read, temp file + rename
+ * (`replaceOutboxContent`, shared with the sync client).
  * @param {string} original content the corrections were computed from
  * @param {ReadonlyMap<string, string>} correctionsById
  * @returns {{ ok: true, backup: string, rewrite: ReturnType<typeof rewriteOutbox>, tailBytes: number }
  *         | { ok: false, error: string, backup: string|null }}
  */
-function applyCorrections(outboxPath, original, correctionsById) {
+function applyCorrections(original, correctionsById) {
   const rewrite = rewriteOutbox(original, correctionsById);
   if (rewrite.updated.length === 0) return { ok: true, backup: '', rewrite, tailBytes: 0 };
-  const backup = `${outboxPath}.bak-${new Date().toISOString().replace(/[:.]/g, '-')}`;
-  const tmp = `${outboxPath}.${process.pid}.tmp`;
-  try {
-    fs.writeFileSync(backup, original, { encoding: 'utf8', flag: 'wx' });
-  } catch (error) {
-    return { ok: false, error: `backup failed, nothing written: ${errorMessage(error)}`, backup: null };
-  }
-  try {
-    // Re-read as late as possible so a concurrently appended line is kept.
-    const merged = mergeConcurrentTail({ original, current: fs.readFileSync(outboxPath, 'utf8'), rewritten: rewrite.content });
-    if (!merged.ok) return { ok: false, error: `aborted, nothing written: ${merged.reason}`, backup };
-    fs.writeFileSync(tmp, merged.content, { encoding: 'utf8', mode: fs.statSync(outboxPath).mode });
-    fs.renameSync(tmp, outboxPath);
-    return { ok: true, backup, rewrite, tailBytes: Buffer.byteLength(merged.tail) };
-  } catch (error) {
-    fs.rmSync(tmp, { force: true });
-    return { ok: false, error: `write failed, outbox left as it was: ${errorMessage(error)}`, backup };
-  }
+  const result = replaceOutboxContent({ original, rewritten: rewrite.content, backup: true });
+  if (!result.ok) return { ok: false, error: result.error, backup: result.backup };
+  return { ok: true, backup: result.backup ?? '', rewrite, tailBytes: Buffer.byteLength(result.tail) };
 }
 
 // ---------------------------------------------------------------- reporting
@@ -357,7 +341,7 @@ async function main(argv) {
     }
     if (!options.apply) return llm.errors.length > 0 ? 1 : 0;
 
-    const result = applyCorrections(outboxPath, original, new Map(corrections.map((c) => [c.id, c.correction])));
+    const result = applyCorrections(original, new Map(corrections.map((c) => [c.id, c.correction])));
     printApplyResult(result);
     const rewriteProblems = result.ok
       ? result.rewrite.conflicts.length + result.rewrite.invalid.length + result.rewrite.notFound.length
