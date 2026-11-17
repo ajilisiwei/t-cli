@@ -1,0 +1,126 @@
+# Deploy the t-cli sync server to the Aliyun ECS it shares with heji.
+#
+# Manual only (workflow_dispatch) until the first deploy has been walked
+# through by hand — see apps/server/deploy/README.md. Prerequisites on the
+# server: /home/deploy/tcli/.env.prod (created by hand, never by CI), the
+# `tcli` database (deploy/init-db.sh), heji's nginx carrying the t-cli server
+# block, and the heji_default network.
+#
+# Repository secrets: SSH_PRIVATE_KEY (deploy user's key), SSH_HOST.
+name: Deploy server
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-server
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/t-cli-server
+
+jobs:
+  build:
+    name: Build image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        run: echo "image=${IMAGE,,}:sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: apps/server/Dockerfile
+          push: true
+          # The server is amd64; an arm64 image would die there with
+          # `exec format error`.
+          platforms: linux/amd64
+          tags: ${{ steps.meta.outputs.image }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    env:
+      TCLI_IMAGE: ${{ needs.build.outputs.image }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Open an SSH session
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      # The run's own short-lived token logs the server into ghcr, so no
+      # long-lived registry password has to live on the server.
+      - name: Registry login on the server
+        run: |
+          echo '${{ secrets.GITHUB_TOKEN }}' | ssh -i ~/.ssh/id_deploy deploy@${{ secrets.SSH_HOST }} \
+            'docker login ghcr.io -u ${{ github.actor }} --password-stdin'
+
+      - name: Upload compose file
+        run: |
+          ssh -i ~/.ssh/id_deploy deploy@${{ secrets.SSH_HOST }} 'mkdir -p /home/deploy/tcli'
+          scp -i ~/.ssh/id_deploy apps/server/deploy/docker-compose.prod.yml \
+            deploy@${{ secrets.SSH_HOST }}:/home/deploy/tcli/docker-compose.prod.yml
+          printf 'TCLI_IMAGE=%s\n' "$TCLI_IMAGE" > .deploy.env
+          scp -i ~/.ssh/id_deploy .deploy.env deploy@${{ secrets.SSH_HOST }}:/home/deploy/tcli/.env
+          rm -f .deploy.env
+
+      # Every `docker` call below gets `< /dev/null`: the script itself is fed
+      # through ssh's stdin, and a command that reads stdin would swallow the
+      # rest of it and exit 0 — heji lost a whole deploy tail to that.
+      - name: Migrate, then roll
+        run: |
+          ssh -i ~/.ssh/id_deploy deploy@${{ secrets.SSH_HOST }} 'bash -euo pipefail' <<'EOF'
+            cd /home/deploy/tcli
+            if [ ! -f .env.prod ]; then
+              echo 'missing /home/deploy/tcli/.env.prod — see apps/server/deploy/.env.prod.example'
+              exit 1
+            fi
+            set -a; . ./.env; set +a
+
+            docker pull "$TCLI_IMAGE" < /dev/null
+
+            # Migrations run BEFORE the new image serves traffic; the SQL files
+            # ship inside that image, so schema and code never drift apart.
+            docker run --rm --network heji_default --env-file .env.prod \
+              "$TCLI_IMAGE" node --disable-warning=ExperimentalWarning src/db/migrateCli.ts < /dev/null
+
+            docker compose -f docker-compose.prod.yml up -d < /dev/null
+
+            # Wait for the container's own healthcheck, then prove the route
+            # through heji's nginx network works from a sibling container.
+            for i in $(seq 1 30); do
+              status=$(docker inspect -f '{{.State.Health.Status}}' tcli-api < /dev/null)
+              [ "$status" = healthy ] && break
+              sleep 2
+            done
+            [ "$status" = healthy ] || { echo "tcli-api is $status"; docker logs --tail 50 tcli-api < /dev/null; exit 1; }
+
+            # Remove only this app's older images (never a global prune: the box
+            # also runs heji).
+            docker image ls --format '{{.Repository}}:{{.Tag}}' < /dev/null \
+              | grep -F "$(echo "$TCLI_IMAGE" | cut -d: -f1):" | grep -vxF "$TCLI_IMAGE" \
+              | xargs -r docker image rm || true
+          EOF

@@ -9,17 +9,38 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      # Throwaway database for the server's integration tests (production runs
+      # PostgreSQL 16 too). Trust auth: the service is reachable only from
+      # this job, so no credential is needed or stored.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: "20"
+          # The server runs TypeScript directly via Node's type stripping (>= 24).
+          node-version: "24"
           cache: npm
 
       - name: Install dependencies
         run: npm ci
 
+      - name: Typecheck server
+        run: npm run typecheck -w @t-cli/server
+
       - name: Run tests
-        # Unit tests are pure logic and never call the live API, so no secret is
-        # injected here — keeps the secret out of PR/fork build surfaces.
+        # Unit tests never call the live API, so no API secret is injected here —
+        # keeps secrets out of PR/fork build surfaces.
+        env:
+          TEST_DATABASE_URL: postgres://postgres@127.0.0.1:5432/postgres
         run: npm test
