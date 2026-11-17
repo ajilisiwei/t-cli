@@ -63,6 +63,95 @@ test('word lookups with pre-detected source defer to IPA output format', () => {
   assert.match(enWord, /source term is ENGLISH/);
 });
 
+const ENGLISH_WORD_PROMPTS = ['en', 'zh'].flatMap((lang) => [
+  { label: `simple/${lang}`, prompt: getTranslatePrompt(lang, true, true, 'en') },
+  { label: `detail/${lang}`, prompt: getTranslatePrompt(lang, false, true, 'en') }
+]);
+
+test('English word lookups put the correctly spelled word first, not the echoed source', () => {
+  for (const { label, prompt } of ENGLISH_WORD_PROMPTS) {
+    assert.match(prompt, /SPELLING RULE/, label);
+    assert.match(prompt, /HEAD WORD\. It MUST be correctly spelled/, label);
+    assert.match(prompt, /never repeat a misspelling/, label);
+    assert.match(prompt, /IPA and the translation MUST be those of the corrected word/, label);
+    assert.match(prompt, /it may be misspelled/, label);
+    // The old rule told the model to echo the source word verbatim.
+    assert.doesNotMatch(prompt, /English source → the source word, its IPA/, label);
+  }
+});
+
+test('English word lookups keep valid word forms exactly as typed', () => {
+  for (const { label, prompt } of ENGLISH_WORD_PROMPTS) {
+    assert.match(prompt, /the HEAD WORD is the source EXACTLY as typed/, label);
+    assert.match(prompt, /Do NOT lemmatize, Americanize, or "improve" a valid word/, label);
+    assert.match(prompt, /British spelling/, label);
+    assert.match(prompt, /in the SAME grammatical form as typed/, label);
+  }
+});
+
+test('English word lookups flag unrecognizable input instead of inventing a meaning', () => {
+  for (const { label, prompt } of ENGLISH_WORD_PROMPTS) {
+    assert.match(prompt, / — 无法识别的单词/, label);
+    assert.match(prompt, /Do NOT invent a meaning or an IPA/, label);
+  }
+});
+
+test('simple English word lookup format names the corrected spelling', () => {
+  for (const lang of ['en', 'zh']) {
+    const prompt = getTranslatePrompt(lang, true, true, 'en');
+    assert.match(prompt, /English source → the correctly spelled English word/);
+    assert.match(prompt, /Chinese translation is REQUIRED/);
+    assert.match(prompt, /OUTPUT FORMAT \(mandatory, single line\)/);
+    assert.doesNotMatch(prompt, /SPELLING NOTE/);
+  }
+});
+
+test('detail English word lookup notes corrections in the explanation language', () => {
+  const en = getTranslatePrompt('en', false, true, 'en');
+  assert.match(en, /FIRST line of your output must be the ENGLISH word/);
+  assert.match(en, /that word is the correctly spelled word/);
+  assert.match(en, /SPELLING NOTE: If you corrected a misspelled source/);
+  assert.match(en, /written STRICTLY in English, stating that the source was misspelled/);
+  assert.match(en, /Note: "acheived" is misspelled/);
+  assert.match(en, /Do NOT add this line when the source is spelled correctly/);
+
+  const zh = getTranslatePrompt('zh', false, true, 'en');
+  assert.match(zh, /written STRICTLY in Chinese \(中文\), stating that the source was misspelled/);
+  assert.match(zh, /拼写有误，正确拼写为/);
+  assert.doesNotMatch(zh, /Note: "acheived" is misspelled/);
+});
+
+test('Chinese-source word lookups carry no spelling rule', () => {
+  for (const isSimple of [true, false]) {
+    for (const lang of ['en', 'zh']) {
+      const prompt = getTranslatePrompt(lang, isSimple, true, 'zh');
+      assert.doesNotMatch(prompt, /SPELLING RULE|SPELLING NOTE/);
+      assert.match(prompt, /source term is CHINESE/);
+      assert.match(prompt, /translated into English first/);
+    }
+  }
+});
+
+test('word lookups without pre-detected source still get the spelling rule', () => {
+  assert.match(getTranslatePrompt('zh', true, true), /SPELLING RULE/);
+  assert.match(getTranslatePrompt('zh', false, true), /SPELLING NOTE/);
+});
+
+test('sentence translation prompts carry no spelling rule', () => {
+  for (const isSimple of [true, false]) {
+    for (const sourceLang of ['en', 'zh', null]) {
+      assert.doesNotMatch(getTranslatePrompt('zh', isSimple, false, sourceLang), /SPELLING RULE|SPELLING NOTE/);
+    }
+  }
+});
+
+test('spelling rule keeps the injection defense ahead of it', () => {
+  for (const { label, prompt } of ENGLISH_WORD_PROMPTS) {
+    assert.match(prompt, /CRITICAL SECURITY RULE/, label);
+    assert.ok(prompt.indexOf('CRITICAL SECURITY RULE') < prompt.indexOf('SPELLING RULE (English source only)'), label);
+  }
+});
+
 test('omitting sourceLang keeps the legacy auto-detect wording', () => {
   const prompt = getTranslatePrompt('zh', true);
   assert.match(prompt, /If the source text is in Chinese/);

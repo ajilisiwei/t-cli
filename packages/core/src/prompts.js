@@ -32,7 +32,7 @@ function buildDirectionRule(sourceLang, isWordLookup) {
   if (isWordLookup) {
     return sourceLang === 'zh'
       ? 'TRANSLATION DIRECTION (pre-detected, non-negotiable): The source term is CHINESE — translate it into English. The PHONETIC/OUTPUT FORMAT rules below define the exact output.'
-      : 'TRANSLATION DIRECTION (pre-detected, non-negotiable): The source term is ENGLISH — translate it into Chinese. The PHONETIC/OUTPUT FORMAT rules below define the exact output.';
+      : 'TRANSLATION DIRECTION (pre-detected, non-negotiable): The source term is ENGLISH (it may be misspelled — see the SPELLING RULE below) — translate the correctly spelled word into Chinese. The PHONETIC/OUTPUT FORMAT/SPELLING rules below define the exact output.';
   }
   if (sourceLang === 'zh') {
     return `TRANSLATION DIRECTION (pre-detected, non-negotiable): The source text is CHINESE. Translate the ENTIRE text into authentic, natural American English.
@@ -46,11 +46,55 @@ Your translation MUST be a Chinese sentence (widely-used technical terms, acrony
 const SIMPLE_IPA_RULE = `${IPA_COMMON}
 OUTPUT FORMAT (mandatory, single line):
 - Chinese source → the English translation followed by its IPA, e.g. "apple /ˈæp.əl/".
-- English source → the source word, its IPA, then the Chinese translation, e.g. "apple /ˈæp.əl/ 苹果". The Chinese translation is REQUIRED — outputting only the English word and its IPA is WRONG.
+- English source → the correctly spelled English word (the source exactly as typed if it is spelled correctly, otherwise its corrected spelling), its IPA, then the Chinese translation, e.g. "apple /ˈæp.əl/ 苹果". The Chinese translation is REQUIRED — outputting only the English word and its IPA is WRONG.
 Do NOT echo the Chinese source text as the result.`;
 
 const DETAIL_IPA_RULE = `${IPA_COMMON}
-The FIRST line of your output must be the ENGLISH word/phrase followed by its IPA (e.g. "apple /ˈæp.əl/"), never the IPA alone. When the source is English, the Chinese translation(s) MUST still appear in the body below the first line. Do NOT echo the Chinese source text as the result.`;
+The FIRST line of your output must be the ENGLISH word/phrase followed by its IPA (e.g. "apple /ˈæp.əl/"), never the IPA alone. For an English source, that word is the correctly spelled word: the source exactly as typed if it is spelled correctly, otherwise its corrected spelling. When the source is English, the Chinese translation(s) MUST still appear in the body below the first line. Do NOT echo the Chinese source text as the result.`;
+
+// Applies whenever the source may be English. Review material is built from
+// these lookups, so a misspelled head word would be memorized as-is; the client
+// detects corrections by comparing the head word with the input.
+const SPELLING_RULE = `SPELLING RULE (English source only): The English word that starts your FIRST line is the HEAD WORD. It MUST be correctly spelled, because the learner memorizes it — never repeat a misspelling, and never translate a misspelled word as if it were a real word.
+- Correctly spelled source → the HEAD WORD is the source EXACTLY as typed. Keep its inflection, plural, tense, British spelling (e.g. "flavour", "analyse"), hyphenation, and capitalization; keep proper nouns, brand names, technical terms, and rare but valid words. Do NOT lemmatize, Americanize, or "improve" a valid word: "studies" stays "studies" (not "study"), "flavour" stays "flavour" (not "flavor").
+- Misspelled source → the HEAD WORD is the most likely intended word, in the SAME grammatical form as typed (e.g. "acheived" → "achieved", "begining" → "beginning"). The IPA and the translation MUST be those of the corrected word.
+- Not recognizable as any English word (random letters, e.g. "qwzxkj") → output the source as typed followed by " — 无法识别的单词", e.g. "qwzxkj — 无法识别的单词". Do NOT invent a meaning or an IPA. Proper nouns, brand names, technical terms, and rare words ARE recognizable words.`;
+
+/**
+ * Detail-mode note that surfaces a spelling correction in the explanation language.
+ * @param {string} lang explanation language ('en' or 'zh')
+ * @returns {string}
+ */
+function buildSpellingNoteRule(lang) {
+  const isEnglish = lang === 'en';
+  const explanationLang = isEnglish ? 'English' : 'Chinese (中文)';
+  const example = isEnglish
+    ? 'Note: "acheived" is misspelled — the correct spelling is "achieved".'
+    : '注意："acheived" 拼写有误，正确拼写为 "achieved"。';
+  return `SPELLING NOTE: If you corrected a misspelled source, the body below the first line MUST include one short line, written STRICTLY in ${explanationLang}, stating that the source was misspelled and giving the correct spelling, e.g. ${example} Do NOT add this line when the source is spelled correctly. If the source is not a recognizable English word, the body is one short line in ${explanationLang} saying so.`;
+}
+
+/**
+ * Word-lookup rules for simple mode; spelling correction is skipped only for
+ * a pre-detected Chinese source.
+ * @param {'zh'|'en'|null} sourceLang
+ * @returns {string}
+ */
+function buildSimpleWordRule(sourceLang) {
+  return sourceLang === 'zh' ? SIMPLE_IPA_RULE : `${SIMPLE_IPA_RULE}\n${SPELLING_RULE}`;
+}
+
+/**
+ * Word-lookup rules for detail mode, including the spelling note.
+ * @param {'zh'|'en'|null} sourceLang
+ * @param {string} lang explanation language
+ * @returns {string}
+ */
+function buildDetailWordRule(sourceLang, lang) {
+  return sourceLang === 'zh'
+    ? DETAIL_IPA_RULE
+    : `${DETAIL_IPA_RULE}\n${SPELLING_RULE}\n${buildSpellingNoteRule(lang)}`;
+}
 
 export function getTranslatePrompt(lang, isSimpleMode = false, isWordLookup = false, sourceLang = null) {
   const directionRule = sourceLang
@@ -62,7 +106,7 @@ If the source text is in English, translate it into native, fluent Chinese.`;
     return `You are a professional translator.
 ${directionRule}
 ${SOURCE_IS_DATA_RULE}
-${isWordLookup ? SIMPLE_IPA_RULE : ''}
+${isWordLookup ? buildSimpleWordRule(sourceLang) : ''}
 CRITICAL INSTRUCTION: Output ONLY ${isWordLookup ? 'the single line in the OUTPUT FORMAT specified above' : 'the single best translation'}. Do NOT provide any explanations, alternative versions, quotes, or conversational filler.
 IMPORTANT: Do NOT wrap the translated sentence in markdown formatting like **bold** or _italics_. Output plain text only for easy copying.`;
   }
@@ -93,7 +137,7 @@ CRITICAL: If the English phrase has a specific cultural context or idiom, briefl
 ${sourceLang ? `${directionRule}\n\n` : ''}${SOURCE_IS_DATA_RULE}
 
 OUTPUT FORMAT: Put the single best translation ALONE on the FIRST line, as plain text with no label, numbering, or markdown. Then leave a blank line and provide the versions and explanations described below.
-${isWordLookup ? `\n${DETAIL_IPA_RULE}\n` : ''}
+${isWordLookup ? `\n${buildDetailWordRule(sourceLang, lang)}\n` : ''}
 ${directionSections}
 
 Keep your response structured, clear, and prioritize highly authentic language. Do not output unnecessary conversational filler.

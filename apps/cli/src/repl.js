@@ -11,6 +11,7 @@ import { recordLiveEntry } from './entryLog.js';
 import { listGeneratedNotes, readGeneratedNote, saveGeneratedNote, getNotesDir } from './notes.js';
 import { isWordLookup, detectSourceLang } from '@t-cli/core/detect';
 import { extractSpeakable } from '@t-cli/core/speakable';
+import { detectSpellingCorrection } from '@t-cli/core/spelling';
 import { pushHistory, navigateHistory } from './utils/inputHistory.js';
 import { getQuizEntries, parseQuizResponse } from './utils/quiz.js';
 import * as tts from './tts.js';
@@ -173,6 +174,13 @@ function App() {
       loadingText: wordLookup ? 'Looking up word...' : 'Translating...',
       onCompleted: (rawResponse) => {
         lastSpeakableRef.current = extractSpeakable(rawResponse, isSimpleMode);
+        const correction = wordLookup
+          ? detectSpellingCorrection({ input: text, output: rawResponse, srcLang: sourceLang, kind: 'word' })
+          : null;
+        if (correction) {
+          const label = currentLang === 'zh' ? '拼写更正' : 'Spelling corrected';
+          appendMessage(`${label}: ${text.trim()} → ${correction}`, { color: 'cyan' });
+        }
         saveHistory('Translation', text, rawResponse);
         recordEntry({ task: 'translate', input: text, output: rawResponse, srcLang: sourceLang });
       }

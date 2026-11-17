@@ -9,7 +9,8 @@
     "./detect": "./src/detect.js",
     "./speakable": "./src/speakable.js",
     "./entry": "./src/entry.js",
-    "./ulid": "./src/ulid.js"
+    "./ulid": "./src/ulid.js",
+    "./spelling": "./src/spelling.js"
   },
   "files": [
     "src"

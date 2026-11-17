@@ -5,6 +5,7 @@
  */
 import { isWordLookup } from './detect.js';
 import { ulid, ULID_RE } from './ulid.js';
+import { detectSpellingCorrection } from './spelling.js';
 
 export const ENTRY_SCHEMA_VERSION = 1;
 export const ENTRY_SOURCES = Object.freeze(['cli', 'mp']);
@@ -36,6 +37,9 @@ const ISO_WITH_OFFSET_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\
  * @property {'zh'|'en'|null} srcLang detected source language; null if unknown
  * @property {EntryMode} mode
  * @property {string} createdAt      ISO 8601 with local offset, second precision
+ * @property {string|null} correctedInput  intended spelling when an English word
+ *                                  lookup was misspelled (e.g. "prioritiz" -> "prioritize");
+ *                                  null otherwise. Review material must use this, not input.
  */
 
 /**
@@ -85,26 +89,32 @@ export function toLocalIsoString(date) {
  * @param {Date} [fields.createdAt]   defaults to now; truncated to seconds
  * @param {EntryKind} [fields.kind]   defaults to classifyKind(input)
  * @param {Uint8Array} [fields.entropy] fixed ULID entropy for deterministic IDs
+ * @param {string|null} [fields.correctedInput] defaults to detectSpellingCorrection()
  * @returns {Readonly<Entry>}
  * @throws {TypeError} when the fields do not form a valid entry
  */
-export function createEntry({ source, task, input, output, mode, srcLang = null, createdAt = new Date(), kind, entropy }) {
+export function createEntry({ source, task, input, output, mode, srcLang = null, createdAt = new Date(), kind, entropy, correctedInput }) {
   if (!(createdAt instanceof Date) || Number.isNaN(createdAt.getTime())) {
     throw new TypeError('createdAt must be a valid Date');
   }
   const seconds = new Date(Math.floor(createdAt.getTime() / 1000) * 1000);
   const trimmedInput = typeof input === 'string' ? normalizeText(input) : input;
+  const trimmedOutput = typeof output === 'string' ? normalizeText(output) : output;
+  const resolvedKind = kind ?? classifyKind(trimmedInput);
   const candidate = {
     v: ENTRY_SCHEMA_VERSION,
     id: ulid({ time: seconds.getTime(), entropy }),
     source,
     task,
-    kind: kind ?? classifyKind(trimmedInput),
+    kind: resolvedKind,
     input: trimmedInput,
-    output: typeof output === 'string' ? normalizeText(output) : output,
+    output: trimmedOutput,
     srcLang,
     mode,
     createdAt: toLocalIsoString(seconds),
+    correctedInput: correctedInput !== undefined
+      ? correctedInput
+      : detectSpellingCorrection({ input: trimmedInput, output: trimmedOutput, srcLang, kind: resolvedKind }),
   };
   const result = validateEntry(candidate);
   if (!result.ok) {
@@ -136,6 +146,11 @@ export function validateEntry(value) {
   if (typeof e.createdAt !== 'string' || !ISO_WITH_OFFSET_RE.test(e.createdAt) || Number.isNaN(Date.parse(e.createdAt))) {
     errors.push('createdAt must be ISO 8601 with offset, second precision');
   }
+  // Optional since lines written before the field existed lack it.
+  const correctedInput = e.correctedInput ?? null;
+  if (correctedInput !== null && (typeof correctedInput !== 'string' || correctedInput.trim() === '')) {
+    errors.push('correctedInput must be a non-empty string or null');
+  }
   if (errors.length > 0) return { ok: false, errors };
 
   return {
@@ -151,6 +166,7 @@ export function validateEntry(value) {
       srcLang: /** @type {'zh'|'en'|null} */ (e.srcLang),
       mode: /** @type {EntryMode} */ (e.mode),
       createdAt: /** @type {string} */ (e.createdAt),
+      correctedInput: /** @type {string|null} */ (correctedInput),
     }),
   };
 }

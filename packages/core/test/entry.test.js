@@ -52,6 +52,25 @@ test('createEntry: CR / CRLF line breaks from raw-mode pastes become LF', () => 
   assert.equal(entry.output, 'a\nb');
 });
 
+test('createEntry: derives correctedInput for a misspelled English word lookup', () => {
+  const entry = createEntry({ ...BASE, input: 'prioritiz', output: 'prioritize /praɪˈɔːr.ə.taɪz/ 优先考虑' });
+  assert.equal(entry.correctedInput, 'prioritize');
+  assert.equal(createEntry(BASE).correctedInput, null);
+});
+
+test('createEntry: an explicit correctedInput wins over detection', () => {
+  const entry = createEntry({ ...BASE, input: 'prioritiz', output: 'prioritiz /x/ 优先处理', correctedInput: 'prioritize' });
+  assert.equal(entry.correctedInput, 'prioritize');
+});
+
+test('validateEntry: lines written before correctedInput existed still parse', () => {
+  const { correctedInput, ...legacy } = createEntry(BASE);
+  const result = validateEntry(legacy);
+  assert.equal(result.ok, true);
+  assert.equal(result.entry.correctedInput, null);
+  assert.equal(validateEntry({ ...legacy, correctedInput: '' }).ok, false);
+});
+
 test('createEntry: fixed entropy gives a deterministic id', () => {
   const entropy = new Uint8Array(10).fill(42);
   assert.equal(createEntry({ ...BASE, entropy }).id, createEntry({ ...BASE, entropy }).id);

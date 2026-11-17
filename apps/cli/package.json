@@ -1,6 +1,6 @@
 {
   "name": "t-cli-translator",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "A stateless CLI tool for EN/ZH translation and English grammar checking using DeepSeek API.",
   "main": "src/repl.js",
   "type": "module",
@@ -14,7 +14,8 @@
   "scripts": {
     "start": "node ./bin/t-cli.js",
     "test": "node --test",
-    "backfill": "node ./scripts/backfill-entries.js"
+    "backfill": "node ./scripts/backfill-entries.js",
+    "audit:spelling": "node ./scripts/audit-spelling.js"
   },
   "keywords": [
     "cli",

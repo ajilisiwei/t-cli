@@ -1,19 +1,44 @@
 import { readHistory, listHistory } from '../history.js';
+import { parseHistoryFile } from './historyParser.js';
+import { detectSourceLang, isWordLookup } from '@t-cli/core/detect';
+import { detectSpellingCorrection } from '@t-cli/core/spelling';
 
 /**
  * @typedef {Object} QuizEntry
  * @property {string} date - The date string (YYYY-MM-DD) of the history entry
- * @property {string} source - The source text that was translated/checked
- * @property {string} target - The translated/checked result
- * @property {string} type - The type of entry ('translate' or 'check')
+ * @property {string} source - The text to recall a translation for
+ * @property {string} target - The recorded translation
  */
 
 /**
- * Get quiz entries from history files within the specified number of days back.
- * Filters entries that have translation content (not just checks) and picks random entries.
+ * Turn one history file into quiz entries (translations only).
+ *
+ * Uses the shared history parser: headings are "## [HH:MM] Translation", and
+ * detail responses may contain "---" lines, so neither a "translate" keyword
+ * match nor splitting on "---" works. A misspelled word lookup is quizzed by
+ * its corrected spelling, never by the typo.
+ *
+ * @param {string} date - YYYY-MM-DD file date
+ * @param {string} content - Markdown history file content
+ * @returns {QuizEntry[]}
+ */
+export function toQuizEntries(date, content) {
+  return parseHistoryFile(content, date).records
+    .filter((record) => record.type === 'Translation' && record.output !== '')
+    .map((record) => {
+      const correction = isWordLookup(record.input)
+        ? detectSpellingCorrection({ input: record.input, output: record.output, srcLang: detectSourceLang(record.input), kind: 'word' })
+        : null;
+      return { date, source: correction ?? record.input, target: record.output };
+    });
+}
+
+/**
+ * Get quiz entries from history files within the specified number of days back,
+ * in random order.
  *
  * @param {number} [daysBack=7] - Number of days to look back for history entries
- * @returns {Promise<QuizEntry[]>} Array of quiz entries with source, target, date, and type
+ * @returns {Promise<QuizEntry[]>}
  * @throws {Error} If daysBack is negative or NaN
  */
 export async function getQuizEntries(daysBack = 7) {
@@ -21,52 +46,18 @@ export async function getQuizEntries(daysBack = 7) {
     throw new Error('daysBack must be a non-negative number');
   }
 
-  const historyFiles = await listHistory();
-  
-  // Filter files within the specified date range
+  // History files are named by UTC date, so compare against a UTC cutoff.
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - daysBack);
   const cutoffStr = cutoffDate.toISOString().split('T')[0];
 
   // listHistory() returns [{ date, count }], not filenames.
-  const relevantFiles = historyFiles.filter(
-    (h) => h && typeof h.date === 'string' && h.date >= cutoffStr
-  );
-
-  const entries = [];
-
-  for (const { date } of relevantFiles) {
-    const content = readHistory(date);
-
-    if (!content) continue;
-
-    // Parse history entries - each entry is separated by "---" or newlines
-    // Format: ## type\n- **Input:** source\n- **Response:** target
-    const blocks = content.split(/^---\s*$/m);
-    
-    for (const block of blocks) {
-      const trimmedBlock = block.trim();
-      if (!trimmedBlock) continue;
-
-      // Heading is "## [HH:MM] translate" — a time tag precedes the type.
-      const typeMatch = trimmedBlock.match(/^##\s+(?:\[[^\]]*\]\s+)?(translate|check)/im);
-      if (!typeMatch || typeMatch[1].toLowerCase() !== 'translate') continue;
-
-      // Format: "**Input:** <source>" then the raw translation on following lines
-      // (saveHistory writes no "**Response:**" label).
-      const sourceMatch = trimmedBlock.match(/\*\*Input:\*\*\s*(.+)/i);
-      if (!sourceMatch) continue;
-
-      const source = sourceMatch[1].trim();
-      const target = trimmedBlock
-        .slice(trimmedBlock.indexOf(sourceMatch[0]) + sourceMatch[0].length)
-        .trim();
-
-      if (!source || !target) continue;
-
-      entries.push({ date, source, target });
-    }
-  }
+  const entries = listHistory()
+    .filter((h) => h && typeof h.date === 'string' && h.date >= cutoffStr)
+    .flatMap(({ date }) => {
+      const content = readHistory(date);
+      return content ? toQuizEntries(date, content) : [];
+    });
 
   // Shuffle entries randomly using Fisher-Yates algorithm
   for (let i = entries.length - 1; i > 0; i--) {
