@@ -1,0 +1,2074 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>t-cli 多端同步与 AI 复习方案</title>
+<style>
+  :root {
+    --bg: #fbfaf7; --surface: #ffffff; --text: #1f2328; --muted: #656d76;
+    --border: #e4e2dc; --accent: #2f6feb; --accent-soft: #e8f0fe;
+    --warn: #b35900; --warn-soft: #fff4e5; --ok: #1a7f37; --ok-soft: #e6f4ea;
+    --code-bg: #f3f2ee;
+    --paper: #fdfcf8; --ink: #1d2a3a; --indigo: #3b4ea8; --indigo-soft: #eceffa;
+    --dg-bg: #ffffff; --dg-fg: #1f2328; --dg-line: #8c959f; --dg-accent: #2f6feb;
+    --dg-muted: #656d76; --dg-node: #f4f7fd; --dg-border: #9db7ec;
+    --dg-new-bg: #e6f4ea; --dg-new: #1a7f37; --dg-chg-bg: #fff4e5; --dg-chg: #b35900;
+    --dg-old-bg: #f1f1ef; --dg-old: #8c959f; --dg-ext-bg: #f3eefc; --dg-ext: #8250df;
+    --dg-bad-bg: #fdecea; --dg-bad: #cf222e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #15171a; --surface: #1d2024; --text: #e6e6e6; --muted: #9aa3ad;
+      --border: #30343a; --accent: #6ea8fe; --accent-soft: #1d2a40;
+      --warn: #f0a050; --warn-soft: #3a2a17; --ok: #5cc27a; --ok-soft: #173322;
+      --code-bg: #24282d;
+      --paper: #1a1c20; --ink: #e8e6e1; --indigo: #9aa8f0; --indigo-soft: #252a40;
+      --dg-bg: #1d2024; --dg-fg: #e6e6e6; --dg-line: #7d8590; --dg-accent: #6ea8fe;
+      --dg-muted: #9aa3ad; --dg-node: #222a36; --dg-border: #3d5a8a;
+      --dg-new-bg: #173322; --dg-new: #5cc27a; --dg-chg-bg: #3a2a17; --dg-chg: #f0a050;
+      --dg-old-bg: #2a2d31; --dg-old: #7d8590; --dg-ext-bg: #2b2140; --dg-ext: #b392f0;
+      --dg-bad-bg: #3d1c1f; --dg-bad: #ff7b72;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #15171a; --surface: #1d2024; --text: #e6e6e6; --muted: #9aa3ad;
+    --border: #30343a; --accent: #6ea8fe; --accent-soft: #1d2a40;
+    --warn: #f0a050; --warn-soft: #3a2a17; --ok: #5cc27a; --ok-soft: #173322;
+    --code-bg: #24282d;
+    --paper: #1a1c20; --ink: #e8e6e1; --indigo: #9aa8f0; --indigo-soft: #252a40;
+    --dg-bg: #1d2024; --dg-fg: #e6e6e6; --dg-line: #7d8590; --dg-accent: #6ea8fe;
+    --dg-muted: #9aa3ad; --dg-node: #222a36; --dg-border: #3d5a8a;
+    --dg-new-bg: #173322; --dg-new: #5cc27a; --dg-chg-bg: #3a2a17; --dg-chg: #f0a050;
+    --dg-old-bg: #2a2d31; --dg-old: #7d8590; --dg-ext-bg: #2b2140; --dg-ext: #b392f0;
+    --dg-bad-bg: #3d1c1f; --dg-bad: #ff7b72;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.7 -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  }
+  #progress { position: fixed; top: 0; left: 0; height: 3px; background: var(--accent); width: 0; transition: width .2s; z-index: 10; }
+  .layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); max-width: 1180px; margin: 0 auto; gap: 32px; padding: 32px 16px 96px; }
+  nav.toc { position: sticky; top: 24px; align-self: start; font-size: 14px; }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; counter-reset: s; }
+  nav.toc li { counter-increment: s; }
+  nav.toc a { display: block; padding: 6px 10px; border-radius: 6px; color: var(--muted); text-decoration: none; }
+  nav.toc a::before { content: counter(s) ". "; }
+  nav.toc a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .toolbar { margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+  button { font: inherit; font-size: 13px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  main { min-width: 0; overflow-wrap: anywhere; }
+  header h1 { font-size: 30px; line-height: 1.3; margin: 0 0 8px; }
+  header .meta { color: var(--muted); font-size: 14px; }
+  .summary { margin: 24px 0 8px; padding: 16px 20px; border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; }
+  .summary strong:first-child { display: block; margin-bottom: 4px; }
+  section.step { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px 28px; margin: 24px 0; scroll-margin-top: 24px; }
+  section.step h2 { margin: 0 0 4px; font-size: 22px; }
+  section.step h3 { margin: 24px 0 4px; font-size: 17px; }
+  section.step .lead { color: var(--muted); margin: 0 0 16px; }
+  body.step-mode section.step { display: none; }
+  body.step-mode section.step.current { display: block; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; margin: 12px 0; display: block; overflow-x: auto; }
+  th, td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--code-bg); }
+  td.rec, th.rec { background: var(--ok-soft); }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; font-size: .9em; font-family: "SF Mono", Menlo, Consolas, monospace; }
+  pre { background: var(--code-bg); padding: 12px 16px; border-radius: 8px; overflow-x: auto; }
+  pre code { padding: 0; background: none; }
+  .note { color: var(--muted); font-size: 13px; }
+  .diagram { margin: 16px 0; padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--dg-bg); overflow-x: auto; text-align: center; }
+  .diagram svg { max-width: 100%; height: auto; }
+  .diagram-src { border: 0; padding: 0; margin: 8px 0 0; text-align: left; }
+  .diagram-src > summary { font-size: 12px; font-weight: 400; color: var(--muted); }
+  .diagram-src pre { font-size: 12px; }
+  .diagram pre.mermaid { color: var(--bad, #cf222e); text-align: left; }
+  .diagram-caption { font-size: 13px; color: var(--muted); text-align: center; margin-top: -8px; }
+  details { border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; margin: 12px 0; }
+  details > summary { cursor: pointer; font-weight: 600; }
+  .callout { padding: 12px 16px; border-radius: 8px; margin: 12px 0; }
+  .callout.warn { background: var(--warn-soft); border-left: 4px solid var(--warn); }
+  .callout.ok { background: var(--ok-soft); border-left: 4px solid var(--ok); }
+  .tag { display: inline-block; font-size: 12px; padding: 0 6px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); }
+  .tag.infer { color: var(--warn); border-color: var(--warn); }
+  .tag.todo { color: var(--accent); border-color: var(--accent); }
+  .tag.done { color: var(--ok); border-color: var(--ok); }
+  .step-nav { display: none; justify-content: space-between; margin-top: 16px; }
+  body.step-mode .step-nav { display: flex; }
+
+  /* Phone mockups (UX section) */
+  .phones { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; margin: 20px 0 8px; }
+  .phone { width: 232px; min-height: 460px; border: 1px solid var(--border); border-radius: 30px; padding: 18px 16px 20px; background: var(--paper); color: var(--ink); display: flex; flex-direction: column; gap: 10px; font-size: 13px; line-height: 1.5; }
+  .phone .bar { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; }
+  .phone .title { font-size: 20px; font-weight: 600; letter-spacing: .5px; }
+  .phone .muted { color: var(--muted); font-size: 12px; }
+  .phone .ring { width: 116px; height: 116px; border-radius: 50%; margin: 6px auto; display: grid; place-items: center;
+    background: conic-gradient(var(--indigo) 0 43%, var(--indigo-soft) 43% 100%); }
+  .phone .ring > div { width: 96px; height: 96px; border-radius: 50%; background: var(--paper); display: grid; place-items: center; text-align: center; }
+  .phone .ring b { font-size: 22px; display: block; line-height: 1.1; }
+  .phone .cta { background: var(--indigo); color: var(--paper); border-radius: 12px; text-align: center; padding: 10px; font-weight: 600; }
+  .phone .card { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+  .phone .input { border: 1.5px solid var(--indigo); border-radius: 12px; padding: 10px 12px; min-height: 64px; }
+  .phone .input .caret { display: inline-block; width: 1px; height: 14px; background: var(--indigo); vertical-align: middle; }
+  .phone .seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; text-align: center; font-size: 12px; }
+  .phone .seg span { padding: 4px 0; }
+  .phone .seg .on { background: var(--indigo); color: var(--paper); }
+  .phone .row { display: flex; justify-content: space-between; align-items: center; }
+  .phone .actions { display: flex; gap: 14px; color: var(--indigo); font-size: 12px; }
+  .phone .banner { background: var(--indigo-soft); border-radius: 10px; padding: 6px 10px; font-size: 12px; display: flex; justify-content: space-between; }
+  .phone .serif { font-family: "Iowan Old Style", "Source Serif Pro", Georgia, serif; }
+  .phone .word { font-size: 30px; text-align: center; margin-top: 18px; }
+  .phone .ipa { text-align: center; color: var(--muted); }
+  .phone hr { border: 0; border-top: 1px solid var(--border); margin: 6px 0; width: 100%; }
+  .phone .thin { height: 3px; background: var(--indigo-soft); border-radius: 2px; overflow: hidden; }
+  .phone .thin > i { display: block; height: 100%; width: 38%; background: var(--indigo); }
+  .phone .grades { margin-top: auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; text-align: center; }
+  .phone .grades span { border: 1px solid var(--border); border-radius: 10px; padding: 6px 0; font-size: 12px; }
+  .phone .grades small { display: block; color: var(--muted); font-size: 10px; }
+  .phone .grades .hi { border-color: var(--indigo); color: var(--indigo); }
+  .phone .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .phone .chips span { border: 1px solid var(--border); border-radius: 999px; padding: 0 8px; font-size: 11px; }
+  .phone .chips .on { background: var(--indigo); color: var(--paper); border-color: var(--indigo); }
+  .phone .tabs { margin-top: auto; display: flex; justify-content: space-around; color: var(--muted); font-size: 11px; border-top: 1px solid var(--border); padding-top: 8px; }
+  .phone .tabs .on { color: var(--indigo); font-weight: 600; }
+  .phone del { color: var(--dg-bad); }
+  .phone ins { color: var(--ok); background: var(--ok-soft); text-decoration: none; border-radius: 3px; padding: 0 2px; }
+  .phone .bad { color: var(--dg-bad); }
+  .phone .good { color: var(--ok); }
+  .phone .input .tools { display: flex; justify-content: flex-end; gap: 16px; color: var(--muted); font-size: 13px; margin-top: 10px; font-family: inherit; }
+  .phone .dir { text-align: right; color: var(--muted); font-size: 11px; margin-top: -4px; text-decoration: underline dotted; text-underline-offset: 3px; }
+  .phone .tabs .badge { display: inline-block; min-width: 14px; padding: 0 4px; margin-left: 2px; border-radius: 999px; background: var(--dg-bad); color: var(--paper); font-size: 9px; line-height: 14px; text-align: center; font-weight: 600; }
+  .phone-caption { text-align: center; font-size: 13px; color: var(--muted); max-width: 232px; margin: 8px auto 0; }
+
+  @media (max-width: 820px) {
+    .layout { grid-template-columns: minmax(0, 1fr); padding-top: 16px; }
+    nav.toc { position: static; }
+    section.step { padding: 18px 16px; }
+  }
+  @media print {
+    nav.toc, .toolbar, .step-nav, #progress { display: none !important; }
+    .layout { display: block; }
+    body.step-mode section.step { display: block; }
+    details { display: block; }
+  }
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div class="layout">
+  <nav class="toc">
+    <ol id="toc"></ol>
+    <div class="toolbar">
+      <button id="btn-mode"></button>
+      <button id="btn-expand"></button>
+      <button id="btn-theme"></button>
+    </div>
+  </nav>
+
+  <main>
+    <header>
+      <h1>t-cli 多端同步与 AI 复习：方案头脑风暴</h1>
+      <div class="meta">需求梳理 + 技术方案 · v4 · 2026-11-17 · 分支 <code>feature/cloud-sync-review</code> · 来源：需求原话、历次答复、t-cli 代码、本地历史统计、花了知多少（heji-ledger）文档和生产编排</div>
+      <div class="summary">
+        <strong data-ui="summary"></strong>
+        CLI 和微信小程序都能翻译和纠错，记录汇总到阿里云同步服务。
+        数据存进服务器上已有的 PostgreSQL，新建一个独立数据库。
+        小程序翻译页只有一个输入框：中文译成英文，其他外语译成中文。
+        服务端每天凌晨用 AI 生成复习材料；账号先邀请制。
+      </div>
+    </header>
+
+    <!-- 1 -->
+    <section class="step" id="s1" data-title="现状与数据">
+      <h2>1. 现状与数据</h2>
+      <p class="lead">数据量小，但一半是单词、四成是句子，足够做个性化复习。</p>
+
+      <table>
+        <tr><th>指标</th><th>数值</th></tr>
+        <tr><td>记录天数</td><td>183 天（从 2026-03-29 开始）</td></tr>
+        <tr><td>记录总数</td><td>约 2000 条，日均约 11 条</td></tr>
+        <tr><td>翻译 / 纠错</td><td>1931 / 62</td></tr>
+        <tr><td>单词级（输入 ≤ 20 字符）</td><td>971 条（49%）</td></tr>
+        <tr><td>句子级（21–120 字符）</td><td>854 条（43%）</td></tr>
+        <tr><td>段落级（&gt; 120 字符）</td><td>168 条（8%）</td></tr>
+        <tr><td>不同的英文单词</td><td>391 个；40 个查过 2 次以上，最多的查了 8 次</td></tr>
+        <tr><td>存储体积</td><td>984 KB Markdown</td></tr>
+      </table>
+      <p class="note">统计来源：<code>~/.config/t-cli/history/*.md</code>，2026-11-16 本机执行。</p>
+
+      <h3>现在的存储方式</h3>
+      <ul>
+        <li>每条记录追加到当天的 <code>history/YYYY-MM-DD.md</code> — <code>src/history.js:33</code>、<code>src/history.js:65</code></li>
+        <li>记录格式是给人读的 Markdown。它没有 ID，也没有“单词 / 句子”这类结构化字段 — <code>src/history.js:53</code></li>
+        <li><code>/notes</code> 把 AI 笔记写到 <code>notes/YYYY-MM-DD.md</code> — <code>src/notes.js:57</code></li>
+        <li><code>/quiz</code> 从历史里随机抽题。得分只存在 React 状态里，退出后丢失 — <code>src/utils/quiz.js:73</code>、<code>src/repl.js:337</code></li>
+      </ul>
+
+      <h3>痛点</h3>
+      <ol>
+        <li>记录只在一台 Mac 上，手机看不到。（用户原话）</li>
+        <li>记录是流水账，没有按单词、句型、语法整理。（用户原话）</li>
+        <li>手机上没有顺手的翻译和纠错工具。（用户原话）</li>
+        <li>没有复习计划。一个词查了 8 次，说明“查了也没记住”。<span class="tag infer">推断</span></li>
+        <li>段落级记录多半是工作文本，不适合直接做复习材料。<span class="tag infer">推断</span></li>
+      </ol>
+    </section>
+
+    <!-- 2 -->
+    <section class="step" id="s2" data-title="目标与非目标">
+      <h2>2. 目标与非目标</h2>
+      <p class="lead">7 个目标，每个都有可验收的指标。</p>
+      <table>
+        <tr><th>#</th><th>目标</th><th>衡量方式</th></tr>
+        <tr><td>G1</td><td>手机上随手翻译、纠错</td><td>打开小程序到看到结果 ≤ 3 步；首字 ≤ 2 秒 <span class="tag todo">待实测</span></td></tr>
+        <tr><td>G2</td><td>多端同步：任一端的记录在另一端可见</td><td>联网时，写入后 1 分钟内另一端可见</td></tr>
+        <tr><td>G3</td><td>AI 复习材料：每天自动生成</td><td>每天 06:00 前生成前一天的材料；失败时发告警</td></tr>
+        <tr><td>G4</td><td>按遗忘曲线复习</td><td>每日复习 ≤ 10 分钟；30 天记忆保持率 ≥ 85%</td></tr>
+        <tr><td>G5</td><td>同步服务故障不影响 CLI</td><td>服务端宕机时，CLI 照常直连 DeepSeek 翻译；恢复后自动补传</td></tr>
+        <tr><td>G6</td><td>简约的交互</td><td>打开小程序即可输入；开始复习 ≤ 2 次点击</td></tr>
+        <tr><td>G7</td><td>账号体系：多人使用时数据互相隔离</td><td>任一接口都读不到其他账号的数据（有自动化测试）</td></tr>
+      </table>
+      <p><strong>非目标</strong>（本期不做）：</p>
+      <ul>
+        <li>公开注册与商业化（先邀请制）。</li>
+        <li>小程序正式发布（先用体验版自用）。</li>
+        <li>完整复刻 Anki（自定义卡组、插件、模板编辑）。</li>
+        <li>离线翻译（模型在云端，断网时只能看已有记录）。</li>
+      </ul>
+    </section>
+
+    <!-- 3 -->
+    <section class="step" id="s3" data-title="三端分工与每日闭环">
+      <h2>3. 三端分工与每日闭环</h2>
+      <p class="lead">CLI 和小程序都负责采集，云端负责整理，小程序负责复习。复习结果再影响第二天的材料。</p>
+      <table>
+        <tr><th>端</th><th>角色</th><th>主要动作</th></tr>
+        <tr><td>t-cli（Mac）</td><td>采集端</td><td>翻译、纠错、查词；直连 DeepSeek，结果先写本地，再推送</td></tr>
+        <tr><td>小程序（手机）</td><td>采集端 + 复习端</td><td>翻译、纠错、查词（经服务端调用 AI）；今日复习、每日材料、词库</td></tr>
+        <tr><td>同步服务（阿里云）</td><td>整理端</td><td>账号、存储、去重；代理小程序的 AI 请求；每天凌晨生成材料和复习卡</td></tr>
+      </table>
+
+      <!-- mermaid:begin -->
+<div class="diagram rendered">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 355.03499999999997 524.1" width="355.03499999999997" height="524.1" style="--bg:var(--dg-bg);--fg:var(--dg-fg);--line:var(--dg-line);--accent:var(--dg-accent);--muted:var(--dg-muted);--surface:var(--dg-node);--border:var(--dg-border)">
+<style>
+
+  text { font-family: var(--dg-font, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif); }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<polyline class="edge" data-from="A" data-to="B" data-style="thick" data-arrow-start="false" data-arrow-end="true" points="179.8825,77.80000000000001 179.8825,133.8" fill="none" stroke="var(--_line)" stroke-width="2" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="B" data-to="C" data-style="thick" data-arrow-start="false" data-arrow-end="true" points="179.8825,187.60000000000002 179.8825,243.60000000000002" fill="none" stroke="var(--_line)" stroke-width="2" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="C" data-to="D" data-style="thick" data-arrow-start="false" data-arrow-end="true" points="153.62483333333333,297.40000000000003 153.62483333333333,341.40000000000003 104.255,341.40000000000003 104.255,353.40000000000003" fill="none" stroke="var(--_line)" stroke-width="2" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="D" data-to="E" data-style="thick" data-arrow-start="false" data-arrow-end="true" points="104.255,407.20000000000005 104.255,451.20000000000005 158.07083333333333,451.20000000000005 158.07083333333333,463.20000000000005" fill="none" stroke="var(--_line)" stroke-width="2" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="E" data-to="C" data-style="dotted" data-arrow-start="false" data-arrow-end="true" data-label="易错项加权" points="201.69416666666666,463.20000000000005 201.69416666666666,451.20000000000005 255.51,451.20000000000005 255.51,374.90000000000003 206.14016666666666,374.90000000000003 206.14016666666666,297.40000000000003" fill="none" stroke="var(--_line)" stroke-width="1" stroke-dasharray="4 4" marker-end="url(#arrowhead)" />
+<g class="edge-label" data-from="E" data-to="C" data-label="易错项加权">
+  <rect x="216.51" y="381.90000000000003" width="77.05000000000001" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="255.035" y="397.05" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">易错项加权</text>
+</g>
+<g class="node" data-id="A" data-label="白天：CLI 或小程序
+翻译、纠错、查词" data-shape="rounded">
+  <rect x="95.55199999999999" y="24" width="168.661" height="53.800000000000004" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="179.8825" y="50.900000000000006" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="179.8825" dy="-3.9000000000000012">白天：CLI 或小程序</tspan><tspan x="179.8825" dy="16.900000000000002">翻译、纠错、查词</tspan></text>
+</g>
+<g class="node" data-id="B" data-label="写入原始记录
+汇总到同步服务" data-shape="rectangle">
+  <rect x="107.0375" y="133.8" width="145.69" height="53.800000000000004" rx="0" ry="0" fill="var(--dg-chg-bg)" stroke="var(--dg-chg)" stroke-width="1.5px" />
+  <text x="179.8825" y="160.70000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="179.8825" dy="-3.9000000000000012">写入原始记录</tspan><tspan x="179.8825" dy="16.900000000000002">汇总到同步服务</tspan></text>
+</g>
+<g class="node" data-id="C" data-label="05:00 AI 生成
+每日材料 + 复习卡" data-shape="rectangle">
+  <rect x="101.1095" y="243.60000000000002" width="157.546" height="53.800000000000004" rx="0" ry="0" fill="var(--dg-new-bg)" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <text x="179.8825" y="270.5" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="179.8825" dy="-3.9000000000000012">05:00 AI 生成</tspan><tspan x="179.8825" dy="16.900000000000002">每日材料 + 复习卡</tspan></text>
+</g>
+<g class="node" data-id="D" data-label="通勤时小程序复习
+约 10 分钟" data-shape="rectangle">
+  <rect x="24" y="353.40000000000003" width="160.51" height="53.800000000000004" rx="0" ry="0" fill="var(--dg-new-bg)" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <text x="104.255" y="380.3" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="104.255" dy="-3.9000000000000012">通勤时小程序复习</tspan><tspan x="104.255" dy="16.900000000000002">约 10 分钟</tspan></text>
+</g>
+<g class="node" data-id="E" data-label="复习日志回传" data-shape="rectangle">
+  <rect x="114.44749999999999" y="463.20000000000005" width="130.87" height="36.900000000000006" rx="0" ry="0" fill="var(--dg-new-bg)" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <text x="179.8825" y="481.65000000000003" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">复习日志回传</text>
+</g>
+</svg>
+<details class="diagram-src"><summary>Mermaid 源码</summary>
+<pre class="mermaid-src">flowchart TD
+    A(白天：CLI 或小程序&lt;br/&gt;翻译、纠错、查词) ==&gt; B[写入原始记录&lt;br/&gt;汇总到同步服务]
+    B ==&gt; C[05:00 AI 生成&lt;br/&gt;每日材料 + 复习卡]
+    C ==&gt; D[通勤时小程序复习&lt;br/&gt;约 10 分钟]
+    D ==&gt; E[复习日志回传]
+    E -.-&gt;|易错项加权| C
+    classDef new fill:var(--dg-new-bg),stroke:var(--dg-new),stroke-width:1.5px
+    classDef chg fill:var(--dg-chg-bg),stroke:var(--dg-chg),stroke-width:1.5px
+    class B chg
+    class C,D,E new</pre>
+</details>
+</div>
+<!-- mermaid:end -->
+      <p class="diagram-caption">每日闭环。橙色 = 改造现有记录方式；绿色 = 新增能力；虚线 = 反馈路径。</p>
+    </section>
+
+    <!-- 4 -->
+    <section class="step" id="s4" data-title="小程序翻译与纠错">
+      <h2>4. 小程序翻译与纠错</h2>
+      <p class="lead">小程序提供 CLI 的全部查询能力。AI 调用经过自己的服务端，DeepSeek key 不出服务器。</p>
+
+      <h3>CLI 能力在小程序上的对应</h3>
+      <table>
+        <tr><th>CLI 能力</th><th>小程序对应</th><th>说明</th></tr>
+        <tr><td>直接输入即翻译（自动判断方向）</td><td>“翻译” tab：中文 → 英文；其他外语 → 中文</td><td>方向由规则判断，用户不用选</td></tr>
+        <tr><td><code>/check</code> 纠错</td><td>独立的“纠错” tab</td><td>修改处用删除线 + 高亮标出</td></tr>
+        <tr><td>单词查询 + 美式音标</td><td>自动识别单个单词</td><td>结果第一行是“单词 + 音标”</td></tr>
+        <tr><td><code>/mode s|d</code></td><td>不提供；翻译页固定简洁模式</td><td>详细讲解交给每日材料，翻译页保持简单</td></tr>
+        <tr><td><code>/lang en|zh</code></td><td>设置页“解释语言”</td><td>设置两端同步</td></tr>
+        <tr><td><code>/say</code></td><td>朗读按钮</td><td>服务端生成 mp3，两端共用缓存</td></tr>
+        <tr><td><code>/history</code></td><td>“我的 → 记录”</td><td>包含 CLI 和手机两端的记录</td></tr>
+        <tr><td><code>/notes</code></td><td>每日材料</td><td>由 AI 管线生成</td></tr>
+        <tr><td><code>/quiz</code></td><td>“复习” tab</td><td>FSRS 调度替代随机抽题</td></tr>
+      </table>
+      <p>翻译页只保留输入框和结果。语音输入是输入框里的麦克风图标；清空用输入框里的 ✕。不设“加入复习”按钮：每条查询都会进入第二天的材料，查过多次的单元自动加权。</p>
+
+      <h3>翻译方向规则</h3>
+      <p>方向由客户端规则判断，不交给模型，也不让用户选。</p>
+      <table>
+        <tr><th>输入</th><th>判定</th><th>译成</th></tr>
+        <tr><td>含汉字，不含假名和谚文（包括中英混排）</td><td>中文</td><td>英文（默认方向）</td></tr>
+        <tr><td>单个英文单词</td><td>外语</td><td>中文，并附美式音标</td></tr>
+        <tr><td>其他外语：英文句子、日文、韩文、法文等</td><td>外语</td><td>中文</td></tr>
+      </table>
+      <div class="callout warn"><strong>要改代码：</strong>现在的 <code>detectSourceLang()</code> 见到汉字就判为中文（<code>src/utils/detect.js:34</code>）。日文常含汉字，系统会把它译成英文。改法：先查假名和谚文，有就判为外语。prompt 里“源语言是英文”的规则也改成“源语言是外语”（<code>src/prompts.js:42</code>）。改动放在 <code>packages/core</code>，CLI 同时受益。纯汉字的短日文仍会判成中文，用户点方向标签即可纠正。</div>
+
+      <h3>一次翻译请求的链路</h3>
+      <!-- mermaid:begin -->
+<div class="diagram rendered">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 443.872 560" width="443.872" height="560" style="--bg:var(--dg-bg);--fg:var(--dg-fg);--line:var(--dg-line);--accent:var(--dg-accent);--muted:var(--dg-muted);--surface:var(--dg-node);--border:var(--dg-border)">
+<style>
+
+  text { font-family: var(--dg-font, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif); }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="seq-arrow" markerWidth="8" markerHeight="5" refX="8" refY="2.5" orient="auto-start-reverse">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" />
+  </marker>
+  <marker id="seq-arrow-open" markerWidth="8" markerHeight="5" refX="8" refY="2.5" orient="auto-start-reverse">
+    <polyline points="0 0, 8 2.5, 0 5" fill="none" stroke="var(--_arrow)" stroke-width="1" />
+  </marker>
+</defs>
+<line class="lifeline" data-actor="U" x1="70" y1="70" x2="70" y2="530" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="S" x1="210" y1="70" x2="210" y2="530" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="D" x1="350" y1="70" x2="350" y2="530" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<g class="message" data-from="U" data-to="S" data-label="POST /v1/ai/translate（文本、任务）" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="70" y1="90" x2="210" y2="90" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="140" y="80" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">POST /v1/ai/translate（文本、任务）</text>
+</g>
+<g class="message" data-from="S" data-to="S" data-label="校验 token、限流、长度 ≤ 2000" data-line-style="solid" data-arrow-head="filled" data-self="true">
+  <polyline points="210,130 240,130 240,150 210,150" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="248" y="140" font-size="11" text-anchor="start" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">校验 token、限流、长度 ≤ 2000</text>
+</g>
+<g class="message" data-from="S" data-to="S" data-label="判断方向，组装 prompt" data-line-style="solid" data-arrow-head="filled" data-self="true">
+  <polyline points="210,200 240,200 240,220 210,220" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="248" y="210" font-size="11" text-anchor="start" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">判断方向，组装 prompt</text>
+</g>
+<g class="message" data-from="S" data-to="D" data-label="流式请求" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="210" y1="270" x2="350" y2="270" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="280" y="260" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">流式请求</text>
+</g>
+<g class="message" data-from="D" data-to="S" data-label="增量文本" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="350" y1="310" x2="210" y2="310" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#seq-arrow)" />
+  <text x="280" y="300" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">增量文本</text>
+</g>
+<g class="message" data-from="S" data-to="U" data-label="分块返回" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="210" y1="350" x2="70" y2="350" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#seq-arrow)" />
+  <text x="140" y="340" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">分块返回</text>
+</g>
+<g class="message" data-from="U" data-to="U" data-label="逐字渲染；纠错完成后高亮差异" data-line-style="solid" data-arrow-head="filled" data-self="true">
+  <polyline points="70,390 100,390 100,410 70,410" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="108" y="400" font-size="11" text-anchor="start" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">逐字渲染；纠错完成后高亮差异</text>
+</g>
+<g class="message" data-from="S" data-to="S" data-label="写入原始记录（source = mp）" data-line-style="solid" data-arrow-head="filled" data-self="true">
+  <polyline points="210,460 240,460 240,480 210,480" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="248" y="470" font-size="11" text-anchor="start" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">写入原始记录（source = mp）</text>
+</g>
+<g class="actor" data-id="U" data-label="小程序" data-type="participant">
+  <rect x="30" y="30" width="80" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="70" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">小程序</text>
+</g>
+<g class="actor" data-id="S" data-label="同步服务" data-type="participant">
+  <rect x="163.385" y="30" width="93.22999999999999" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="210" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">同步服务</text>
+</g>
+<g class="actor" data-id="D" data-label="DeepSeek" data-type="participant">
+  <rect x="301.903" y="30" width="96.194" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="350" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">DeepSeek</text>
+</g>
+</svg>
+<details class="diagram-src"><summary>Mermaid 源码</summary>
+<pre class="mermaid-src">sequenceDiagram
+    participant U as 小程序
+    participant S as 同步服务
+    participant D as DeepSeek
+    U-&gt;&gt;S: POST /v1/ai/translate（文本、任务）
+    S-&gt;&gt;S: 校验 token、限流、长度 ≤ 2000
+    S-&gt;&gt;S: 判断方向，组装 prompt
+    S-&gt;&gt;D: 流式请求
+    D--&gt;&gt;S: 增量文本
+    S--&gt;&gt;U: 分块返回
+    U-&gt;&gt;U: 逐字渲染；纠错完成后高亮差异
+    S-&gt;&gt;S: 写入原始记录（source = mp）</pre>
+</details>
+</div>
+<!-- mermaid:end -->
+      <p class="diagram-caption">服务端只做转发、限流和记录；prompt 与 CLI 共用一份代码。</p>
+
+      <h3>关键设计</h3>
+      <ol>
+        <li><strong>prompt 只有一份。</strong>把 <code>src/prompts.js</code> 和 <code>src/utils/detect.js</code> 抽到共享包 <code>packages/core</code>，CLI 和服务端都引用它。否则两端会各改各的。例如 <code>ad62460</code> 的“固定翻译方向”修复就得做两遍。</li>
+        <li><strong>纠错 prompt 要小改。</strong>详细模式现在先分析、后给修改句（<code>src/prompts.js:158</code>）。改成“修改后的句子单独放第一行”，与翻译详细模式一致（<code>src/prompts.js:95</code>）。这样客户端能稳定取出修改句做差异高亮，<code>/say</code> 也能直接读第一行。</li>
+        <li><strong>流式输出。</strong>小程序用 <code>wx.request</code> 的 <code>enableChunked</code> 和 <code>onChunkReceived</code> 接收分块。<span class="tag todo">待实测</span> 分块按字节切，可能切断一个中文字符，所以要先拼接字节再按 UTF-8 解码。<span class="tag infer">推断</span> 花了知多少没有用过流式请求，这部分没有现成代码。</li>
+        <li><strong>首字延迟单独测。</strong>花了知多少的 p50 3.5 秒是带推理的记账解析数据，不能直接套用。翻译接口要实测首字时间；如果推理拖慢首字，交互接口就关闭推理或换模型。</li>
+        <li><strong>保护 API key 和额度。</strong>每个请求带账号令牌。按账号限流：每分钟 20 次、每天 200 次（D13）。输入上限 2000 字符。每个账号另有每日 token 预算。</li>
+        <li><strong>每次查询都是一条原始记录。</strong>手机查询写入 <code>source = mp</code>，和 CLI 的记录一起进入第二天的材料。</li>
+        <li><strong>断网时</strong>明确提示“需要联网”；“我的 → 记录”仍可查看（本地缓存）。</li>
+      </ol>
+    </section>
+
+    <!-- 5 -->
+    <section class="step" id="s5" data-title="AI 复习材料设计">
+      <h2>5. AI 复习材料设计</h2>
+      <p class="lead">AI 先把流水记录拆成“学习单元”，再按单元生成材料和复习卡。查得越多、错得越多的单元，扩展越多。</p>
+
+      <!-- mermaid:begin -->
+<div class="diagram rendered">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 617.813 676.34" width="617.813" height="676.34" style="--bg:var(--dg-bg);--fg:var(--dg-fg);--line:var(--dg-line);--accent:var(--dg-accent);--muted:var(--dg-muted);--surface:var(--dg-node);--border:var(--dg-border)">
+<style>
+
+  text { font-family: var(--dg-font, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif); }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<polyline class="edge" data-from="A" data-to="B" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="284.16499999999996,74.9 284.16499999999996,130.9" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="B" data-to="C" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="单词" points="244.373,223.748 244.373,295.53999999999996 74.61500000000001,295.53999999999996 74.615,427.84000000000003" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="B" data-to="D" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="句子" points="270.901,250.276 270.901,307.53999999999996 211.845,307.53999999999996 211.84500000000003,395.84000000000003" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="B" data-to="E" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="纠错" points="297.429,250.27599999999998 297.429,307.53999999999996 356.485,307.53999999999996 356.485,395.84000000000003" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="B" data-to="F" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="长段落" points="323.957,223.748 323.957,295.53999999999996 518.168,295.53999999999996 518.168,427.84000000000003" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="C" data-to="G" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="74.615,464.74 74.615,476.74 284.165,476.74 284.165,488.74" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="D" data-to="G" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="211.84500000000003,432.74 211.84500000000003,476.74 284.165,476.74 284.165,488.74" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="E" data-to="G" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="356.485,432.74 356.485,476.74 284.165,476.74 284.165,488.74" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="F" data-to="G" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="518.168,464.74 518.168,476.74 284.165,476.74 284.165,488.74" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="G" data-to="H" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="284.165,542.5400000000001 284.165,598.5400000000001" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="edge-label" data-from="B" data-to="C" data-label="单词">
+  <rect x="53.614999999999995" y="346.53999999999996" width="41.41" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="74.32" y="361.68999999999994" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">单词</text>
+</g>
+<g class="edge-label" data-from="B" data-to="D" data-label="句子">
+  <rect x="190.84500000000003" y="314.53999999999996" width="41.41" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="211.55" y="329.68999999999994" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">句子</text>
+</g>
+<g class="edge-label" data-from="B" data-to="E" data-label="纠错">
+  <rect x="335.485" y="314.53999999999996" width="41.41" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="356.19" y="329.68999999999994" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">纠错</text>
+</g>
+<g class="edge-label" data-from="B" data-to="F" data-label="长段落">
+  <rect x="491.168" y="346.53999999999996" width="53.29" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="517.813" y="361.68999999999994" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">长段落</text>
+</g>
+<g class="node" data-id="A" data-label="原始记录" data-shape="cylinder">
+  <rect x="233.54999999999998" y="31" width="101.22999999999999" height="36.900000000000006" fill="var(--_node-fill)" stroke="none" />
+  <line x1="233.54999999999998" y1="31" x2="233.54999999999998" y2="67.9" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="334.78" y1="31" x2="334.78" y2="67.9" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="284.16499999999996" cy="67.9" rx="50.614999999999995" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="284.16499999999996" cy="31" rx="50.614999999999995" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="284.16499999999996" y="49.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">原始记录</text>
+</g>
+<g class="node" data-id="B" data-label="记录类型?" data-shape="diamond">
+  <polygon points="284.16499999999996,130.9 350.48499999999996,197.22 284.16499999999996,263.53999999999996 217.84499999999997,197.22" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="284.16499999999996" y="197.22" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">记录类型?</text>
+</g>
+<g class="node" data-id="C" data-label="词条抽取" data-shape="rectangle">
+  <rect x="24" y="427.84000000000003" width="101.22999999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="74.615" y="446.29" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">词条抽取</text>
+</g>
+<g class="node" data-id="D" data-label="句型抽取" data-shape="rectangle">
+  <rect x="161.23000000000002" y="395.84000000000003" width="101.22999999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="211.84500000000003" y="414.29" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">句型抽取</text>
+</g>
+<g class="node" data-id="E" data-label="语法点抽取" data-shape="rectangle">
+  <rect x="298.46000000000004" y="395.84000000000003" width="116.05" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="356.485" y="414.29" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">语法点抽取</text>
+</g>
+<g class="node" data-id="F" data-label="只取 ≤3 个词句" data-shape="rectangle">
+  <rect x="450.51" y="427.84000000000003" width="135.31599999999997" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="518.168" y="446.29" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">只取 ≤3 个词句</text>
+</g>
+<g class="node" data-id="G" data-label="去重合并
+累计查询次数" data-shape="rectangle">
+  <rect x="218.73000000000002" y="488.74" width="130.87" height="53.800000000000004" rx="0" ry="0" fill="var(--dg-new-bg)" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <text x="284.165" y="515.64" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="284.165" dy="-3.9000000000000012">去重合并</tspan><tspan x="284.165" dy="16.900000000000002">累计查询次数</tspan></text>
+</g>
+<g class="node" data-id="H" data-label="生成材料 + 复习卡
+校验后入库" data-shape="rectangle">
+  <rect x="205.39200000000002" y="598.5400000000001" width="157.546" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="284.165" y="625.44" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="284.165" dy="-3.9000000000000012">生成材料 + 复习卡</tspan><tspan x="284.165" dy="16.900000000000002">校验后入库</tspan></text>
+</g>
+</svg>
+<details class="diagram-src"><summary>Mermaid 源码</summary>
+<pre class="mermaid-src">flowchart TD
+    A[(原始记录)] --&gt; B{记录类型?}
+    B --&gt;|单词| C[词条抽取]
+    B --&gt;|句子| D[句型抽取]
+    B --&gt;|纠错| E[语法点抽取]
+    B --&gt;|长段落| F[只取 ≤3 个词句]
+    C --&gt; G[去重合并&lt;br/&gt;累计查询次数]
+    D --&gt; G
+    E --&gt; G
+    F --&gt; G
+    G --&gt; H[生成材料 + 复习卡&lt;br/&gt;校验后入库]
+    classDef new fill:var(--dg-new-bg),stroke:var(--dg-new),stroke-width:1.5px
+    class G new</pre>
+</details>
+</div>
+<!-- mermaid:end -->
+      <p class="diagram-caption">AI 管线。绿色 = 去重合并，是个性化的关键（重复查询 = 薄弱点）。校验和失败处理见下方“质量与成本”。</p>
+
+      <h3>每日材料的 6 个板块</h3>
+      <table>
+        <tr><th>板块</th><th>内容</th><th>数据来源</th></tr>
+        <tr><td>今日概览</td><td>新单词数、新句型数、纠错数、连续学习天数</td><td>统计</td></tr>
+        <tr><td>单词</td><td>释义、美式音标、2 个例句（其中 1 个取自你的原句）、常用搭配、近义词辨析、词族</td><td>单词级记录</td></tr>
+        <tr><td>句型</td><td>可复用的表达，2 种替换说法，标注语体（正式 / 口语）</td><td>句子级记录</td></tr>
+        <tr><td>语法</td><td>错误模式 → 规则 → 3 道改错练习</td><td>纠错记录</td></tr>
+        <tr><td>情景短文</td><td>用当天 5–8 个词写约 120 词的短文，配朗读音频</td><td>AI 延伸</td></tr>
+        <tr><td>易错回顾</td><td>复习中答错 ≥ 2 次的单元，换一个例句再讲一遍</td><td>复习日志</td></tr>
+      </table>
+      <p>每周日额外生成周报：本周高频错误类型、反复查询的词 Top 10、记忆保持率变化。</p>
+
+      <h3>复习卡类型</h3>
+      <table>
+        <tr><th>类型</th><th>正面</th><th>背面</th><th>适用单元</th></tr>
+        <tr><td>认词</td><td>英文单词 + 发音</td><td>中文释义 + 例句</td><td>单词</td></tr>
+        <tr><td>产出</td><td>中文释义</td><td>英文单词</td><td>单词</td></tr>
+        <tr><td>完形</td><td>例句挖空</td><td>完整句子 + 释义</td><td>单词、句型</td></tr>
+        <tr><td>改错</td><td>含错误的原句</td><td>修改后的句子 + 规则</td><td>语法</td></tr>
+        <tr><td>听写（可选）</td><td>只播放音频</td><td>原文</td><td>句型</td></tr>
+      </table>
+
+      <h3>质量与成本</h3>
+      <ul>
+        <li>AI 输出用 JSON 模式，服务端用 zod 校验。校验失败重试 2 次，仍失败就标记“待重新生成”并告警。</li>
+        <li>每张卡有“内容有误”按钮。点击后只重新生成这个学习单元。</li>
+        <li>段落级记录只抽取 ≤ 3 个词或句型。材料里不出现段落原文。<span class="tag infer">推断：工作文本不宜外传</span></li>
+        <li>材料生成放在夜间批处理，不占用交互链路。花了知多少实测 DeepSeek 推理 token 占 85%，会挤占 <code>max_tokens</code>（heji-ledger <code>WORKLOG.md</code>），批处理要给足 token 预算。</li>
+        <li>日均约 11 条记录。每天 1–3 次批量调用，加上手机端交互翻译，月成本预计每人低于 20 元。<span class="tag infer">推断，M1 后按实际 token 复核</span></li>
+      </ul>
+    </section>
+
+    <!-- 6 -->
+    <section class="step" id="s6" data-title="同步方案与架构">
+      <h2>6. 同步方案与架构</h2>
+      <p class="lead">选“阿里云 API + OSS”。小程序翻译本来就需要服务端代理 AI，同步服务正好承担这个角色。</p>
+
+      <table>
+        <tr><th>维度</th><th>A. GitHub 私有仓库</th><th>B. 纯 OSS（无服务端）</th><th class="rec">C. 阿里云 API + OSS（选定）</th></tr>
+        <tr><td>实现成本</td><td>低：CLI 调 git 或 GitHub API</td><td>低：CLI 上传 JSON</td><td class="rec">中：要写一个服务</td></tr>
+        <tr><td>小程序翻译</td><td>做不到：key 不能放前端</td><td>做不到：同上</td><td class="rec">服务端代理 AI</td></tr>
+        <tr><td>手机回写复习进度</td><td>前端要持有 GitHub token，有泄漏风险</td><td>要 STS 临时凭证，凭证仍需服务端签发</td><td class="rec">原生支持</td></tr>
+        <tr><td>AI 材料在哪里生成</td><td>GitHub Actions</td><td>Mac 本地（关机就不跑）</td><td class="rec">服务器定时任务</td></tr>
+        <tr><td>国内手机访问</td><td>不稳定</td><td>稳定</td><td class="rec">稳定（备案域名）</td></tr>
+        <tr><td>运维</td><td>无</td><td>无</td><td class="rec">1 个容器；复用已有的 PostgreSQL 和 nginx</td></tr>
+      </table>
+      <div class="callout ok"><strong>结论：</strong>C 做主通道；OSS 存发音音频和每日备份；GitHub 只做可选的 Markdown 导出，导出结果可以直接放进 Obsidian。</div>
+
+      <h3>目标架构</h3>
+      <!-- mermaid:begin -->
+<div class="diagram rendered">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 455.7026666666667 873.3" width="455.7026666666667" height="873.3" style="--bg:var(--dg-bg);--fg:var(--dg-fg);--line:var(--dg-line);--accent:var(--dg-accent);--muted:var(--dg-muted);--surface:var(--dg-node);--border:var(--dg-border)">
+<style>
+
+  text { font-family: var(--dg-font, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif); }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<g class="subgraph" data-id="MAC" data-label="Mac（CLI，改动）">
+  <rect x="24" y="24" width="179.798" height="220.70000000000002" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="24" y="24" width="179.798" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="36" y="38" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">Mac（CLI，改动）</text>
+</g>
+<g class="subgraph" data-id="PHONE" data-label="手机（新增）">
+  <rect x="245.12066666666666" y="130.9" width="186.582" height="113.80000000000001" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="245.12066666666666" y="130.9" width="186.582" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="257.1206666666667" y="144.9" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">手机（新增）</text>
+</g>
+<g class="subgraph" data-id="ALI" data-label="阿里云 ECS（已有，与花了知多少同机）">
+  <rect x="56.02425" y="389" width="318.625" height="330.5" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="56.02425" y="389" width="318.625" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="68.02425" y="403" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">阿里云 ECS（已有，与花了知多少同机）</text>
+</g>
+<polyline class="edge" data-from="OB" data-to="NG" data-style="thick" data-arrow-start="false" data-arrow-end="true" data-label="HTTPS 推送" points="119.399,235.70000000000002 119.399,294.70000000000005 191.90066666666667,294.70000000000005 191.90066666666667,371 269.4265833333333,371 269.4265833333333,433" fill="none" stroke="var(--_line)" stroke-width="2" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="MP" data-to="NG" data-style="thick" data-arrow-start="false" data-arrow-end="true" data-label="翻译 / 同步" points="338.4116666666667,221.70000000000002 338.41166666666663,371 314.03791666666666,371 314.03791666666666,433" fill="none" stroke="var(--_line)" stroke-width="2" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="CLI" data-to="DS" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="79.6995,104.9 79.6995,136.4 148.47233333333335,136.4 148.47233333333335,781.5" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="API" data-to="DS" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="291.73224999999996,588.15 291.73225,769.5 174.52083333333334,769.5 174.52083333333334,781.5" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="JOB" data-to="DS" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="130.79025,571.2499999999999 130.79025,603.4749999999999 148.47233333333335,603.4749999999999 148.47233333333335,781.5" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="API" data-to="OSS" data-style="dotted" data-arrow-start="false" data-arrow-end="true" points="324.82025,588.15 324.82025,769.5 336.85791666666665,769.5 336.85791666666665,781.5" fill="none" stroke="var(--_line)" stroke-width="1" stroke-dasharray="4 4" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="CLI" data-to="OB" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="79.6995,104.9 79.6995,136.4 119.399,136.4 119.399,167.9" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="NG" data-to="API" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="291.73225,469.9 291.73224999999996,534.3499999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="API" data-to="DB" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="258.64425,588.15 258.64425,591.7 200.61374999999998,591.7 200.61374999999998,635.7" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="JOB" data-to="DB" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="130.79025,571.2499999999999 130.79025,603.4749999999999 179.17258333333334,603.4749999999999 179.17258333333334,635.7" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="edge-label" data-from="OB" data-to="NG" data-label="HTTPS 推送">
+  <rect x="152.40066666666667" y="301.70000000000005" width="78.83200000000001" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="191.81666666666666" y="316.85" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">HTTPS 推送</text>
+</g>
+<g class="edge-label" data-from="MP" data-to="NG" data-label="翻译 / 同步">
+  <rect x="302.41166666666663" y="301.70000000000005" width="71.70400000000001" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="338.2636666666666" y="316.85" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">翻译 / 同步</text>
+</g>
+<g class="node" data-id="DS" data-label="DeepSeek" data-shape="subroutine">
+  <rect x="96.37533333333334" y="781.5" width="104.194" height="36.900000000000006" rx="0" ry="0" fill="var(--dg-ext-bg)" stroke="var(--dg-ext)" stroke-width="0.75" />
+  <line x1="104.37533333333334" y1="781.5" x2="104.37533333333334" y2="818.4" stroke="var(--dg-ext)" stroke-width="0.75" />
+  <line x1="192.56933333333336" y1="781.5" x2="192.56933333333336" y2="818.4" stroke="var(--dg-ext)" stroke-width="0.75" />
+  <text x="148.47233333333335" y="799.95" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">DeepSeek</text>
+</g>
+<g class="node" data-id="OSS" data-label="阿里云 OSS
+备份 + 音频" data-shape="cylinder">
+  <rect x="279.20341666666667" y="788.5" width="115.30899999999998" height="53.80000000000001" fill="var(--dg-ext-bg)" stroke="none" />
+  <line x1="279.20341666666667" y1="788.5" x2="279.20341666666667" y2="842.3" stroke="var(--dg-ext)" stroke-width="0.75" />
+  <line x1="394.51241666666664" y1="788.5" x2="394.51241666666664" y2="842.3" stroke="var(--dg-ext)" stroke-width="0.75" />
+  <ellipse cx="336.85791666666665" cy="842.3" rx="57.65449999999999" ry="7" fill="var(--dg-ext-bg)" stroke="var(--dg-ext)" stroke-width="0.75" />
+  <ellipse cx="336.85791666666665" cy="788.5" rx="57.65449999999999" ry="7" fill="var(--dg-ext-bg)" stroke="var(--dg-ext)" stroke-width="0.75" />
+  <text x="336.85791666666665" y="815.4" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="336.85791666666665" dy="-3.9000000000000012">阿里云 OSS</tspan><tspan x="336.85791666666665" dy="16.900000000000002">备份 + 音频</tspan></text>
+</g>
+<g class="node" data-id="CLI" data-label="t-cli" data-shape="rectangle">
+  <rect x="48.721000000000004" y="68" width="61.956999999999994" height="36.900000000000006" rx="0" ry="0" fill="var(--dg-chg-bg)" stroke="var(--dg-chg)" stroke-width="1.5px" />
+  <text x="79.6995" y="86.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">t-cli</text>
+</g>
+<g class="node" data-id="OB" data-label="本地 Markdown
++ 待推送队列" data-shape="cylinder">
+  <rect x="51" y="174.9" width="136.798" height="53.80000000000001" fill="var(--dg-chg-bg)" stroke="none" />
+  <line x1="51" y1="174.9" x2="51" y2="228.70000000000002" stroke="var(--dg-chg)" stroke-width="1.5px" />
+  <line x1="187.798" y1="174.9" x2="187.798" y2="228.70000000000002" stroke="var(--dg-chg)" stroke-width="1.5px" />
+  <ellipse cx="119.399" cy="228.70000000000002" rx="68.399" ry="7" fill="var(--dg-chg-bg)" stroke="var(--dg-chg)" stroke-width="1.5px" />
+  <ellipse cx="119.399" cy="174.9" rx="68.399" ry="7" fill="var(--dg-chg-bg)" stroke="var(--dg-chg)" stroke-width="1.5px" />
+  <text x="119.399" y="201.8" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="119.399" dy="-3.9000000000000012">本地 Markdown</tspan><tspan x="119.399" dy="16.900000000000002">+ 待推送队列</tspan></text>
+</g>
+<g class="node" data-id="MP" data-label="小程序
+翻译 · 纠错 · 复习" data-shape="rectangle">
+  <rect x="261.1206666666667" y="167.9" width="154.582" height="53.800000000000004" rx="0" ry="0" fill="var(--dg-new-bg)" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <text x="338.4116666666667" y="194.8" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="338.4116666666667" dy="-3.9000000000000012">小程序</tspan><tspan x="338.4116666666667" dy="16.900000000000002">翻译 · 纠错 · 复习</tspan></text>
+</g>
+<g class="node" data-id="NG" data-label="nginx（已有）" data-shape="rectangle">
+  <rect x="224.81525" y="433" width="133.834" height="36.900000000000006" rx="0" ry="0" fill="var(--dg-old-bg)" stroke="var(--dg-old)" stroke-width="0.75" />
+  <text x="291.73225" y="451.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">nginx（已有）</text>
+</g>
+<g class="node" data-id="API" data-label="同步与 AI 代理
+Fastify" data-shape="rectangle">
+  <rect x="225.55624999999998" y="534.3499999999999" width="132.352" height="53.800000000000004" rx="0" ry="0" fill="var(--dg-new-bg)" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <text x="291.73224999999996" y="561.2499999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="291.73224999999996" dy="-3.9000000000000012">同步与 AI 代理</tspan><tspan x="291.73224999999996" dy="16.900000000000002">Fastify</tspan></text>
+</g>
+<g class="node" data-id="DB" data-label="PostgreSQL 16
+新建 tcli 库" data-shape="cylinder">
+  <rect x="114.84908333333334" y="642.7" width="128.647" height="53.80000000000001" fill="var(--dg-new-bg)" stroke="none" />
+  <line x1="114.84908333333334" y1="642.7" x2="114.84908333333334" y2="696.5" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <line x1="243.49608333333333" y1="642.7" x2="243.49608333333333" y2="696.5" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <ellipse cx="179.17258333333334" cy="696.5" rx="64.3235" ry="7" fill="var(--dg-new-bg)" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <ellipse cx="179.17258333333334" cy="642.7" rx="64.3235" ry="7" fill="var(--dg-new-bg)" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <text x="179.17258333333334" y="669.6" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="179.17258333333334" dy="-3.9000000000000012">PostgreSQL 16</tspan><tspan x="179.17258333333334" dy="16.900000000000002">新建 tcli 库</tspan></text>
+</g>
+<g class="node" data-id="JOB" data-label="每日 AI 任务" data-shape="rectangle">
+  <rect x="72.02425" y="534.3499999999999" width="117.532" height="36.900000000000006" rx="0" ry="0" fill="var(--dg-new-bg)" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <text x="130.79025" y="552.8" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">每日 AI 任务</text>
+</g>
+</svg>
+<details class="diagram-src"><summary>Mermaid 源码</summary>
+<pre class="mermaid-src">flowchart TD
+    subgraph MAC["Mac（CLI，改动）"]
+        CLI[t-cli] --&gt; OB[(本地 Markdown&lt;br/&gt;+ 待推送队列)]
+    end
+    subgraph PHONE["手机（新增）"]
+        MP[小程序&lt;br/&gt;翻译 · 纠错 · 复习]
+    end
+    subgraph ALI["阿里云 ECS（已有，与花了知多少同机）"]
+        NG[nginx（已有）] --&gt; API[同步与 AI 代理&lt;br/&gt;Fastify]
+        API --&gt; DB[(PostgreSQL 16&lt;br/&gt;新建 tcli 库)]
+        JOB[每日 AI 任务] --&gt; DB
+    end
+    OB ==&gt;|HTTPS 推送| NG
+    MP ==&gt;|翻译 / 同步| NG
+    CLI --&gt; DS[[DeepSeek]]
+    API --&gt; DS
+    JOB --&gt; DS
+    API -.-&gt; OSS[(阿里云 OSS&lt;br/&gt;备份 + 音频)]
+    classDef new fill:var(--dg-new-bg),stroke:var(--dg-new),stroke-width:1.5px
+    classDef chg fill:var(--dg-chg-bg),stroke:var(--dg-chg),stroke-width:1.5px
+    classDef ext fill:var(--dg-ext-bg),stroke:var(--dg-ext)
+    classDef old fill:var(--dg-old-bg),stroke:var(--dg-old)
+    class CLI,OB chg
+    class API,DB,JOB,MP new
+    class NG old
+    class DS,OSS ext</pre>
+</details>
+</div>
+<!-- mermaid:end -->
+      <p class="diagram-caption">橙色 = 改造 t-cli；绿色 = 新增；灰色 = 已有设施；紫色 = 外部服务。nginx 和 PostgreSQL 实例是花了知多少在用的，t-cli 只新增一个站点和一个数据库。CLI 仍直连 DeepSeek，所以服务端宕机不影响 CLI 翻译。</p>
+
+      <h3>核心设计：只追加，不覆盖</h3>
+      <ol>
+        <li><strong>原始记录不可变。</strong>记录由 CLI 或小程序产生，之后不修改。客户端生成 ULID，服务端按 ID 幂等写入。重复推送不会产生重复数据。</li>
+        <li><strong>复习进度也只追加。</strong>每次评分写一条复习日志。卡片的调度状态由日志按时间重放得出（FSRS 是确定性算法）。两台设备离线复习同一张卡，两条日志都保留，不需要“后写者胜”。</li>
+        <li><strong>游标用服务端自增序号。</strong>拉取游标是 <code>seq</code>，不是时间戳；推送和拉取的游标分开存。这条规避花了知多少的 P0-1 缺陷。那次 push 游标污染了 pull 水位线，拉取从此漏掉其它设备的数据（heji-ledger <code>docs/21-发布验收报告.md</code>）。</li>
+        <li><strong>CLI 先写本地，再推送。</strong>推送失败的记录留在待推送队列（Outbox），下次启动或产生下一条记录时重试。翻译流程不等同步服务。</li>
+      </ol>
+      <div class="callout warn"><strong>换成 PostgreSQL 后的序号坑：</strong>自增序列按分配顺序增长，不按提交顺序。两个写事务并发时，序号小的可能后提交，拉取方会永久跳过它。做法：账号表加一列计数器 <code>last_seq</code>，每次写入先执行 <code>UPDATE users SET last_seq = last_seq + n WHERE id = $1 RETURNING last_seq</code> 取号。这一行的行锁让同一账号的写入排队，序号顺序就等于提交顺序。AI 任务写卡片和材料时也用这个计数器。M1 用并发推送测试守住它。</div>
+
+      <!-- mermaid:begin -->
+<div class="diagram rendered">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560.64 515" width="560.64" height="515" style="--bg:var(--dg-bg);--fg:var(--dg-fg);--line:var(--dg-line);--accent:var(--dg-accent);--muted:var(--dg-muted);--surface:var(--dg-node);--border:var(--dg-border)">
+<style>
+
+  text { font-family: var(--dg-font, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif); }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="seq-arrow" markerWidth="8" markerHeight="5" refX="8" refY="2.5" orient="auto-start-reverse">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" />
+  </marker>
+  <marker id="seq-arrow-open" markerWidth="8" markerHeight="5" refX="8" refY="2.5" orient="auto-start-reverse">
+    <polyline points="0 0, 8 2.5, 0 5" fill="none" stroke="var(--_arrow)" stroke-width="1" />
+  </marker>
+</defs>
+<line class="lifeline" data-actor="C" x1="70" y1="70" x2="70" y2="485" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="Q" x1="210" y1="70" x2="210" y2="485" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="S" x1="350.64" y1="70" x2="350.64" y2="485" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="P" x1="490.64" y1="70" x2="490.64" y2="485" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<g class="message" data-from="C" data-to="C" data-label="写本地 Markdown，显示结果" data-line-style="solid" data-arrow-head="filled" data-self="true">
+  <polyline points="70,90 100,90 100,110 70,110" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="108" y="100" font-size="11" text-anchor="start" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">写本地 Markdown，显示结果</text>
+</g>
+<g class="message" data-from="C" data-to="Q" data-label="追加记录（带 ULID）" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="70" y1="160" x2="210" y2="160" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="140" y="150" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">追加记录（带 ULID）</text>
+</g>
+<g class="message" data-from="Q" data-to="S" data-label="POST /v1/entries（批量）" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="210" y1="200" x2="350.64" y2="200" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="280.32" y="190" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">POST /v1/entries（批量）</text>
+</g>
+<g class="message" data-from="S" data-to="Q" data-label="返回已接收的 ID" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="350.64" y1="240" x2="210" y2="240" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#seq-arrow)" />
+  <text x="280.32" y="230" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">返回已接收的 ID</text>
+</g>
+<g class="message" data-from="Q" data-to="Q" data-label="删除已确认的记录" data-line-style="solid" data-arrow-head="filled" data-self="true">
+  <polyline points="210,280 240,280 240,300 210,300" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="248" y="290" font-size="11" text-anchor="start" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">删除已确认的记录</text>
+</g>
+<g class="message" data-from="P" data-to="S" data-label="GET /v1/sync?after=seq" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="490.64" y1="365" x2="350.64" y2="365" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="420.64" y="355" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">GET /v1/sync?after=seq</text>
+</g>
+<g class="message" data-from="S" data-to="P" data-label="新卡片、材料、最新 seq" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="350.64" y1="405" x2="490.64" y2="405" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#seq-arrow)" />
+  <text x="420.64" y="395" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">新卡片、材料、最新 seq</text>
+</g>
+<g class="message" data-from="P" data-to="S" data-label="POST /v1/reviews（只追加）" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="490.64" y1="445" x2="350.64" y2="445" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="420.64" y="435" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">POST /v1/reviews（只追加）</text>
+</g>
+<g class="note" data-position="over" data-actors="S">
+  <polygon points="276.336,318 418.944,318 424.944,324 424.944,341 276.336,341" fill="var(--bg)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <polygon points="418.944,318 424.944,324 418.944,324" fill="var(--_inner-stroke)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="350.64" y="329.5" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">05:00 生成材料和复习卡</text>
+</g>
+<g class="actor" data-id="C" data-label="t-cli" data-type="participant">
+  <rect x="30" y="30" width="80" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="70" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">t-cli</text>
+</g>
+<g class="actor" data-id="Q" data-label="待推送队列" data-type="participant">
+  <rect x="155.975" y="30" width="108.05" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="210" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">待推送队列</text>
+</g>
+<g class="actor" data-id="S" data-label="同步服务" data-type="participant">
+  <rect x="304.025" y="30" width="93.22999999999999" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="350.64" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">同步服务</text>
+</g>
+<g class="actor" data-id="P" data-label="小程序" data-type="participant">
+  <rect x="450.64" y="30" width="80" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="490.64" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">小程序</text>
+</g>
+</svg>
+<details class="diagram-src"><summary>Mermaid 源码</summary>
+<pre class="mermaid-src">sequenceDiagram
+    participant C as t-cli
+    participant Q as 待推送队列
+    participant S as 同步服务
+    participant P as 小程序
+    C-&gt;&gt;C: 写本地 Markdown，显示结果
+    C-&gt;&gt;Q: 追加记录（带 ULID）
+    Q-&gt;&gt;S: POST /v1/entries（批量）
+    S--&gt;&gt;Q: 返回已接收的 ID
+    Q-&gt;&gt;Q: 删除已确认的记录
+    Note over S: 05:00 生成材料和复习卡
+    P-&gt;&gt;S: GET /v1/sync?after=seq
+    S--&gt;&gt;P: 新卡片、材料、最新 seq
+    P-&gt;&gt;S: POST /v1/reviews（只追加）</pre>
+</details>
+</div>
+<!-- mermaid:end -->
+      <p class="diagram-caption">CLI 记录的同步时序。CLI 推送和小程序拉取互不依赖，任何一端离线都不阻塞另一端。</p>
+
+      <div class="callout warn"><strong>坑点：</strong>CLI 的后台推送不能向 stdout / stderr 输出任何内容。Ink 管理整个画面，直接输出会花屏（见仓库 <code>CLAUDE.md</code> 的 TUI 约束）。推送状态只在状态栏和 <code>/sync status</code> 里显示。</div>
+
+      <p>登录、CLI 授权和数据隔离见第 7 节“账号体系”。</p>
+    </section>
+
+    <!-- 7: account -->
+    <section class="step" id="s-acct" data-title="账号体系">
+      <h2>7. 账号体系</h2>
+      <p class="lead">按多用户设计，按邀请制运营。代价是每张表多一列 user_id；收益是以后开放给别人时不用重做。</p>
+
+      <h3>各端怎么登录</h3>
+      <table>
+        <tr><th>端</th><th>登录方式</th><th>说明</th></tr>
+        <tr><td>小程序</td><td><code>wx.login</code> 静默登录，服务端换取 openid 并绑定账号</td><td>不用密码，用户无感</td></tr>
+        <tr><td>CLI</td><td>设备授权：终端显示二维码和 6 位码，在小程序里确认</td><td>类似 <code>gh auth login</code>；CLI 不保存密码</td></tr>
+        <tr><td>H5（可选）</td><td>网页显示小程序码，微信扫码确认</td><td>复用 CLI 的确认页</td></tr>
+        <tr><td>管理员</td><td>你的账号带 admin 角色；用服务端脚本生成邀请码</td><td>不做管理后台</td></tr>
+      </table>
+
+      <!-- mermaid:begin -->
+<div class="diagram rendered">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 486.03024999999997 800.2999999999998" width="486.03024999999997" height="800.2999999999998" style="--bg:var(--dg-bg);--fg:var(--dg-fg);--line:var(--dg-line);--accent:var(--dg-accent);--muted:var(--dg-muted);--surface:var(--dg-node);--border:var(--dg-border)">
+<style>
+
+  text { font-family: var(--dg-font, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif); }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<polyline class="edge" data-from="B" data-to="D" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="213.13091666666662,77.80000000000001 213.13091666666662,133.80000000000004" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="D" data-to="E" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="是" points="188.55424999999997,256.6833333333333 188.55424999999997,546.1999999999999 66.59325000000001,546.1999999999999 66.59325000000001,727.3999999999999 87.38333333333333,727.3999999999999 87.38333333333333,739.3999999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="D" data-to="F" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="否" points="237.7075833333333,256.68333333333334 237.7075833333333,325.26 276.66599999999994,325.26 276.66599999999994,413.56" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="F" data-to="G" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="是" points="254.5593333333333,524.0933333333334 254.5593333333333,558.1999999999999 171.55674999999997,558.1999999999999 171.55675,646.4999999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="G" data-to="E" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="171.55675,683.3999999999999 171.55675,727.3999999999999 150.76666666666665,727.3999999999999 150.76666666666665,739.3999999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="F" data-to="X" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="否" points="298.7726666666666,524.0933333333334 298.7726666666666,558.1999999999999 381.77524999999997,558.1999999999999 381.77524999999997,646.4999999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="edge-label" data-from="D" data-to="E" data-label="是">
+  <rect x="51.59325000000001" y="565.1999999999999" width="29.53" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="66.35825000000001" y="580.3499999999999" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">是</text>
+</g>
+<g class="edge-label" data-from="D" data-to="F" data-label="否">
+  <rect x="261.66599999999994" y="332.26" width="29.53" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="276.4309999999999" y="347.40999999999997" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">否</text>
+</g>
+<g class="edge-label" data-from="F" data-to="G" data-label="是">
+  <rect x="156.55674999999997" y="565.1999999999999" width="29.53" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="171.32174999999995" y="580.3499999999999" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">是</text>
+</g>
+<g class="edge-label" data-from="F" data-to="X" data-label="否">
+  <rect x="366.77524999999997" y="565.1999999999999" width="29.53" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="381.54024999999996" y="580.3499999999999" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">否</text>
+</g>
+<g class="node" data-id="B" data-label="打开小程序
+wx.login 换取 openid" data-shape="rounded">
+  <rect x="131.39391666666666" y="24" width="163.474" height="53.800000000000004" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="213.13091666666665" y="50.900000000000006" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="213.13091666666665" dy="-3.9000000000000012">打开小程序</tspan><tspan x="213.13091666666665" dy="16.900000000000002">wx.login 换取 openid</tspan></text>
+</g>
+<g class="node" data-id="D" data-label="已绑定账号?" data-shape="diamond">
+  <polygon points="213.13091666666665,133.8 286.86091666666664,207.53 213.13091666666665,281.26 139.40091666666666,207.53" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="213.13091666666665" y="207.53" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">已绑定账号?</text>
+</g>
+<g class="node" data-id="E" data-label="签发令牌，进入翻译页" data-shape="rounded">
+  <rect x="24" y="739.3999999999999" width="190.14999999999998" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="119.07499999999999" y="757.8499999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">签发令牌，进入翻译页</text>
+</g>
+<g class="node" data-id="F" data-label="有邀请码?" data-shape="diamond">
+  <polygon points="276.66599999999994,413.56 342.98599999999993,479.88 276.66599999999994,546.2 210.34599999999995,479.88" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="276.66599999999994" y="479.88" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">有邀请码?</text>
+</g>
+<g class="node" data-id="G" data-label="创建账号并绑定 openid" data-shape="rectangle">
+  <rect x="77.59325000000001" y="646.4999999999999" width="187.92699999999996" height="36.900000000000006" rx="0" ry="0" fill="var(--dg-new-bg)" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <text x="171.55675" y="664.9499999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">创建账号并绑定 openid</text>
+</g>
+<g class="node" data-id="X" data-label="提示“需要邀请码”" data-shape="rectangle">
+  <rect x="301.52025" y="646.4999999999999" width="160.51" height="36.900000000000006" rx="0" ry="0" fill="var(--dg-bad-bg)" stroke="var(--dg-bad)" stroke-width="1.5px" />
+  <text x="381.77524999999997" y="664.9499999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">提示“需要邀请码”</text>
+</g>
+</svg>
+<details class="diagram-src"><summary>Mermaid 源码</summary>
+<pre class="mermaid-src">flowchart TD
+    B(打开小程序&lt;br/&gt;wx.login 换取 openid) --&gt; D{已绑定账号?}
+    D --&gt;|是| E(签发令牌，进入翻译页)
+    D --&gt;|否| F{有邀请码?}
+    F --&gt;|是| G[创建账号并绑定 openid]
+    G --&gt; E
+    F --&gt;|否| X[提示“需要邀请码”]
+    classDef new fill:var(--dg-new-bg),stroke:var(--dg-new),stroke-width:1.5px
+    classDef bad fill:var(--dg-bad-bg),stroke:var(--dg-bad),stroke-width:1.5px
+    class G new
+    class X bad</pre>
+</details>
+</div>
+<!-- mermaid:end -->
+      <p class="diagram-caption">小程序首次登录。绿色 = 新建账号；红色 = 没有邀请码时的出口。老用户每次打开都走“是”分支，无感登录。</p>
+
+      <!-- mermaid:begin -->
+<div class="diagram rendered">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 521.367 405" width="521.367" height="405" style="--bg:var(--dg-bg);--fg:var(--dg-fg);--line:var(--dg-line);--accent:var(--dg-accent);--muted:var(--dg-muted);--surface:var(--dg-node);--border:var(--dg-border)">
+<style>
+
+  text { font-family: var(--dg-font, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif); }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="seq-arrow" markerWidth="8" markerHeight="5" refX="8" refY="2.5" orient="auto-start-reverse">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" />
+  </marker>
+  <marker id="seq-arrow-open" markerWidth="8" markerHeight="5" refX="8" refY="2.5" orient="auto-start-reverse">
+    <polyline points="0 0, 8 2.5, 0 5" fill="none" stroke="var(--_arrow)" stroke-width="1" />
+  </marker>
+</defs>
+<line class="lifeline" data-actor="C" x1="118.85700000000001" y1="70" x2="118.85700000000001" y2="375" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="S" x1="258.857" y1="70" x2="258.857" y2="375" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="M" x1="415.112" y1="70" x2="415.112" y2="375" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<g class="message" data-from="C" data-to="S" data-label="POST /v1/auth/device" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="118.85700000000001" y1="90" x2="258.857" y2="90" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="188.85700000000003" y="80" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">POST /v1/auth/device</text>
+</g>
+<g class="message" data-from="S" data-to="C" data-label="设备码、6 位用户码、二维码链接" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="258.857" y1="130" x2="118.85700000000001" y2="130" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#seq-arrow)" />
+  <text x="188.85700000000003" y="120" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">设备码、6 位用户码、二维码链接</text>
+</g>
+<g class="message" data-from="C" data-to="C" data-label="终端显示二维码和用户码" data-line-style="solid" data-arrow-head="filled" data-self="true">
+  <polyline points="118.85700000000001,170 148.85700000000003,170 148.85700000000003,190 118.85700000000001,190" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="156.85700000000003" y="180" font-size="11" text-anchor="start" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">终端显示二维码和用户码</text>
+</g>
+<g class="message" data-from="M" data-to="S" data-label="扫码，确认授权" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="415.112" y1="255" x2="258.857" y2="255" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="336.9845" y="245" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">扫码，确认授权</text>
+</g>
+<g class="message" data-from="C" data-to="S" data-label="POST /v1/auth/token（设备码）" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="118.85700000000001" y1="295" x2="258.857" y2="295" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="188.85700000000003" y="285" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">POST /v1/auth/token（设备码）</text>
+</g>
+<g class="message" data-from="S" data-to="C" data-label="access token + refresh token" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="258.857" y1="335" x2="118.85700000000001" y2="335" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#seq-arrow)" />
+  <text x="188.85700000000003" y="325" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">access token + refresh token</text>
+</g>
+<g class="note" data-position="over" data-actors="C">
+  <polygon points="30,208 201.71400000000003,208 207.71400000000003,214 207.71400000000003,231 30,231" fill="var(--bg)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <polygon points="201.71400000000003,208 207.71400000000003,214 201.71400000000003,214" fill="var(--_inner-stroke)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="118.85700000000001" y="219.5" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">每 5 秒轮询一次，最长 10 分钟</text>
+</g>
+<g class="actor" data-id="C" data-label="t-cli" data-type="participant">
+  <rect x="78.85700000000001" y="30" width="80" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="118.85700000000001" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">t-cli</text>
+</g>
+<g class="actor" data-id="S" data-label="服务端" data-type="participant">
+  <rect x="218.85700000000003" y="30" width="80" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="258.857" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">服务端</text>
+</g>
+<g class="actor" data-id="M" data-label="小程序（已登录）" data-type="participant">
+  <rect x="338.857" y="30" width="152.51" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="415.112" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">小程序（已登录）</text>
+</g>
+</svg>
+<details class="diagram-src"><summary>Mermaid 源码</summary>
+<pre class="mermaid-src">sequenceDiagram
+    participant C as t-cli
+    participant S as 服务端
+    participant M as 小程序（已登录）
+    C-&gt;&gt;S: POST /v1/auth/device
+    S--&gt;&gt;C: 设备码、6 位用户码、二维码链接
+    C-&gt;&gt;C: 终端显示二维码和用户码
+    Note over C: 每 5 秒轮询一次，最长 10 分钟
+    M-&gt;&gt;S: 扫码，确认授权
+    C-&gt;&gt;S: POST /v1/auth/token（设备码）
+    S--&gt;&gt;C: access token + refresh token</pre>
+</details>
+</div>
+<!-- mermaid:end -->
+      <p class="diagram-caption">CLI 登录（设备授权流程）。CLI 只拿到属于你账号的令牌，从不接触密码。</p>
+
+      <h3>令牌与设备</h3>
+      <ul>
+        <li>每台设备一对令牌：access token 有效 15 分钟；refresh token 有效 60 天。</li>
+        <li>refresh token 每次刷新都换新的，服务端只存哈希。有人重放旧令牌时，服务端吊销这台设备的整条令牌链。</li>
+        <li>“我的 → 账号与设备”列出全部设备，可以单独吊销。</li>
+        <li>CLI 把令牌存在 <code>~/.config/t-cli/auth.json</code>，文件权限 600。</li>
+      </ul>
+
+      <h3>数据隔离</h3>
+      <ul>
+        <li>所有业务表都带 <code>user_id</code>；唯一约束也带上它，例如学习单元的 <code>(user_id, type, norm_key)</code>。</li>
+        <li>仓储层（Repository）的每个方法都必须传入 <code>user_id</code>，不提供不带它的查询。</li>
+        <li>自动化测试：用 A 账号的令牌请求 B 账号的数据，必须返回 404。</li>
+        <li>限流和每日 AI token 预算都按账号计算。</li>
+        <li>日志只记录 ID、长度和耗时，不记录用户输入的原文。</li>
+        <li>可选加固：开启 PostgreSQL 行级安全（RLS），按会话变量 <code>app.user_id</code> 过滤。M1 先不开，越权测试稳定后再评估。</li>
+      </ul>
+
+      <h3>个人主体的限制</h3>
+      <table>
+        <tr><th>能力</th><th>个人主体</th><th>对方案的影响</th></tr>
+        <tr><td><code>wx.login</code> 取 openid</td><td>可用</td><td>登录不受影响</td></tr>
+        <tr><td>手机号快速验证</td><td>不可用 <span class="tag infer">推断</span></td><td>不做手机号登录</td></tr>
+        <tr><td>头像和昵称</td><td>只能由用户主动填写</td><td>资料页选填，不阻塞使用</td></tr>
+        <tr><td>UnionID</td><td>需要绑定微信开放平台 <span class="tag todo">待确认</span></td><td>不依赖它；账号主键用自己的 user_id</td></tr>
+        <tr><td>体验版人数</td><td>体验成员有上限 <span class="tag infer">推断</span></td><td>邀请的人超过上限，就必须正式发布</td></tr>
+      </table>
+      <div class="callout warn"><strong>注意：</strong>账号开放给别人后，这个工具就变成“向他人提供的 AI 服务”。第一，体验版有人数上限，人一多就必须正式发布。第二，正式发布需要类目和生成式 AI 资质（见第 8 节）。所以“给谁用”决定上线路径。现在定为邀请制、≤ 20 人（D8）；邀请别人之前，先核实体验成员上限（V4）。</div>
+
+      <h3>账号的生命周期</h3>
+      <ul>
+        <li><strong>注销：</strong>用户在小程序里注销账号后，服务端删除该账号的全部数据和 OSS 文件。备份里的副本在 30 天后随备份过期。<span class="tag infer">推断：上架审核通常要求提供注销入口</span></li>
+        <li><strong>导出：</strong>一键把全部记录导出为 Markdown，与 Obsidian 导出共用一套代码。</li>
+        <li><strong>找回：</strong>微信号丢失时，管理员把账号改绑到新的 openid。</li>
+      </ul>
+    </section>
+
+    <!-- 7 -->
+    <section class="step" id="s7" data-title="小程序形态与发布">
+      <h2>8. 小程序形态与发布</h2>
+      <p class="lead">独立小程序，先发体验版自用。体验版不用提审，正式发布的资质问题可以后置。</p>
+      <div class="callout ok"><strong>已确认：</strong>阿里云有备案域名；做独立小程序，主体为个人；先用体验版自用。</div>
+
+      <h3>体验版阶段要做的</h3>
+      <table>
+        <tr><th>事项</th><th>做法</th></tr>
+        <tr><td>工程模板</td><td>沿用花了知多少：微信原生 + TypeScript + Skyline（heji-ledger <code>docs/04</code> 第 1 节）</td></tr>
+        <tr><td>合法域名</td><td>request 和 downloadFile 域名配成备案域名的子域名，例如 <code>api.&lt;域名&gt;</code>、<code>static.&lt;域名&gt;</code>（OSS 绑定）</td></tr>
+        <tr><td>上传体验版</td><td>GitHub Actions 里用 <code>miniprogram-ci</code> 自动上传，花了知多少已有这条流水线</td></tr>
+        <tr><td>语音输入</td><td>微信同声传译插件，花了知多少已在用</td></tr>
+        <tr><td>体验成员</td><td>先只加你自己；邀请的人也要加为体验成员 <span class="tag infer">推断：体验版仅体验成员可用，且有人数上限</span></td></tr>
+      </table>
+
+      <h3>正式发布前要补的（不阻塞体验版）</h3>
+      <table>
+        <tr><th>事项</th><th>说明</th></tr>
+        <tr><td>小程序类目</td><td>提审必须选类目；个人主体可选范围有限 <span class="tag todo">待确认</span></td></tr>
+        <tr><td>生成式 AI 资质</td><td>向公众提供 AI 翻译和纠错，可能需要生成式 AI 服务的备案或资质 <span class="tag infer">推断，需核实</span></td></tr>
+        <tr><td>内容安全</td><td>用户输入和 AI 输出可能需要接入微信内容安全接口 <span class="tag infer">推断</span></td></tr>
+        <tr><td>隐私协议</td><td>声明剪贴板、麦克风的用途；花了知多少的隐私政策（heji-ledger <code>docs/15</code>）可作模板</td></tr>
+      </table>
+
+      <h3>H5 和 Mac 端复习</h3>
+      <ul>
+        <li>H5 降为可选，放到 M5。有备案域名后随时能加，服务端接口不用改。</li>
+        <li>Mac 上复习优先给 CLI 加 <code>/review</code> 命令。它按 Ink 状态机实现，交互模型与现有 <code>/quiz</code> 相同。</li>
+      </ul>
+    </section>
+
+    <!-- 8 -->
+    <section class="step" id="s8" data-title="UX 设计">
+      <h2>9. UX 设计</h2>
+      <p class="lead">打开小程序就能输入。翻译页只有一个输入框和一个结果区，其它功能放在别的 tab。</p>
+
+      <h3>设计原则</h3>
+      <ol>
+        <li><strong>工具优先。</strong>打开即聚焦输入框。不选语言、不选模式，输入后按键盘的“发送”键即出结果。</li>
+        <li><strong>一屏一事。</strong>翻译页只做翻译；纠错单独一个 tab；复习页只回答“今天复习多少张、开始吗”。</li>
+        <li><strong>内容优先。</strong>英文用大号衬线字；界面元素用细线和留白，不用阴影和渐变。</li>
+        <li><strong>克制的激励。</strong>只保留连续天数和保持率，不做积分和排行榜。</li>
+        <li><strong>明暗两套主题</strong>，跟随系统。</li>
+      </ol>
+
+      <h3>六个主要页面（示意）</h3>
+      <div class="phones">
+        <div>
+          <div class="phone">
+            <div class="input">这个方案还需要再打磨一下<span class="caret"></span><div class="tools"><span>🎙</span><span>✕</span></div></div>
+            <div class="dir">中文 → 英文</div>
+            <div class="card">
+              <div class="serif" style="font-size:16px">This plan still needs some polishing.</div>
+              <hr>
+              <div class="actions" style="justify-content:flex-end"><span>▶ 朗读</span><span>复制</span></div>
+            </div>
+            <div class="tabs"><span class="on">翻译</span><span>纠错</span><span>复习<span class="badge">18</span></span><span>我的</span></div>
+          </div>
+          <p class="phone-caption">翻译（默认页）：输入中文，译成英文。页面只有输入框和结果</p>
+        </div>
+        <div>
+          <div class="phone">
+            <div class="input serif">meticulous<span class="caret"></span><div class="tools"><span>🎙</span><span>✕</span></div></div>
+            <div class="dir">英文 → 中文</div>
+            <div class="card">
+              <div class="serif" style="font-size:18px">meticulous</div>
+              <div class="muted serif">/məˈtɪkjələs/ ▶</div>
+              <div><b>adj.</b> 一丝不苟的；极其仔细的</div>
+              <hr>
+              <div class="actions" style="justify-content:flex-end"><span>复制</span></div>
+            </div>
+            <div class="tabs"><span class="on">翻译</span><span>纠错</span><span>复习<span class="badge">18</span></span><span>我的</span></div>
+          </div>
+          <p class="phone-caption">输入英文等外语，译成中文；单个英文单词附美式音标</p>
+        </div>
+        <div>
+          <div class="phone">
+            <div class="input serif">I look forward to hear from you soon.<div class="tools"><span>🎙</span><span>✕</span></div></div>
+            <div class="card">
+              <div class="serif">I look forward to <del>hear</del> <ins>hearing</ins> from you soon.</div>
+              <hr>
+              <div class="muted">to 是介词，后面接动名词。</div>
+              <div class="muted">更地道：</div>
+              <div class="serif" style="font-size:12px">Looking forward to hearing from you.<br>I hope to hear from you soon.</div>
+              <hr>
+              <div class="actions"><span>复制修改后句子</span><span>▶ 朗读</span></div>
+            </div>
+            <div class="tabs"><span>翻译</span><span class="on">纠错</span><span>复习<span class="badge">18</span></span><span>我的</span></div>
+          </div>
+          <p class="phone-caption">纠错（独立 tab）：修改处删除线 + 高亮，一键复制修改后的句子</p>
+        </div>
+        <div>
+          <div class="phone">
+            <div class="bar"><span>11月16日 周日</span><span>连续 23 天</span></div>
+            <div class="title">今日复习</div>
+            <div class="ring"><div><span><b>18</b><span class="muted">/ 42 张</span></span></div></div>
+            <div class="muted" style="text-align:center">新卡 12 · 复习 30 · 约 9 分钟</div>
+            <div class="cta">开始复习</div>
+            <div class="card">
+              <div class="muted">昨日材料</div>
+              <div>12 个单词 · 5 个句型 · 2 条语法</div>
+              <div class="muted">附 1 篇情景短文 ▶</div>
+            </div>
+            <div class="row"><span>词库</span><span class="muted">搜索 ›</span></div>
+            <div class="tabs"><span>翻译</span><span>纠错</span><span class="on">复习</span><span>我的</span></div>
+          </div>
+          <p class="phone-caption">复习首页：一个进度环 + 一个按钮；词库入口在这里</p>
+        </div>
+        <div>
+          <div class="phone">
+            <div class="thin"><i></i></div>
+            <div class="bar"><span>认词卡</span><span>16 / 42</span></div>
+            <div class="word serif">meticulous</div>
+            <div class="ipa serif">/məˈtɪkjələs/ ▶</div>
+            <hr>
+            <div><b>adj.</b> 一丝不苟的；极其仔细的</div>
+            <div class="serif"><i>She keeps meticulous records of every experiment.</i></div>
+            <div class="muted">搭配：meticulous attention to detail</div>
+            <div class="grades">
+              <span>忘记<small>10 分</small></span>
+              <span>困难<small>1 天</small></span>
+              <span class="hi">记得<small>3 天</small></span>
+              <span>简单<small>8 天</small></span>
+            </div>
+          </div>
+          <p class="phone-caption">复习卡（翻面后）：按钮上直接写下次间隔</p>
+        </div>
+        <div>
+          <div class="phone">
+            <div class="bar"><span>11月15日</span><span>每日材料</span></div>
+            <div class="chips"><span>单词</span><span class="on">句型</span><span>语法</span><span>短文</span></div>
+            <div class="card">
+              <div class="serif"><b>be torn between A and B</b></div>
+              <div class="muted">在 A 和 B 之间左右为难 · 口语</div>
+              <div class="serif" style="font-size:12px">≈ can't decide between A and B<br>≈ be caught between A and B</div>
+            </div>
+            <div class="card">
+              <div class="bad serif">✗ I look forward to hear from you.</div>
+              <div class="good serif">✓ I look forward to hearing from you.</div>
+              <div class="muted">look forward to + 名词 / 动名词</div>
+            </div>
+            <div class="tabs"><span>翻译</span><span>纠错</span><span class="on">复习</span><span>我的</span></div>
+          </div>
+          <p class="phone-caption">每日材料：按板块切换，一屏两张卡</p>
+        </div>
+      </div>
+      <p class="note" style="text-align:center">示意图使用虚构样例，不含真实记录。</p>
+
+      <h3>信息架构</h3>
+      <table>
+        <tr><th>Tab</th><th>内容</th></tr>
+        <tr><td>翻译（默认）</td><td>一个输入框 + 一个结果区。中文译成英文，其他外语译成中文</td></tr>
+        <tr><td>纠错</td><td>输入英文句子；结果标出修改处，给出更地道的说法</td></tr>
+        <tr><td>复习</td><td>今日进度、开始复习、每日材料、词库（按类型和熟练度筛选、搜索）、周报；tab 上显示待复习张数</td></tr>
+        <tr><td>我的</td><td>查询记录（两端）、日历热力图、连续天数、保持率曲线、设置、账号与设备、导出、注销</td></tr>
+      </table>
+
+      <h3>交互细节</h3>
+      <table>
+        <tr><th>场景</th><th>交互</th></tr>
+        <tr><td>首次打开</td><td>静默登录；新用户输入邀请码后直接进入翻译页，不要求填资料</td></tr>
+        <tr><td>打开小程序</td><td>落在翻译页，输入框自动聚焦，键盘弹起</td></tr>
+        <tr><td>提交</td><td>按键盘的“发送”键（textarea 的 <code>confirm-type</code>）；页面上不放“翻译”按钮</td></tr>
+        <tr><td>翻译方向</td><td>自动判断，结果上方用小字显示。判断错了就点这行小字，本次改为反方向</td></tr>
+        <tr><td>粘贴与清空</td><td>用系统的长按粘贴，不主动读剪贴板；点输入框里的 ✕ 清空</td></tr>
+        <tr><td>语音输入</td><td>按住输入框里的麦克风说话，松开后自动翻译</td></tr>
+        <tr><td>纠错输入了中文</td><td>提示“纠错只支持英文”，并提供“去翻译”按钮</td></tr>
+        <tr><td>输出中</td><td>逐字显示；显示“停止”按钮</td></tr>
+        <tr><td>结果操作</td><td>朗读、复制；单词结果自动朗读（可关）</td></tr>
+        <tr><td>查询记录</td><td>在“我的 → 记录”里看；点击显示缓存结果，不重新请求</td></tr>
+        <tr><td>待复习提醒</td><td>只在复习 tab 上显示角标；翻译页不放复习入口</td></tr>
+        <tr><td>复习翻面</td><td>点击卡片；翻面后自动播放发音（可关）</td></tr>
+        <tr><td>复习评分</td><td>忘记 / 困难 / 记得 / 简单；按钮下写下次间隔。左滑 = 忘记，右滑 = 记得</td></tr>
+        <tr><td>撤销与报错</td><td>评分后 5 秒内可撤销；长按卡片 → “内容有误” → 重新生成该单元</td></tr>
+        <tr><td>复习结束</td><td>显示用时、正确率、明天预计张数，然后结束，不推荐“再来一组”</td></tr>
+      </table>
+
+      <h3>复习卡的状态</h3>
+      <!-- mermaid:begin -->
+<div class="diagram rendered">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 317.15000000000003 760.5" width="317.15000000000003" height="760.5" style="--bg:var(--dg-bg);--fg:var(--dg-fg);--line:var(--dg-line);--accent:var(--dg-accent);--muted:var(--dg-muted);--surface:var(--dg-node);--border:var(--dg-border)">
+<style>
+
+  text { font-family: var(--dg-font, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif); }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<polyline class="edge" data-from="_start" data-to="New" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="72.33000000000003,52 72.33000000000003,108" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="New" data-to="Learning" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="首次复习" points="72.33000000000003,144.9 72.33000000000003,277.20000000000005" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="Learning" data-to="Review" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="记得" points="72.33000000000003,314.1 72.33000000000003,446.7 150.4325,446.7 150.4325,446.40000000000003" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="Review" data-to="Review" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="记得，间隔变长" points="128.83,458.70000000000005 118.83000000000001,458.7 118.83000000000001,471 128.83,471.00000000000006" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="Review" data-to="Relearning" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="忘记" points="172.035,446.40000000000003 172.035,358.1 180.33833333333337,358.1 180.33833333333337,314.1" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="Relearning" data-to="Review" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="记得" points="209.14166666666668,314.1 209.14166666666668,358.1 217.44500000000002,358.1 217.44500000000002,434.40000000000003 193.63750000000002,434.40000000000003 193.63750000000002,446.40000000000003" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="Review" data-to="Mastered" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="间隔超过 180 天" points="172.035,483.3 172.035,615.5999999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="Mastered" data-to="_end" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="172.035,652.5 172.035,708.5" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="edge-label" data-from="New" data-to="Learning" data-label="首次复习">
+  <rect x="39.33000000000002" y="195.9" width="65.17" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="71.91500000000002" y="211.05" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">首次复习</text>
+</g>
+<g class="edge-label" data-from="Learning" data-to="Review" data-label="记得">
+  <rect x="51.33000000000003" y="365.1" width="41.41" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="72.03500000000003" y="380.25" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">记得</text>
+</g>
+<g class="edge-label" data-from="Review" data-to="Review" data-label="记得，间隔变长">
+  <rect x="20.020000000000003" y="449.70000000000005" width="100.81000000000002" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="70.42500000000001" y="464.85" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">记得，间隔变长</text>
+</g>
+<g class="edge-label" data-from="Review" data-to="Relearning" data-label="忘记">
+  <rect x="151.03500000000003" y="365.1" width="41.41" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="171.74" y="380.25" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">忘记</text>
+</g>
+<g class="edge-label" data-from="Relearning" data-to="Review" data-label="记得">
+  <rect x="196.44500000000005" y="365.1" width="41.41" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="217.15000000000003" y="380.25" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">记得</text>
+</g>
+<g class="edge-label" data-from="Review" data-to="Mastered" data-label="间隔超过 180 天">
+  <rect x="124.53500000000001" y="534.3" width="94.87000000000003" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="171.97000000000003" y="549.4499999999999" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">间隔超过 180 天</text>
+</g>
+<g class="node" data-id="New" data-label="新卡" data-shape="rounded">
+  <rect x="36.535000000000025" y="108" width="71.59" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="72.33000000000003" y="126.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">新卡</text>
+</g>
+<g class="node" data-id="Learning" data-label="学习中" data-shape="rounded">
+  <rect x="29.12500000000003" y="277.20000000000005" width="86.41" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="72.33000000000003" y="295.65000000000003" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">学习中</text>
+</g>
+<g class="node" data-id="Review" data-label="复习中" data-shape="rounded">
+  <rect x="128.83" y="446.40000000000003" width="86.41" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="172.03500000000003" y="464.85" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">复习中</text>
+</g>
+<g class="node" data-id="Relearning" data-label="重学中" data-shape="rounded">
+  <rect x="151.53500000000003" y="277.20000000000005" width="86.41" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="194.74" y="295.65000000000003" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">重学中</text>
+</g>
+<g class="node" data-id="Mastered" data-label="已掌握" data-shape="rounded">
+  <rect x="128.83" y="615.5999999999999" width="86.41" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="172.03500000000003" y="634.05" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">已掌握</text>
+</g>
+<g class="node" data-id="_start" data-label="" data-shape="state-start">
+  <circle cx="72.33000000000003" cy="38" r="12" fill="var(--_text)" stroke="none" />
+</g>
+<g class="node" data-id="_end" data-label="" data-shape="state-end">
+  <circle cx="172.03500000000003" cy="722.5" r="12" fill="none" stroke="var(--_text)" stroke-width="1.5" />
+  <circle cx="172.03500000000003" cy="722.5" r="8" fill="var(--_text)" stroke="none" />
+</g>
+</svg>
+<details class="diagram-src"><summary>Mermaid 源码</summary>
+<pre class="mermaid-src">stateDiagram-v2
+    state "新卡" as New
+    state "学习中" as Learning
+    state "复习中" as Review
+    state "重学中" as Relearning
+    state "已掌握" as Mastered
+    [*] --&gt; New
+    New --&gt; Learning : 首次复习
+    Learning --&gt; Review : 记得
+    Review --&gt; Review : 记得，间隔变长
+    Review --&gt; Relearning : 忘记
+    Relearning --&gt; Review : 记得
+    Review --&gt; Mastered : 间隔超过 180 天
+    Mastered --&gt; [*]</pre>
+</details>
+</div>
+<!-- mermaid:end -->
+      <p class="diagram-caption">前 4 个状态对应 FSRS 的 New / Learning / Review / Relearning；“已掌握”是本方案加的退出条件，阈值可调。</p>
+
+      <h3>参考对象</h3>
+      <table>
+        <tr><th>参考</th><th>借鉴什么</th></tr>
+        <tr><td>DeepL / 系统翻译 App</td><td>打开即输入；自动判断语言方向；结果区只放一个主结果</td></tr>
+        <tr><td>Grammarly</td><td>修改处原位标出，而不是只给一段新文字</td></tr>
+        <tr><td>Anki（FSRS 调度）</td><td>评分按钮上写下次间隔，让用户看懂调度</td></tr>
+        <tr><td>Readwise Daily Review</td><td>每天一小份回顾，做完就结束，不制造无尽列表</td></tr>
+        <tr><td>墨墨背单词 / 不背单词</td><td>每日任务量可控；单词页信息分层</td></tr>
+        <tr><td>Things 3 / iA Writer</td><td>留白、字体层级、极少的颜色</td></tr>
+      </table>
+      <p><strong>视觉方向：</strong>纸本风。米白底、墨色字、一个强调色（靛青）。英文用衬线体，中文用系统字体。沿用花了知多少的 token 纪律（色彩、间距、对比度校验），但不沿用“影青”配色，避免两个产品长得一样。<span class="tag infer">推断</span></p>
+    </section>
+
+    <!-- 9 -->
+    <section class="step" id="s9" data-title="数据模型">
+      <h2>10. 数据模型</h2>
+      <p class="lead">业务数据 6 张表，账号数据 4 张表，都建在 PostgreSQL 的独立数据库 <code>tcli</code> 里。所有业务表都带 user_id。原始记录和复习日志只追加。</p>
+      <!-- mermaid:begin -->
+<div class="diagram rendered">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 606.81 460" width="606.81" height="460" style="--bg:var(--dg-bg);--fg:var(--dg-fg);--line:var(--dg-line);--accent:var(--dg-accent);--muted:var(--dg-muted);--surface:var(--dg-node);--border:var(--dg-border)">
+<style>
+
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&amp;display=swap');
+  text { font-family: var(--dg-font, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif); }
+  .mono { font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', ui-monospace, monospace; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+</defs>
+<polyline class="er-relationship" data-entity1="ENTRY" data-entity2="ITEM_SOURCE" data-cardinality1="one" data-cardinality2="zero-many" data-identifying="true" data-label="产生" points="193.39999999999998,337 326.80999999999995,337 326.80999999999995,138 406.80999999999995,138" fill="none" stroke="var(--_line)" stroke-width="1" />
+<polyline class="er-relationship" data-entity1="ITEM" data-entity2="ITEM_SOURCE" data-cardinality1="one" data-cardinality2="zero-many" data-identifying="true" data-label="来源" points="193.39999999999998,112 406.80999999999995,112" fill="none" stroke="var(--_line)" stroke-width="1" />
+<g class="entity" data-id="ENTRY" data-label="ENTRY">
+  <rect x="40" y="254" width="153.39999999999998" height="166" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="40" y="254" width="153.39999999999998" height="34" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="116.69999999999999" y="271" text-anchor="middle" font-size="13" font-weight="700" fill="var(--_text)" dy="4.55">ENTRY</text>
+  <line x1="40" y1="288" x2="193.39999999999998" y2="288" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <rect x="46" y="292" width="22.31" height="14" rx="2" ry="2" fill="var(--_key-badge)" />
+  <text x="57.155" y="299" text-anchor="middle" dy="0.35em" font-size="9" font-weight="600" fill="var(--_text-sec)">PK</text>
+  <text x="76.31" y="299" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="185.39999999999998" y="299" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">id</tspan></text>
+  <rect x="46" y="314" width="22.31" height="14" rx="2" ry="2" fill="var(--_key-badge)" />
+  <text x="57.155" y="321" text-anchor="middle" dy="0.35em" font-size="9" font-weight="600" fill="var(--_text-sec)">FK</text>
+  <text x="76.31" y="321" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="185.39999999999998" y="321" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">user_id</tspan></text>
+  <text x="48" y="343" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="185.39999999999998" y="343" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">source</tspan></text>
+  <text x="48" y="365" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="185.39999999999998" y="365" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">kind</tspan></text>
+  <text x="48" y="387" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">text</tspan></text>
+  <text x="185.39999999999998" y="387" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">input</tspan></text>
+  <text x="48" y="409" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">bigint</tspan></text>
+  <text x="185.39999999999998" y="409" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">seq</tspan></text>
+</g>
+<g class="entity" data-id="ITEM_SOURCE" data-label="ITEM_SOURCE">
+  <rect x="406.80999999999995" y="86" width="160" height="78" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="406.80999999999995" y="86" width="160" height="34" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="486.80999999999995" y="103" text-anchor="middle" font-size="13" font-weight="700" fill="var(--_text)" dy="4.55">ITEM_SOURCE</text>
+  <line x1="406.80999999999995" y1="120" x2="566.81" y2="120" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <rect x="412.80999999999995" y="124" width="22.31" height="14" rx="2" ry="2" fill="var(--_key-badge)" />
+  <text x="423.9649999999999" y="131" text-anchor="middle" dy="0.35em" font-size="9" font-weight="600" fill="var(--_text-sec)">FK</text>
+  <text x="443.11999999999995" y="131" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="558.81" y="131" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">item_id</tspan></text>
+  <rect x="412.80999999999995" y="146" width="22.31" height="14" rx="2" ry="2" fill="var(--_key-badge)" />
+  <text x="423.9649999999999" y="153" text-anchor="middle" dy="0.35em" font-size="9" font-weight="600" fill="var(--_text-sec)">FK</text>
+  <text x="443.11999999999995" y="153" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="558.81" y="153" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">entry_id</tspan></text>
+</g>
+<g class="entity" data-id="ITEM" data-label="ITEM">
+  <rect x="40" y="40" width="153.39999999999998" height="144" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="40" y="40" width="153.39999999999998" height="34" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="116.69999999999999" y="57" text-anchor="middle" font-size="13" font-weight="700" fill="var(--_text)" dy="4.55">ITEM</text>
+  <line x1="40" y1="74" x2="193.39999999999998" y2="74" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <rect x="46" y="78" width="22.31" height="14" rx="2" ry="2" fill="var(--_key-badge)" />
+  <text x="57.155" y="85" text-anchor="middle" dy="0.35em" font-size="9" font-weight="600" fill="var(--_text-sec)">PK</text>
+  <text x="76.31" y="85" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="185.39999999999998" y="85" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">id</tspan></text>
+  <rect x="46" y="100" width="22.31" height="14" rx="2" ry="2" fill="var(--_key-badge)" />
+  <text x="57.155" y="107" text-anchor="middle" dy="0.35em" font-size="9" font-weight="600" fill="var(--_text-sec)">FK</text>
+  <text x="76.31" y="107" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="185.39999999999998" y="107" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">user_id</tspan></text>
+  <text x="48" y="129" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="185.39999999999998" y="129" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">type</tspan></text>
+  <text x="48" y="151" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="185.39999999999998" y="151" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">norm_key</tspan></text>
+  <text x="48" y="173" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">int</tspan></text>
+  <text x="185.39999999999998" y="173" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">lookup_count</tspan></text>
+</g>
+<line x1="197.39999999999998" y1="331" x2="197.39999999999998" y2="343" stroke="var(--_line)" stroke-width="1.25" />
+<line x1="201.39999999999998" y1="331" x2="201.39999999999998" y2="343" stroke="var(--_line)" stroke-width="1.25" />
+<line x1="402.80999999999995" y1="145" x2="390.80999999999995" y2="138" stroke="var(--_line)" stroke-width="1.25" />
+<line x1="402.80999999999995" y1="138" x2="390.80999999999995" y2="138" stroke="var(--_line)" stroke-width="1.25" />
+<line x1="402.80999999999995" y1="131" x2="390.80999999999995" y2="138" stroke="var(--_line)" stroke-width="1.25" />
+<circle cx="386.80999999999995" cy="138" r="4" fill="var(--bg)" stroke="var(--_line)" stroke-width="1.25" />
+<line x1="197.39999999999998" y1="106" x2="197.39999999999998" y2="118" stroke="var(--_line)" stroke-width="1.25" />
+<line x1="201.39999999999998" y1="106" x2="201.39999999999998" y2="118" stroke="var(--_line)" stroke-width="1.25" />
+<line x1="402.80999999999995" y1="119" x2="390.80999999999995" y2="112" stroke="var(--_line)" stroke-width="1.25" />
+<line x1="402.80999999999995" y1="112" x2="390.80999999999995" y2="112" stroke="var(--_line)" stroke-width="1.25" />
+<line x1="402.80999999999995" y1="105" x2="390.80999999999995" y2="112" stroke="var(--_line)" stroke-width="1.25" />
+<circle cx="386.80999999999995" cy="112" r="4" fill="var(--bg)" stroke="var(--_line)" stroke-width="1.25" />
+<rect x="310.10499999999996" y="254.05499999999998" width="33.41" height="20.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="326.80999999999995" y="264.205" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">产生</text>
+<rect x="283.4" y="101.85" width="33.41" height="20.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="300.10499999999996" y="112" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">来源</text>
+</svg>
+<details class="diagram-src"><summary>Mermaid 源码</summary>
+<pre class="mermaid-src">erDiagram
+    ENTRY ||--o{ ITEM_SOURCE : "产生"
+    ITEM ||--o{ ITEM_SOURCE : "来源"
+    ENTRY {
+        string id PK
+        string user_id FK
+        string source
+        string kind
+        text input
+        bigint seq
+    }
+    ITEM_SOURCE {
+        string item_id FK
+        string entry_id FK
+    }
+    ITEM {
+        string id PK
+        string user_id FK
+        string type
+        string norm_key
+        int lookup_count
+    }</pre>
+</details>
+</div>
+<!-- mermaid:end -->
+      <p class="diagram-caption">记录 → 学习单元。<code>source</code> 取值 cli / mp。一条记录可产生多个学习单元；同一单元每多一条来源记录，lookup_count 加 1。</p>
+      <!-- mermaid:begin -->
+<div class="diagram rendered">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 613.41 224" width="613.41" height="224" style="--bg:var(--dg-bg);--fg:var(--dg-fg);--line:var(--dg-line);--accent:var(--dg-accent);--muted:var(--dg-muted);--surface:var(--dg-node);--border:var(--dg-border)">
+<style>
+
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&amp;display=swap');
+  text { font-family: var(--dg-font, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif); }
+  .mono { font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', ui-monospace, monospace; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+</defs>
+<polyline class="er-relationship" data-entity1="CARD" data-entity2="REVIEW_LOG" data-cardinality1="one" data-cardinality2="zero-many" data-identifying="true" data-label="记录" points="193.39999999999998,112 406.80999999999995,112" fill="none" stroke="var(--_line)" stroke-width="1" />
+<g class="entity" data-id="CARD" data-label="CARD">
+  <rect x="40" y="40" width="153.39999999999998" height="144" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="40" y="40" width="153.39999999999998" height="34" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="116.69999999999999" y="57" text-anchor="middle" font-size="13" font-weight="700" fill="var(--_text)" dy="4.55">CARD</text>
+  <line x1="40" y1="74" x2="193.39999999999998" y2="74" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <rect x="46" y="78" width="22.31" height="14" rx="2" ry="2" fill="var(--_key-badge)" />
+  <text x="57.155" y="85" text-anchor="middle" dy="0.35em" font-size="9" font-weight="600" fill="var(--_text-sec)">PK</text>
+  <text x="76.31" y="85" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="185.39999999999998" y="85" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">id</tspan></text>
+  <rect x="46" y="100" width="22.31" height="14" rx="2" ry="2" fill="var(--_key-badge)" />
+  <text x="57.155" y="107" text-anchor="middle" dy="0.35em" font-size="9" font-weight="600" fill="var(--_text-sec)">FK</text>
+  <text x="76.31" y="107" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="185.39999999999998" y="107" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">item_id</tspan></text>
+  <text x="48" y="129" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="185.39999999999998" y="129" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">card_type</tspan></text>
+  <text x="48" y="151" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">json</tspan></text>
+  <text x="185.39999999999998" y="151" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">fsrs_state</tspan></text>
+  <text x="48" y="173" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">datetime</tspan></text>
+  <text x="185.39999999999998" y="173" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">due</tspan></text>
+</g>
+<g class="entity" data-id="REVIEW_LOG" data-label="REVIEW_LOG">
+  <rect x="406.80999999999995" y="40" width="166.6" height="144" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="406.80999999999995" y="40" width="166.6" height="34" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="490.10999999999996" y="57" text-anchor="middle" font-size="13" font-weight="700" fill="var(--_text)" dy="4.55">REVIEW_LOG</text>
+  <line x1="406.80999999999995" y1="74" x2="573.41" y2="74" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <rect x="412.80999999999995" y="78" width="22.31" height="14" rx="2" ry="2" fill="var(--_key-badge)" />
+  <text x="423.9649999999999" y="85" text-anchor="middle" dy="0.35em" font-size="9" font-weight="600" fill="var(--_text-sec)">PK</text>
+  <text x="443.11999999999995" y="85" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="565.41" y="85" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">id</tspan></text>
+  <rect x="412.80999999999995" y="100" width="22.31" height="14" rx="2" ry="2" fill="var(--_key-badge)" />
+  <text x="423.9649999999999" y="107" text-anchor="middle" dy="0.35em" font-size="9" font-weight="600" fill="var(--_text-sec)">FK</text>
+  <text x="443.11999999999995" y="107" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="565.41" y="107" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">card_id</tspan></text>
+  <text x="414.80999999999995" y="129" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">int</tspan></text>
+  <text x="565.41" y="129" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">rating</tspan></text>
+  <text x="414.80999999999995" y="151" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">datetime</tspan></text>
+  <text x="565.41" y="151" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">reviewed_at</tspan></text>
+  <text x="414.80999999999995" y="173" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="565.41" y="173" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">device_id</tspan></text>
+</g>
+<line x1="197.39999999999998" y1="106" x2="197.39999999999998" y2="118" stroke="var(--_line)" stroke-width="1.25" />
+<line x1="201.39999999999998" y1="106" x2="201.39999999999998" y2="118" stroke="var(--_line)" stroke-width="1.25" />
+<line x1="402.80999999999995" y1="119" x2="390.80999999999995" y2="112" stroke="var(--_line)" stroke-width="1.25" />
+<line x1="402.80999999999995" y1="112" x2="390.80999999999995" y2="112" stroke="var(--_line)" stroke-width="1.25" />
+<line x1="402.80999999999995" y1="105" x2="390.80999999999995" y2="112" stroke="var(--_line)" stroke-width="1.25" />
+<circle cx="386.80999999999995" cy="112" r="4" fill="var(--bg)" stroke="var(--_line)" stroke-width="1.25" />
+<rect x="283.4" y="101.85" width="33.41" height="20.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="300.10499999999996" y="112" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">记录</text>
+</svg>
+<details class="diagram-src"><summary>Mermaid 源码</summary>
+<pre class="mermaid-src">erDiagram
+    CARD ||--o{ REVIEW_LOG : "记录"
+    CARD {
+        string id PK
+        string item_id FK
+        string card_type
+        json fsrs_state
+        datetime due
+    }
+    REVIEW_LOG {
+        string id PK
+        string card_id FK
+        int rating
+        datetime reviewed_at
+        string device_id
+    }</pre>
+</details>
+</div>
+<!-- mermaid:end -->
+      <p class="diagram-caption">学习单元 → 复习。CARD.item_id 指向 ITEM；一个单元生成 1–3 张不同类型的复习卡；复习日志只追加。</p>
+      <p>第 6 张表是每日材料（MATERIAL：user_id、date、content、model、version），按日期独立存放，不关联其它表。</p>
+
+      <h3>账号表</h3>
+      <!-- mermaid:begin -->
+<div class="diagram rendered">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 637.1700000000001 394" width="637.1700000000001" height="394" style="--bg:var(--dg-bg);--fg:var(--dg-fg);--line:var(--dg-line);--accent:var(--dg-accent);--muted:var(--dg-muted);--surface:var(--dg-node);--border:var(--dg-border)">
+<style>
+
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&amp;display=swap');
+  text { font-family: var(--dg-font, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif); }
+  .mono { font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', ui-monospace, monospace; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+</defs>
+<polyline class="er-relationship" data-entity1="USER" data-entity2="IDENTITY" data-cardinality1="one" data-cardinality2="zero-many" data-identifying="true" data-label="登录方式" points="200,90 437.17,90" fill="none" stroke="var(--_line)" stroke-width="1" />
+<polyline class="er-relationship" data-entity1="USER" data-entity2="DEVICE" data-cardinality1="one" data-cardinality2="zero-many" data-identifying="true" data-label="拥有" points="200,138 210,138 210,282 437.17,282" fill="none" stroke="var(--_line)" stroke-width="1" />
+<g class="entity" data-id="USER" data-label="USER">
+  <rect x="40" y="42" width="160" height="144" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="40" y="42" width="160" height="34" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="120" y="59" text-anchor="middle" font-size="13" font-weight="700" fill="var(--_text)" dy="4.55">USER</text>
+  <line x1="40" y1="76" x2="200" y2="76" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <rect x="46" y="80" width="22.31" height="14" rx="2" ry="2" fill="var(--_key-badge)" />
+  <text x="57.155" y="87" text-anchor="middle" dy="0.35em" font-size="9" font-weight="600" fill="var(--_text-sec)">PK</text>
+  <text x="76.31" y="87" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="192" y="87" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">id</tspan></text>
+  <text x="48" y="109" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="192" y="109" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">role</tspan></text>
+  <text x="48" y="131" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">jsonb</tspan></text>
+  <text x="192" y="131" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">settings</tspan></text>
+  <text x="48" y="153" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">bigint</tspan></text>
+  <text x="192" y="153" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">last_seq</tspan></text>
+  <text x="48" y="175" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">datetime</tspan></text>
+  <text x="192" y="175" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">deleted_at</tspan></text>
+</g>
+<g class="entity" data-id="IDENTITY" data-label="IDENTITY">
+  <rect x="437.17" y="40" width="153.39999999999998" height="100" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="437.17" y="40" width="153.39999999999998" height="34" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="513.87" y="57" text-anchor="middle" font-size="13" font-weight="700" fill="var(--_text)" dy="4.55">IDENTITY</text>
+  <line x1="437.17" y1="74" x2="590.5699999999999" y2="74" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <rect x="443.17" y="78" width="22.31" height="14" rx="2" ry="2" fill="var(--_key-badge)" />
+  <text x="454.325" y="85" text-anchor="middle" dy="0.35em" font-size="9" font-weight="600" fill="var(--_text-sec)">FK</text>
+  <text x="473.48" y="85" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="582.5699999999999" y="85" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">user_id</tspan></text>
+  <text x="445.17" y="107" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="582.5699999999999" y="107" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">provider</tspan></text>
+  <text x="445.17" y="129" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="582.5699999999999" y="129" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">subject</tspan></text>
+</g>
+<g class="entity" data-id="DEVICE" data-label="DEVICE">
+  <rect x="437.17" y="210" width="160" height="144" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="437.17" y="210" width="160" height="34" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="517.1700000000001" y="227" text-anchor="middle" font-size="13" font-weight="700" fill="var(--_text)" dy="4.55">DEVICE</text>
+  <line x1="437.17" y1="244" x2="597.1700000000001" y2="244" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <rect x="443.17" y="248" width="22.31" height="14" rx="2" ry="2" fill="var(--_key-badge)" />
+  <text x="454.325" y="255" text-anchor="middle" dy="0.35em" font-size="9" font-weight="600" fill="var(--_text-sec)">PK</text>
+  <text x="473.48" y="255" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="589.1700000000001" y="255" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">id</tspan></text>
+  <rect x="443.17" y="270" width="22.31" height="14" rx="2" ry="2" fill="var(--_key-badge)" />
+  <text x="454.325" y="277" text-anchor="middle" dy="0.35em" font-size="9" font-weight="600" fill="var(--_text-sec)">FK</text>
+  <text x="473.48" y="277" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="589.1700000000001" y="277" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">user_id</tspan></text>
+  <text x="445.17" y="299" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="589.1700000000001" y="299" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">kind</tspan></text>
+  <text x="445.17" y="321" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="589.1700000000001" y="321" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">refresh_hash</tspan></text>
+  <text x="445.17" y="343" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-muted)">datetime</tspan></text>
+  <text x="589.1700000000001" y="343" class="mono" text-anchor="end" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">revoked_at</tspan></text>
+</g>
+<line x1="204" y1="84" x2="204" y2="96" stroke="var(--_line)" stroke-width="1.25" />
+<line x1="208" y1="84" x2="208" y2="96" stroke="var(--_line)" stroke-width="1.25" />
+<line x1="433.17" y1="97" x2="421.17" y2="90" stroke="var(--_line)" stroke-width="1.25" />
+<line x1="433.17" y1="90" x2="421.17" y2="90" stroke="var(--_line)" stroke-width="1.25" />
+<line x1="433.17" y1="83" x2="421.17" y2="90" stroke="var(--_line)" stroke-width="1.25" />
+<circle cx="417.17" cy="90" r="4" fill="var(--bg)" stroke="var(--_line)" stroke-width="1.25" />
+<line x1="204" y1="132" x2="204" y2="144" stroke="var(--_line)" stroke-width="1.25" />
+<line x1="208" y1="132" x2="208" y2="144" stroke="var(--_line)" stroke-width="1.25" />
+<line x1="433.17" y1="289" x2="421.17" y2="282" stroke="var(--_line)" stroke-width="1.25" />
+<line x1="433.17" y1="282" x2="421.17" y2="282" stroke="var(--_line)" stroke-width="1.25" />
+<line x1="433.17" y1="275" x2="421.17" y2="282" stroke="var(--_line)" stroke-width="1.25" />
+<circle cx="417.17" cy="282" r="4" fill="var(--bg)" stroke="var(--_line)" stroke-width="1.25" />
+<rect x="290.00000000000006" y="79.85" width="57.17" height="20.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="318.58500000000004" y="90" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">登录方式</text>
+<rect x="229.88" y="271.85" width="33.41" height="20.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="246.585" y="282" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">拥有</text>
+</svg>
+<details class="diagram-src"><summary>Mermaid 源码</summary>
+<pre class="mermaid-src">erDiagram
+    USER ||--o{ IDENTITY : "登录方式"
+    USER ||--o{ DEVICE : "拥有"
+    USER {
+        string id PK
+        string role
+        jsonb settings
+        bigint last_seq
+        datetime deleted_at
+    }
+    IDENTITY {
+        string user_id FK
+        string provider
+        string subject
+    }
+    DEVICE {
+        string id PK
+        string user_id FK
+        string kind
+        string refresh_hash
+        datetime revoked_at
+    }</pre>
+</details>
+</div>
+<!-- mermaid:end -->
+      <p class="diagram-caption">IDENTITY.provider 目前只有 wechat_mp（subject = openid），以后可加邮箱等方式。DEVICE.kind 取值 cli / mp / h5。USER.last_seq 是同步序号计数器（见第 6 节）。</p>
+      <p>第 4 张是邀请码表（INVITE：code、created_by、used_by、expires_at）。用户设置（解释语言、单词自动朗读等）存在 <code>USER.settings</code>（jsonb），两端同步。</p>
+
+      <h3>CLI 本地新增的结构化记录</h3>
+      <p>Markdown 历史保持不变，<code>/history</code> 照常可用。CLI 另外向 <code>~/.config/t-cli/outbox.jsonl</code> 追加一行 JSON：</p>
+<pre><code>{"id":"01JD3X…","source":"cli","kind":"word","task":"translate",
+ "input":"meticulous","output":"…","srcLang":"en","mode":"simple",
+ "createdAt":"2026-11-16T09:12:03+08:00"}</code></pre>
+      <p><code>kind</code> 的判定复用现有的 <code>isWordLookup()</code> 和 <code>prompts.js</code> 里的语言检测。历史上的 2000 条 Markdown 用一次性脚本回填。</p>
+    </section>
+
+    <!-- 10 -->
+    <section class="step" id="s10" data-title="技术选型">
+      <h2>11. 技术选型</h2>
+      <p class="lead">沿用花了知多少的 TypeScript 技术栈，复用服务器上已有的 PostgreSQL 和 nginx。不引入 Redis：邀请制规模一个进程就够。</p>
+      <table>
+        <tr><th>层</th><th>选型</th><th>理由</th></tr>
+        <tr><td>代码组织</td><td>t-cli 仓库改为 npm workspaces 多包结构：<code>apps/cli</code>、<code>apps/server</code>、<code>apps/miniprogram</code>、<code>packages/core</code></td><td>prompt 需要两端共用。用 npm 而不是 pnpm：现有 7 个 CI 工作流都用 <code>npm ci</code>，不用改</td></tr>
+        <tr><td>共享核心</td><td><code>packages/core</code>：prompt、语言检测、朗读文本提取</td><td>CLI 和服务端用同一份 prompt</td></tr>
+        <tr><td>CLI 同步客户端</td><td>新增 <code>sync.js</code> 和 <code>/sync</code> 命令；用 Node 内置 fetch</td><td>不加依赖；遵守 Ink 约束</td></tr>
+        <tr><td>服务端</td><td>Node 24 + Fastify + TypeScript + zod</td><td>与花了知多少同栈，可复用 contracts 写法</td></tr>
+        <tr><td>鉴权</td><td>JWT（<code>jose</code>）+ 轮换的 refresh token；微信 <code>code2Session</code></td><td>access token 无状态校验；refresh token 只存哈希</td></tr>
+        <tr><td>数据库</td><td>PostgreSQL 16（服务器上已有的 Docker 实例）+ Drizzle ORM + <code>postgres.js</code>；新建数据库 <code>tcli</code> 和专用角色</td><td>不多跑一个数据库进程；与花了知多少同版本、同驱动，迁移写法可复用</td></tr>
+        <tr><td>数据库连接</td><td>t-cli 容器加入花了知多少的 compose 网络，用服务名访问；5432 不对外；连接池上限 5；<code>statement_timeout</code> 5 秒</td><td>实例的 <code>max_connections</code> 是 50，两个项目共用 <span class="tag infer">依据仓库配置，待服务器核实</span></td></tr>
+        <tr><td>词库搜索</td><td><code>pg_trgm</code> 模糊匹配</td><td>官方镜像自带；中文分词插件不在官方镜像里</td></tr>
+        <tr><td>定时任务</td><td>进程内 cron；任务开始前取 <code>pg_try_advisory_lock</code></td><td>不需要 Redis / BullMQ；锁防止任务重复执行</td></tr>
+        <tr><td>AI</td><td>DeepSeek；沿用 <code>LlmProvider</code> 抽象；模型由 <code>DEEPSEEK_MODEL</code> 指定</td><td>与 t-cli 当前配置一致</td></tr>
+        <tr><td>小程序</td><td>微信原生 + TypeScript + Skyline；流式用 <code>enableChunked</code></td><td>沿用花了知多少工程模板和体验版上传流水线</td></tr>
+        <tr><td>语音输入</td><td>微信同声传译插件</td><td>花了知多少已在用</td></tr>
+        <tr><td>复习调度</td><td><code>ts-fsrs</code></td><td>FSRS 的 TypeScript 实现；Anki 也用 FSRS</td></tr>
+        <tr><td>发音</td><td>服务端用 <code>msedge-tts</code> 生成 mp3，存 OSS，按文本哈希缓存</td><td>t-cli 已在用 msedge-tts（<code>src/tts.js:5</code>）</td></tr>
+        <tr><td>部署</td><td>GitHub Actions 构建镜像，服务器只拉取；在已有 nginx 里加一个站点，证书沿用现有的 DNS-01 流程</td><td>80 / 443 端口已由花了知多少的 nginx 占用，不能再起 Caddy；服务器内存小，不在上面构建</td></tr>
+        <tr><td>备份</td><td>扩展已有的 <code>pg-backup.sh</code>：每晚 <code>pg_dump</code> 一份 <code>tcli</code> 库，经内网端点传到 OSS，保留 30 天</td><td>与花了知多少共用一套备份和状态检查</td></tr>
+        <tr><td>测试</td><td>集成测试在 CI 里起 <code>postgres:16-alpine</code> 服务容器</td><td>序号并发、越权等测试要跑在真实 PostgreSQL 上</td></tr>
+        <tr><td>可观测</td><td><code>/healthz</code>、<code>/readyz</code>（检查数据库连接）；AI 调用记录耗时和 token 数；任务失败发邮件告警</td><td>告警渠道见 D11</td></tr>
+      </table>
+      <p>密钥全部走环境变量或阿里云 KMS，不进仓库。包括：DeepSeek key、数据库连接串 <code>DATABASE_URL</code>、OSS AccessKey、JWT 签名密钥、小程序 AppSecret。</p>
+      <div class="callout warn"><strong>服务器内存紧张：</strong>heji-ledger 的生产编排写明，这台 ECS 是 2 核 1.6 GB，全部容器运行时用掉约 806 MB。t-cli 服务设 <code>mem_limit: 256m</code>，Node 进程在同类负载下约占 87 MB。加上后总占用约 0.9 GB。<span class="tag infer">依据 heji-ledger <code>docker-compose.prod.yml</code>，未登录服务器核实（V1）</span></div>
+      <div class="callout warn"><strong>注意：</strong><code>@t-cli/core</code> 是私有包，不发布到 npm。<code>npm run release:local</code> 改由 <code>scripts/release-local.mjs</code> 打包：它把共享包放进 CLI 的 <code>node_modules</code>，用 <code>bundleDependencies</code> 一起打进安装包。直接对 <code>apps/cli</code> 执行 <code>npm pack</code> 得到的包装不上。</div>
+    </section>
+
+    <!-- 11 -->
+    <section class="step" id="s11" data-title="路线图">
+      <h2>12. 路线图</h2>
+      <p class="lead">先把手机翻译做出来，它每天都能用上。AI 材料和复习排在后面，因为它们需要先积累数据。</p>
+      <table>
+        <tr><th>阶段</th><th>交付</th><th>验收方式</th></tr>
+        <tr><td>M0 结构化采集</td><td>改为 monorepo，抽出 <code>packages/core</code>；CLI 每条记录同时写 JSONL；历史 Markdown 回填脚本；纠错 prompt 改为修改句放第一行</td><td>CLI 行为不变（现有测试全过）；回填条数与 <code>meta.json</code> 一致</td></tr>
+        <tr><td>M1 服务端基础</td><td>账号：微信登录、邀请码、CLI 设备授权、令牌轮换。接口：同步 API、流式 AI 代理、按账号限流。基础设施：在已有 PostgreSQL 上建 <code>tcli</code> 库和专用角色、并入每晚备份、nginx 加站点、部署到 ECS。</td><td>断网写 10 条，联网后自动补传无重复；并发推送不漏拉；越权测试全部返回 404；实测首字延迟</td></tr>
+        <tr><td>M2 小程序：翻译与纠错</td><td>极简翻译页（中文 → 英文，外语 → 中文）、纠错 tab 与差异高亮、朗读、语音输入、记录、设置；方向规则扩展到其他外语（<code>packages/core</code>）；上传体验版</td><td>连续 7 天在手机上用它替代其它翻译工具</td></tr>
+        <tr><td>M3 AI 管线</td><td>学习单元抽取、每日材料、复习卡；CLI 的 <code>/notes</code> 可读云端材料</td><td>用 7 天真实数据生成；人工抽查 30 张卡，错误率 &lt; 5%</td></tr>
+        <tr><td>M4 小程序：复习</td><td>复习 tab（含每日材料和词库）、FSRS、“我的”页的回顾统计</td><td>连续复习 7 天</td></tr>
+        <tr><td>M5 延伸</td><td>CLI <code>/review</code>、周报、账号导出与注销（开放给别人前必须完成）、订阅消息提醒、H5（可选）</td><td>—</td></tr>
+      </table>
+    </section>
+
+    <!-- 12 -->
+    <section class="step" id="s12" data-title="风险与应对">
+      <h2>13. 风险与应对</h2>
+      <p class="lead">最大的技术风险是小程序流式输出和首字延迟；最大的长期风险是正式发布的资质。</p>
+      <table>
+        <tr><th>风险</th><th>影响</th><th>应对</th></tr>
+        <tr><td>首字延迟高</td><td>手机翻译不顺手，回到其它工具</td><td>M1 先实测；交互接口关闭推理或换模型；单词查询走短 prompt</td></tr>
+        <tr><td>小程序流式分块乱码</td><td>中文显示错字</td><td>按字节拼接后解码；写单测覆盖“字节边界落在字符中间”的情况</td></tr>
+        <tr><td>有人刷 AI 接口</td><td>DeepSeek 额度耗尽</td><td>设备 token；限流；输入长度上限；按天统计 token 并告警</td></tr>
+        <tr><td>AI 释义或音标出错</td><td>学到错误内容</td><td>zod 校验；卡片“内容有误”一键重生成；M3 人工抽查</td></tr>
+        <tr><td>工作文本上云</td><td>泄露工作信息</td><td>服务器自有；HTTPS；磁盘加密；OSS 私有桶；材料不引用段落原文</td></tr>
+        <tr><td>越权读到他人数据</td><td>隐私事故</td><td>仓储层强制 user_id；越权自动化测试；日志不记原文</td></tr>
+        <tr><td>令牌泄露</td><td>他人冒用账号和 AI 额度</td><td>access token 15 分钟；refresh token 轮换，重放即吊销；设备可单独吊销</td></tr>
+        <tr><td>体验版人数上限</td><td>邀请的人多了就用不了</td><td>先核实上限（V4）；人数接近上限前决定是否正式发布</td></tr>
+        <tr><td>同步游标缺陷</td><td>拉取漏掉其它设备的数据</td><td>服务端序号；推拉游标分开；序号按账号行锁取号，保证提交顺序；写并发回归测试</td></tr>
+        <tr><td>与花了知多少共用数据库实例</td><td>一方的慢查询或连接耗尽拖累另一方</td><td>独立数据库和角色；连接池上限 5；<code>statement_timeout</code>；升级 PostgreSQL 时两个项目一起回归</td></tr>
+        <tr><td>服务器内存不足</td><td>容器被 OOM 杀掉</td><td>每个容器设 <code>mem_limit</code>；镜像在 CI 构建；上线后看实测占用</td></tr>
+        <tr><td>翻译方向误判</td><td>系统把纯汉字的短日文译成英文</td><td>点方向标签改为反方向，只影响本次</td></tr>
+        <tr><td>正式发布资质</td><td>体验版之外无法上线</td><td>体验版阶段不受影响；需要公开时再核实类目和生成式 AI 资质</td></tr>
+        <tr><td>复习负担过重</td><td>坚持不下去</td><td>每日新卡上限 15、复习上限 60，可调</td></tr>
+        <tr><td>单人维护成本</td><td>系统荒废</td><td>单进程；复用已有的数据库、nginx 和备份脚本；不引入 Redis 和消息队列</td></tr>
+      </table>
+    </section>
+
+    <!-- 13 -->
+    <section class="step" id="s13" data-title="决策记录与待确认">
+      <h2>14. 决策记录与待确认</h2>
+      <p class="lead">14 项决策全部确认，其中 6 项按建议默认值确认。剩下的是核实项，不阻塞开工。</p>
+
+      <h3>已确认</h3>
+      <table>
+        <tr><th>#</th><th>决策</th><th>对方案的影响</th></tr>
+        <tr><td>D1</td><td>阿里云有备案域名 <span class="tag done">已确认</span></td><td>小程序可以直接请求自己的服务端；H5 随时可加</td></tr>
+        <tr><td>D2</td><td>独立小程序，先发体验版自用 <span class="tag done">已确认</span></td><td>不提审；类目和资质问题后置</td></tr>
+        <tr><td>D3</td><td>手机端要有翻译和纠错 <span class="tag done">已确认</span></td><td>小程序从“复习端”变为“采集 + 复习端”；服务端增加 AI 代理；路线图把手机翻译提到 M2</td></tr>
+        <tr><td>D4</td><td>t-cli 仓库改为多包结构（npm workspaces） <span class="tag done">已确认</span></td><td>M0 先做目录迁移和 <code>packages/core</code> 抽取；CI 工作流不用改</td></tr>
+        <tr><td>D5</td><td>小程序主体为个人 <span class="tag done">已确认</span></td><td>不做手机号登录；正式发布的类目范围有限</td></tr>
+        <tr><td>D6</td><td>需要账号体系 <span class="tag done">已确认</span>，开放范围见 D8</td><td>所有表带 user_id；新增第 7 节；M1 增加账号相关工作</td></tr>
+        <tr><td>D7</td><td>数据库用服务器上已有的 PostgreSQL，新建独立数据库 <span class="tag done">已确认</span></td><td>替换 SQLite；序号改为按账号行锁取号；备份并入已有脚本；部署改用已有 nginx</td></tr>
+        <tr><td>D8</td><td>账号邀请制，≤ 20 人，不公开（原 Q4） <span class="tag done">按建议</span></td><td>暂不需要正式发布；邀请前先核实体验成员上限</td></tr>
+        <tr><td>D9</td><td>服务端保存段落级原文，每日材料不引用（原 Q3） <span class="tag done">按建议</span></td><td>原文用于检索和导出；材料只用单词、句型、语法</td></tr>
+        <tr><td>D10</td><td>每天复习约 10 分钟（原 Q5） <span class="tag done">按建议</span></td><td>新卡每天 15 张，复习每天 ≤ 60 张</td></tr>
+        <tr><td>D11</td><td>告警发邮件（原 Q8） <span class="tag done">按建议</span></td><td>任务失败、备份失败、AI 额度异常都发邮件</td></tr>
+        <tr><td>D12</td><td>CLI 继续直连 DeepSeek（原 Q10） <span class="tag done">按建议</span></td><td>服务端故障不影响 CLI；CLI 记录经待推送队列同步</td></tr>
+        <tr><td>D13</td><td>每个账号每天 200 次 AI 请求（原 Q11） <span class="tag done">按建议</span></td><td>限流按账号计算；每分钟上限 20 次</td></tr>
+        <tr><td>D14</td><td>翻译页极简：中文 → 英文（默认），其他外语 → 中文 <span class="tag done">已确认</span></td><td>纠错独立成 tab；去掉模式切换、复习横幅和最近记录；方向规则扩展到其他外语</td></tr>
+      </table>
+
+      <h3>待核实（不阻塞开工）</h3>
+      <table>
+        <tr><th>#</th><th>核实项</th><th>何时之前</th><th>怎么核实</th></tr>
+        <tr><td>V1</td><td>服务器实况：PostgreSQL 版本、可用内存、compose 网络名、nginx 站点配置。本文依据 heji-ledger 仓库，没有登录服务器看</td><td>M1 部署前</td><td>登录服务器，用只读命令查看</td></tr>
+        <tr><td>V2</td><td>小程序 <code>enableChunked</code> 流式输出在真机上可用，中文不乱码</td><td>M1 结束</td><td>真机调试</td></tr>
+        <tr><td>V3</td><td>首字延迟 ≤ 2 秒</td><td>M1 结束</td><td>从小程序实测 p50 / p95</td></tr>
+        <tr><td>V4</td><td>个人主体的限制：手机号能力、UnionID、体验成员上限</td><td>邀请别人之前</td><td>查微信官方文档和后台</td></tr>
+        <tr><td>V5</td><td>正式发布的类目和生成式 AI 资质</td><td>需要公开发布时</td><td>查微信类目规范和监管要求</td></tr>
+      </table>
+    </section>
+
+    <!-- 14 -->
+    <section class="step" id="s14" data-title="术语表">
+      <h2>15. 术语表</h2>
+      <p class="lead">全文统一使用下列叫法。</p>
+      <table>
+        <tr><th>术语</th><th>含义</th></tr>
+        <tr><td>原始记录（Entry）</td><td>一次翻译、纠错或查词的输入和输出，产生后不修改</td></tr>
+        <tr><td>学习单元（Item）</td><td>从原始记录抽取出的单词、句型或语法点；同一单元只存一份</td></tr>
+        <tr><td>复习卡（Card）</td><td>由学习单元生成的一张卡片，带调度状态</td></tr>
+        <tr><td>复习日志（Review Log）</td><td>一次评分的记录，只追加</td></tr>
+        <tr><td>每日材料（Material）</td><td>AI 每天生成的复习读物，含 6 个板块</td></tr>
+        <tr><td>待推送队列（Outbox）</td><td>CLI 本地还没有得到服务端确认的记录</td></tr>
+        <tr><td>账号（User）</td><td>一个使用者；所有业务数据都挂在账号下</td></tr>
+        <tr><td>身份（Identity）</td><td>账号的一种登录方式，目前只有微信 openid</td></tr>
+        <tr><td>设备授权</td><td>CLI 的登录方式：终端出码，小程序确认，CLI 拿到令牌</td></tr>
+        <tr><td>AI 代理</td><td>服务端替小程序调用 DeepSeek 的接口；key 只存在服务端</td></tr>
+        <tr><td>体验版</td><td>微信小程序的内测版本，不用提审，只有体验成员可用</td></tr>
+        <tr><td>FSRS</td><td>Free Spaced Repetition Scheduler，一种按记忆模型安排复习间隔的算法</td></tr>
+        <tr><td>ULID</td><td>按时间排序的唯一 ID，客户端即可生成，用于幂等写入</td></tr>
+        <tr><td>序号（seq）</td><td>服务端给每次写入分配的递增编号；客户端按它增量拉取</td></tr>
+        <tr><td><code>tcli</code> 库</td><td>在已有 PostgreSQL 实例里为本项目新建的数据库</td></tr>
+        <tr><td>方向标签</td><td>翻译结果上方显示方向的小字，例如“中文 → 英文”；点它本次改为反方向</td></tr>
+      </table>
+    </section>
+
+    <div class="step-nav">
+      <button id="btn-prev"></button>
+      <span id="step-indicator"></span>
+      <button id="btn-next"></button>
+    </div>
+  </main>
+</div>
+
+<script>
+(() => {
+  const steps = [...document.querySelectorAll("section.step")];
+  const toc = document.getElementById("toc");
+  const root = document.documentElement;
+  let current = 0;
+
+  const UI = {
+    zh: { toc: "目录", step: "分步模式", scroll: "滚动模式", expand: "展开全部", theme: "切换主题",
+          prev: "← 上一步", next: "下一步 →", summary: "核心结论",
+          keyS: "快捷键 S", keyE: "快捷键 E", keyT: "快捷键 T" },
+    en: { toc: "Contents", step: "Step mode", scroll: "Scroll mode", expand: "Expand all", theme: "Toggle theme",
+          prev: "← Previous", next: "Next →", summary: "Key takeaway",
+          keyS: "Shortcut S", keyE: "Shortcut E", keyT: "Shortcut T" },
+  }[docLang()];
+
+  function docLang() {
+    if (root.lang) return root.lang.toLowerCase().startsWith("en") ? "en" : "zh";
+    const text = (document.querySelector("main") || document.body).textContent || "";
+    return ((text.match(/[一-鿿]/g) || []).length > 20) ? "zh" : "en";
+  }
+
+  function applyUI() {
+    const set = (id, text, title) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = text;
+      if (title) el.title = title;
+    };
+    document.querySelector("nav.toc")?.setAttribute("aria-label", UI.toc);
+    set("btn-mode", UI.step, UI.keyS);
+    set("btn-expand", UI.expand, UI.keyE);
+    set("btn-theme", UI.theme, UI.keyT);
+    set("btn-prev", UI.prev);
+    set("btn-next", UI.next);
+    const label = document.querySelector('[data-ui="summary"]');
+    if (label) label.textContent = UI.summary;
+  }
+
+  steps.forEach((s, i) => {
+    const li = document.createElement("li");
+    const a = document.createElement("a");
+    a.href = `#${s.id}`;
+    a.textContent = s.dataset.title || s.querySelector("h2")?.textContent || `Step ${i + 1}`;
+    a.addEventListener("click", (e) => {
+      if (document.body.classList.contains("step-mode")) { e.preventDefault(); show(i); }
+    });
+    li.appendChild(a);
+    toc.appendChild(li);
+  });
+  const links = [...toc.querySelectorAll("a")];
+
+  const setActive = (i) => links.forEach((a, j) => a.classList.toggle("active", j === i));
+
+  function show(i) {
+    current = Math.max(0, Math.min(steps.length - 1, i));
+    steps.forEach((s, j) => s.classList.toggle("current", j === current));
+    setActive(current);
+    document.getElementById("step-indicator").textContent = `${current + 1} / ${steps.length}`;
+    updateProgress();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function updateProgress() {
+    const bar = document.getElementById("progress");
+    if (document.body.classList.contains("step-mode")) {
+      bar.style.width = `${((current + 1) / steps.length) * 100}%`;
+      return;
+    }
+    const max = document.documentElement.scrollHeight - innerHeight;
+    bar.style.width = `${max > 0 ? (scrollY / max) * 100 : 100}%`;
+  }
+
+  const observer = new IntersectionObserver((entries) => {
+    if (document.body.classList.contains("step-mode")) return;
+    entries.forEach((e) => { if (e.isIntersecting) setActive(steps.indexOf(e.target)); });
+  }, { rootMargin: "-30% 0px -60% 0px" });
+  steps.forEach((s) => observer.observe(s));
+
+  const toggleMode = () => {
+    const on = document.body.classList.toggle("step-mode");
+    document.getElementById("btn-mode").textContent = on ? UI.scroll : UI.step;
+    on ? show(current) : updateProgress();
+  };
+  const toggleExpand = () => {
+    const all = [...document.querySelectorAll("details")];
+    const open = !all.every((d) => d.open);
+    all.forEach((d) => { d.open = open; });
+  };
+  const toggleTheme = () => {
+    const dark = root.dataset.theme
+      ? root.dataset.theme === "dark"
+      : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+  };
+
+  document.getElementById("btn-mode").onclick = toggleMode;
+  document.getElementById("btn-expand").onclick = toggleExpand;
+  document.getElementById("btn-theme").onclick = toggleTheme;
+  document.getElementById("btn-prev").onclick = () => show(current - 1);
+  document.getElementById("btn-next").onclick = () => show(current + 1);
+  addEventListener("scroll", updateProgress, { passive: true });
+  addEventListener("keydown", (e) => {
+    if (e.target.closest("input, textarea")) return;
+    const stepMode = document.body.classList.contains("step-mode");
+    if (e.key === "ArrowRight" && stepMode) show(current + 1);
+    else if (e.key === "ArrowLeft" && stepMode) show(current - 1);
+    else if (e.key.toLowerCase() === "s") toggleMode();
+    else if (e.key.toLowerCase() === "e") toggleExpand();
+    else if (e.key.toLowerCase() === "t") toggleTheme();
+  });
+
+  applyUI();
+  setActive(0);
+  updateProgress();
+})();
+</script>
+</body>
+</html>
