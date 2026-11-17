@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isWordLookup, containsCJK, detectSourceLang } from '../src/utils/detect.js';
+import { isWordLookup, containsCJK, detectSourceLang } from '../src/detect.js';
 
 test('detectSourceLang: pure Chinese and pure English', () => {
   assert.equal(detectSourceLang('今天天气真好'), 'zh');

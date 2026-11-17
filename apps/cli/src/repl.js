@@ -4,12 +4,13 @@ import { Box, Text, render, useApp, useInput } from 'ink';
 import Spinner from 'ink-spinner';
 import TextInput from 'ink-text-input';
 import { callDeepSeekStream } from './api.js';
-import { getTranslatePrompt, getCheckPrompt, getNoteGenPrompt, buildSourceMessage } from './prompts.js';
+import { getTranslatePrompt, getCheckPrompt, getNoteGenPrompt, buildSourceMessage } from '@t-cli/core/prompts';
 import { loadConfig, saveConfig } from './config.js';
 import { saveHistory, listHistory, readHistory, getHistoryDir } from './history.js';
+import { recordLiveEntry } from './entryLog.js';
 import { listGeneratedNotes, readGeneratedNote, saveGeneratedNote, getNotesDir } from './notes.js';
-import { isWordLookup, detectSourceLang } from './utils/detect.js';
-import { extractSpeakable } from './utils/speakable.js';
+import { isWordLookup, detectSourceLang } from '@t-cli/core/detect';
+import { extractSpeakable } from '@t-cli/core/speakable';
 import { pushHistory, navigateHistory } from './utils/inputHistory.js';
 import { getQuizEntries, parseQuizResponse } from './utils/quiz.js';
 import * as tts from './tts.js';
@@ -96,6 +97,17 @@ function App() {
     setActiveStream(null);
   };
 
+  // Structured record for sync (outbox.jsonl). A failure must not break the
+  // translation flow, so it is surfaced once per session, never via stdout.
+  const entryLogWarnedRef = useRef(false);
+  const recordEntry = (fields) => {
+    const result = recordLiveEntry({ ...fields, mode: isSimpleMode ? 'simple' : 'detail' });
+    if (!result.ok && !entryLogWarnedRef.current) {
+      entryLogWarnedRef.current = true;
+      appendMessage(`Warning: failed to write structured log (${result.error}). Markdown history is unaffected.`, { color: 'yellow' });
+    }
+  };
+
   const streamAndRender = async ({
     systemPrompt,
     userText,
@@ -143,12 +155,10 @@ function App() {
       streamColor: 'green',
       loadingText: 'Checking grammar and polishing...',
       onCompleted: (rawResponse) => {
-        // Detail-mode check output starts with analysis prose, not the
-        // corrected sentence, so only simple mode is speakable.
-        if (isSimpleMode) {
-          lastSpeakableRef.current = extractSpeakable(rawResponse, true);
-        }
+        // Both modes put the corrected text first (detail mode: alone on line 1).
+        lastSpeakableRef.current = extractSpeakable(rawResponse, isSimpleMode);
         saveHistory('Grammar Check', textToCheck, rawResponse);
+        recordEntry({ task: 'check', input: textToCheck, output: rawResponse, srcLang: 'en' });
       }
     });
   };
@@ -164,6 +174,7 @@ function App() {
       onCompleted: (rawResponse) => {
         lastSpeakableRef.current = extractSpeakable(rawResponse, isSimpleMode);
         saveHistory('Translation', text, rawResponse);
+        recordEntry({ task: 'translate', input: text, output: rawResponse, srcLang: sourceLang });
       }
     });
   };

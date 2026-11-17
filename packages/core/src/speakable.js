@@ -1,8 +1,9 @@
 /**
  * Extract the text worth reading aloud from a raw API response.
  * Simple mode responses are a single translation, so the whole text is used.
- * Detail mode responses put the best translation alone on the first line
- * (enforced by the prompt), so only that line is used.
+ * Detail mode responses put the best translation (or, for /check, the
+ * corrected text) alone on the first line (enforced by the prompts), so only
+ * that line is used.
  * IPA transcriptions like /ˈæp.əl/ are stripped — TTS should not read them.
  * @param {string} rawResponse
  * @param {boolean} isSimpleMode
@@ -25,9 +26,15 @@ export function extractSpeakable(rawResponse, isSimpleMode) {
   return '';
 }
 
+// An IPA transcription is a standalone /.../ token: it opens at the start of
+// the text or after whitespace / an opening bracket, and closes before
+// whitespace, punctuation, or the end. This keeps URLs (https://a.com/x/y)
+// and paths (/etc/hosts) intact.
+const IPA_TOKEN = /(?<=^|[\s(\[（])\/[^\s/][^/\n]*\/(?=[\s.,;:!?)\]，。；：！？）]|$)/g;
+
 function clean(text) {
   return text
-    .replace(/\s*\/[^\s/][^/\n]*\/\s*/g, ' ')
+    .replace(IPA_TOKEN, ' ')
     .replace(/\*\*/g, '')
     .replace(/\s{2,}/g, ' ')
     .trim();

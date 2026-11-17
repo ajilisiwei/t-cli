@@ -9,29 +9,31 @@ A minimalist, stateless CLI tool powered by the DeepSeek API for interactive Eng
 4. **Explanation Language Toggle (`/lang`)**: Toggle AI explanations between English (default) and Chinese using `/lang en` or `/lang zh`.
 5. **Mode Toggle (`/mode`)**: Switch between detail mode (default) and simple mode (`/mode simple`). Simple mode only outputs the direct translation or correction without any extra explanation.
 6. **Word Lookup with IPA**: When the input is a single word or short term, the English result includes its American IPA transcription (e.g. `apple /ˈæp.əl/`).
-7. **Text-to-Speech (`/say`)**: Reads the last translation aloud with Microsoft Edge neural voices (`msedge-tts`), falling back to the local `say` command when offline. Use `/say stop` to cancel.
+7. **Text-to-Speech (`/say`)**: Reads the last translation (or the corrected sentence after `/check`) aloud with Microsoft Edge neural voices (`msedge-tts`), falling back to the local `say` command when offline. Use `/say stop` to cancel.
 8. **Clear Screen (`/clear`)**: Instantly clears the terminal output for a fresh view.
 9. **Stateless Requests**: No contextual memory between prompts, drastically reducing API token consumption.
 10. **Input History (`↑`/`↓`)**: Recall previously entered text and commands with the arrow keys, readline-style. Pressing `↓` past the newest entry restores your unsubmitted draft.
 
 ## Installation
 
+The repository is an npm-workspaces monorepo: the CLI lives in `apps/cli`, and shared prompts/detection live in the private `@t-cli/core` package (`packages/core`). Because `@t-cli/core` is not published, install through the release script, which bundles it into the CLI tarball.
+
 ### Method 1: Global Installation from Local Source (Recommended for Dev)
-If you have downloaded the source code, navigate to the project directory and run:
+From the repository root:
 ```bash
-npm install -g .
+npm install
+npm run release:local                                    # bumps the patch version, installs into ~/.npm-global
+node scripts/release-local.mjs --no-bump --prefix <dir>   # or: keep the version, install elsewhere
 ```
 
 ### Method 2: Offline Installation via Tarball (.tgz)
-You can build a standalone package file and share it:
-1. In the project directory, run:
+1. From the repository root, build a self-contained tarball (prints its path):
 ```bash
-npm pack
+node scripts/release-local.mjs --no-bump --pack-only
 ```
-2. This generates a file like `t-cli-translator-1.0.0.tgz`. Share this file with others.
-3. Anyone with Node.js installed can install it globally from the file:
+2. Anyone with Node.js installed can install it globally from the file:
 ```bash
-npm install -g path/to/t-cli-translator-1.0.0.tgz
+npm install -g path/to/t-cli-translator-<version>.tgz
 ```
 
 ### Method 3: Install from npm Registry (Public)

@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts';
-import { containsCJK } from './utils/detect.js';
+import { containsCJK } from '@t-cli/core/detect';
 
 // Edge Read Aloud is an unofficial free endpoint with no SLA. Microsoft has
 // tightened its auth before (Sec-MS-GEC token), so synthesis can start failing
