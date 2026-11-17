@@ -96,6 +96,14 @@ function buildDetailWordRule(sourceLang, lang) {
     : `${DETAIL_IPA_RULE}\n${SPELLING_RULE}\n${buildSpellingNoteRule(lang)}`;
 }
 
+/**
+ * System prompt for a translation or word lookup.
+ * @param {'zh'|'en'} lang explanation language for detail mode
+ * @param {boolean} [isSimpleMode] single best translation only
+ * @param {boolean} [isWordLookup] single word/term: IPA + spelling rules apply
+ * @param {'zh'|'en'|null} [sourceLang] client-detected source language; null lets the model decide
+ * @returns {string}
+ */
 export function getTranslatePrompt(lang, isSimpleMode = false, isWordLookup = false, sourceLang = null) {
   const directionRule = sourceLang
     ? buildDirectionRule(sourceLang, isWordLookup)
@@ -181,6 +189,12 @@ Grammar patterns or corrections from today's session:
 IMPORTANT: Replace {DATE} in the title with the actual date provided in the user's input.`;
 }
 
+/**
+ * System prompt for an English grammar check.
+ * @param {'zh'|'en'} lang explanation language for detail mode
+ * @param {boolean} [isSimpleMode] corrected sentence only
+ * @returns {string}
+ */
 export function getCheckPrompt(lang, isSimpleMode = false) {
   if (isSimpleMode) {
     return `You are an expert American English copy editor.
