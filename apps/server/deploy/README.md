@@ -15,6 +15,11 @@ ssh heji-prod 'docker exec heji-postgres-1 psql -U heji -d postgres -Atc "select
 ```
 Confirm: the `heji_default` network name, the postgres container name (used by
 `init-db.sh`), free memory for a 256 MB container, and nginx's server blocks.
+Text to speech (`POST /v1/tts`) opens an outbound WebSocket to
+`speech.platform.bing.com:443`; confirm the box's egress allows it:
+```bash
+ssh heji-prod 'curl -sS -o /dev/null -w "%{http_code}\n" https://speech.platform.bing.com/'
+```
 
 ## 1. Decisions needed
 
@@ -43,6 +48,18 @@ read -rs TCLI_DB_PASSWORD && export TCLI_DB_PASSWORD
 Run the **Deploy server** workflow (manual). It builds `linux/amd64`, pushes to
 ghcr.io, runs migrations in a one-off container, starts `tcli-api` on
 `heji_default`, waits for it to be healthy and removes only this app's old images.
+
+### Configuration notes
+
+- Text to speech: `TTS_ENABLED` (default `true`; `false` answers `503 TTS_UNAVAILABLE`),
+  `TTS_REQUESTS_PER_MINUTE` (30 per account), `TTS_TIMEOUT_MS` (15000) and
+  `TTS_CACHE_MAX_BYTES` (16 MiB). The audio cache is in the API process, inside its
+  256 MB memory limit, so raise it only together with `mem_limit`. The upstream
+  (Edge Read Aloud) is unofficial and has no SLA: if it starts failing for good,
+  set `TTS_ENABLED=false` and restart rather than letting every tap time out.
+- `WECHAT_DEV_LOGIN` is for local development only (it fakes WeChat login with
+  `dev:<name>` codes). Never put it in `.env.prod`: with `NODE_ENV=production`
+  the server refuses to start when it is set.
 
 ## 5. First user
 
