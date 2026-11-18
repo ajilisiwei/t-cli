@@ -5,6 +5,7 @@ import { identities, invites, users } from '../../db/schema.ts';
 import type { Role } from '../../http/auth.ts';
 import { AppError } from '../../http/errors.ts';
 import { createDevice, createDeviceInTx, type IssuedSession } from './devices.ts';
+import { toSettings, type Settings } from './settings.ts';
 
 export const DEFAULT_MP_DEVICE_NAME = 'WeChat mini-program';
 
@@ -111,7 +112,7 @@ export interface AccountView {
   id: string;
   role: Role;
   createdAt: string;
-  settings: Record<string, unknown>;
+  settings: Settings;
 }
 
 /** The active account, or null when it is missing or deleted. */
@@ -120,7 +121,7 @@ export async function getAccount(db: Executor, userId: string): Promise<AccountV
     .select({ id: users.id, role: users.role, createdAt: users.createdAt, settings: users.settings })
     .from(users)
     .where(and(eq(users.id, userId), isNull(users.deletedAt)));
-  return row ? { id: row.id, role: row.role, createdAt: row.createdAt.toISOString(), settings: row.settings } : null;
+  return row ? { id: row.id, role: row.role, createdAt: row.createdAt.toISOString(), settings: toSettings(row.settings) } : null;
 }
 
 /** True when the account exists and is not deleted. */

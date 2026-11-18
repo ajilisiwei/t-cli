@@ -33,6 +33,8 @@ describe('auth: CLI device authorization', { skip: skipWithoutDb }, () => {
     app.inject({ method: 'POST', url: '/v1/auth/device/token', payload: { deviceCode }, remoteAddress: ip });
   const approve = (account: TestAccount, userCode: string, decision = true) =>
     app.inject({ method: 'POST', url: '/v1/auth/device/approve', headers: account.headers, payload: { userCode, approve: decision } });
+  const lookup = (account: TestAccount, userCode: string) =>
+    app.inject({ method: 'POST', url: '/v1/auth/device/lookup', headers: account.headers, payload: { userCode } });
   const expectPollError = async (deviceCode: string, code: string) => {
     const res = await poll(deviceCode);
     assert.equal(res.statusCode, 400);
@@ -192,6 +194,73 @@ describe('auth: CLI device authorization', { skip: skipWithoutDb }, () => {
     assert.equal((await approve(bystander, '000001')).statusCode, 404, 'other accounts are unaffected');
     clock.advance(60_000);
     assert.equal((await approve(guesser, '000001')).statusCode, 404);
+  });
+
+  test('lookup shows the pending device and its remaining time, without deciding anything', async () => {
+    const owner = await createAccount(t.db, { now: clock() });
+    const started = await start('Work MacBook');
+
+    const first = await lookup(owner, started.userCode);
+    assert.equal(first.statusCode, 200);
+    assert.deepEqual(first.json().data, { deviceName: 'Work MacBook', expiresIn: DEVICE_CODE_TTL_SECONDS });
+
+    clock.advance(100_500);
+    const later = await lookup(owner, ` ${started.userCode} `);
+    assert.deepEqual(later.json().data, { deviceName: 'Work MacBook', expiresIn: DEVICE_CODE_TTL_SECONDS - 100 }, 'seconds left, rounded up');
+
+    const [row] = await t.db.select().from(deviceAuthRequests).where(eq(deviceAuthRequests.userCode, started.userCode));
+    assert.equal(row?.status, 'pending');
+    assert.equal(row?.userId, null, 'a lookup binds nothing');
+    await expectPollError(started.deviceCode, 'authorization_pending');
+    assert.equal((await approve(owner, started.userCode)).statusCode, 200, 'approve still works after a lookup');
+  });
+
+  test('lookup: unknown, malformed, decided or expired codes are 404', async () => {
+    const owner = await createAccount(t.db, { now: clock() });
+    const approved = await start();
+    await approve(owner, approved.userCode);
+    const denied = await start();
+    await approve(owner, denied.userCode, false);
+    const expired = await start();
+    clock.advance(DEVICE_CODE_TTL_SECONDS * 1000);
+
+    const pending = new Set((await t.db.select({ code: deviceAuthRequests.userCode }).from(deviceAuthRequests)).map((r) => r.code));
+    const unknown = ['000000', '999999', '123456'].find((code) => !pending.has(code))!;
+    for (const userCode of [approved.userCode, denied.userCode, expired.userCode, unknown, 'abc', '12345', '1234567', '']) {
+      const res = await lookup(owner, userCode);
+      assert.equal(res.statusCode, 404, userCode);
+      assert.equal(res.json().error.code, 'NOT_FOUND');
+    }
+  });
+
+  test('lookup requires authentication and an active account', async () => {
+    const started = await start();
+    const anonymous = await app.inject({ method: 'POST', url: '/v1/auth/device/lookup', payload: { userCode: started.userCode } });
+    assert.equal(anonymous.statusCode, 401);
+    const deleted = await createAccount(t.db, { now: clock() });
+    await softDeleteUser(t.db, deleted.userId, clock());
+    assert.equal((await lookup(deleted, started.userCode)).statusCode, 401);
+    const invalid = await app.inject({ method: 'POST', url: '/v1/auth/device/lookup', headers: (await createAccount(t.db, { now: clock() })).headers, payload: {} });
+    assert.equal(invalid.statusCode, 400);
+    assert.equal(invalid.json().error.code, 'VALIDATION_FAILED');
+  });
+
+  test(`lookup and approve share one limit of ${DEVICE_APPROVE_LIMIT_PER_MINUTE} attempts per account per minute`, async () => {
+    const guesser = await createAccount(t.db, { now: clock() });
+    const bystander = await createAccount(t.db, { now: clock() });
+    for (let i = 0; i < DEVICE_APPROVE_LIMIT_PER_MINUTE; i += 1) {
+      const res = i % 2 === 0 ? await lookup(guesser, '000002') : await approve(guesser, '000002');
+      assert.equal(res.statusCode, 404);
+    }
+    for (const res of [await lookup(guesser, '000002'), await approve(guesser, '000002')]) {
+      assert.equal(res.statusCode, 429);
+      assert.equal(res.json().error.code, 'RATE_LIMITED');
+      assert.ok(res.json().error.details.retryAfterSeconds > 0);
+      assert.ok(Number(res.headers['retry-after']) > 0);
+    }
+    assert.equal((await lookup(bystander, '000002')).statusCode, 404, 'other accounts are unaffected');
+    clock.advance(60_000);
+    assert.equal((await lookup(guesser, '000002')).statusCode, 404);
   });
 
   test('start and token are rate limited per client IP', async () => {
