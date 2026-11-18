@@ -1,6 +1,6 @@
 /**
- * Markdown history: one file per day, `<config>/t-cli/history/YYYY-MM-DD.md`,
- * plus a `meta.json` count cache.
+ * Markdown history: one file per local calendar date,
+ * `<config>/t-cli/history/YYYY-MM-DD.md`, plus a `meta.json` count cache.
  *
  * Nothing here writes to stdout/stderr (the Ink TUI owns the terminal).
  * Write failures are returned to the caller instead.
@@ -8,6 +8,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { localDateString } from './utils/localDate.js';
+import { formatHistoryHeader } from './utils/historyParser.js';
 
 /** @typedef {{ ok: true } | { ok: false, error: string }} WriteResult */
 
@@ -24,40 +26,38 @@ export function getHistoryDir() {
   );
 }
 
-function getTodayString() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function getTimeString() {
-  const d = new Date();
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+function formatLocalTime(date) {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
 /**
- * Append a translation or grammar-check entry to today's history file.
+ * Append a translation or grammar-check entry to the history file of the
+ * local date. Date and [HH:MM] come from the same instant, so an entry made
+ * around midnight never gets one day's file and the other day's time.
  * @param {'Translation'|'Grammar Check'} type
  * @param {string} input - the user's original text
  * @param {string} response - the raw API response (no ANSI codes)
+ * @param {Date} [now] - when the entry was made (defaults to now)
  * @returns {WriteResult}
  */
-export function saveHistory(type, input, response) {
+export function saveHistory(type, input, response, now = new Date()) {
   try {
     const historyDir = getHistoryDir();
     fs.mkdirSync(historyDir, { recursive: true });
 
-    const today = getTodayString();
+    const today = localDateString(now);
     const filePath = path.join(historyDir, `${today}.md`);
-    const time = getTimeString();
+    const time = formatLocalTime(now);
 
     let header = '';
     try {
       const stat = fs.statSync(filePath);
       if (stat.size === 0) {
-        header = `# t-cli Learning History — ${today}\n\n---\n`;
+        header = formatHistoryHeader(today);
       }
     } catch (err) {
       // File doesn't exist, add header
-      header = `# t-cli Learning History — ${today}\n\n---\n`;
+      header = formatHistoryHeader(today);
     }
 
     const entry = [

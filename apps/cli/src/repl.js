@@ -13,6 +13,7 @@ import { isWordLookup, detectSourceLang } from '@t-cli/core/detect';
 import { extractSpeakable } from '@t-cli/core/speakable';
 import { detectSpellingCorrection } from '@t-cli/core/spelling';
 import { pushHistory, navigateHistory } from './utils/inputHistory.js';
+import { localDateString } from './utils/localDate.js';
 import { getQuizEntries, parseQuizResponse } from './utils/quiz.js';
 import { useSync } from './sync/useSync.js';
 import * as tts from './tts.js';
@@ -61,8 +62,9 @@ function buildWelcomeMessages(lang, isSimpleMode) {
   ];
 }
 
+// Local date, the same calendar history/notes files are named by.
 function todayString() {
-  return new Date().toISOString().slice(0, 10);
+  return localDateString();
 }
 
 function parseCommandArg(input, commandName) {
