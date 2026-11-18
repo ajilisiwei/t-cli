@@ -1,4 +1,5 @@
 import { addAbortSignal, type Readable } from 'node:stream';
+import { escapeSsmlText } from '@t-cli/core/ssml';
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts';
 import type { TtsClient } from '../../ports.ts';
 
@@ -17,22 +18,6 @@ export class TtsUpstreamError extends Error {
     super(message);
     this.name = 'TtsUpstreamError';
   }
-}
-
-// Characters XML 1.0 does not allow; the service rejects SSML containing them.
-const XML_INVALID_RE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g;
-
-/**
- * `msedge-tts` interpolates the text into its SSML template verbatim, so text
- * like "R&D" or "a < b" would break the request, and markup in a record would
- * be interpreted as SSML. Escape it as XML character data.
- */
-export function escapeSsmlText(text: string): string {
-  return text
-    .replace(XML_INVALID_RE, ' ')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
 }
 
 /** Settle with `promise`, or reject as soon as `signal` fires. */

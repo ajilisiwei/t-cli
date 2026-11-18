@@ -1,7 +1,7 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createByteLruCache } from '../src/lib/byteLruCache.ts';
-import { createEdgeTtsClient, escapeSsmlText } from '../src/modules/tts/edgeTts.ts';
+import { createEdgeTtsClient } from '../src/modules/tts/edgeTts.ts';
 import { TTS_VOICES, voiceFor } from '../src/modules/tts/routes.ts';
 
 const bytes = (n: number, fill = 1): Uint8Array => new Uint8Array(n).fill(fill);
@@ -59,13 +59,6 @@ describe('byte-bounded LRU cache', () => {
 });
 
 describe('Edge TTS adapter', () => {
-  test('text is escaped as XML character data for the SSML template', () => {
-    assert.equal(escapeSsmlText('R&D <b>bold</b> a > b'), 'R&amp;D &lt;b&gt;bold&lt;/b&gt; a &gt; b');
-    assert.equal(escapeSsmlText('</prosody><voice name="x">'), '&lt;/prosody&gt;&lt;voice name="x"&gt;');
-    assert.equal(escapeSsmlText('a\u0000b\u0007c\td\ne'), 'a b c\td\ne', 'characters XML forbids become spaces');
-    assert.equal(escapeSsmlText('你好，世界'), '你好，世界');
-  });
-
   test('an already-aborted signal rejects without connecting', async () => {
     const controller = new AbortController();
     controller.abort(new Error('timed out'));

@@ -10,7 +10,8 @@
     "./speakable": "./src/speakable.js",
     "./entry": "./src/entry.js",
     "./ulid": "./src/ulid.js",
-    "./spelling": "./src/spelling.js"
+    "./spelling": "./src/spelling.js",
+    "./ssml": "./src/ssml.js"
   },
   "files": [
     "src"

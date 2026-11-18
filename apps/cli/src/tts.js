@@ -4,6 +4,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts';
 import { containsCJK } from '@t-cli/core/detect';
+import { escapeSsmlText } from '@t-cli/core/ssml';
 
 // Edge Read Aloud is an unofficial free endpoint with no SLA. Microsoft has
 // tightened its auth before (Sec-MS-GEC token), so synthesis can start failing
@@ -65,7 +66,8 @@ async function synthesize(text, voice) {
     );
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 't-cli-tts-'));
     const { audioFilePath } = await withTimeout(
-      tts.toFile(dir, text),
+      // msedge-tts puts the text into its SSML verbatim; "R&D" would break it.
+      tts.toFile(dir, escapeSsmlText(text)),
       SYNTH_TIMEOUT_MS,
       'edge-tts synthesis'
     );
