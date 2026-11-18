@@ -1,4 +1,5 @@
 import { readHistory, listHistory } from '../history.js';
+import { localDateDaysAgo } from './localDate.js';
 import { parseHistoryFile } from './historyParser.js';
 import { detectSourceLang, isWordLookup } from '@t-cli/core/detect';
 import { detectSpellingCorrection } from '@t-cli/core/spelling';
@@ -38,18 +39,19 @@ export function toQuizEntries(date, content) {
  * in random order.
  *
  * @param {number} [daysBack=7] - Number of days to look back for history entries
+ * @param {Date} [now] - Reference time for the cutoff (defaults to now)
  * @returns {Promise<QuizEntry[]>}
- * @throws {Error} If daysBack is negative or NaN
+ * @throws {Error} If daysBack is not a non-negative integer
  */
-export async function getQuizEntries(daysBack = 7) {
-  if (typeof daysBack !== 'number' || isNaN(daysBack) || daysBack < 0) {
-    throw new Error('daysBack must be a non-negative number');
+export async function getQuizEntries(daysBack = 7, now = new Date()) {
+  if (!Number.isInteger(daysBack) || daysBack < 0) {
+    throw new Error('daysBack must be a non-negative integer');
   }
 
-  // History files are named by UTC date, so compare against a UTC cutoff.
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - daysBack);
-  const cutoffStr = cutoffDate.toISOString().split('T')[0];
+  // History files are named by local date, so the cutoff is the local date
+  // `daysBack` days ago. (Older files are named by UTC date; at the cutoff
+  // that shifts the window by the UTC offset at most.)
+  const cutoffStr = localDateDaysAgo(daysBack, now);
 
   // listHistory() returns [{ date, count }], not filenames.
   const entries = listHistory()

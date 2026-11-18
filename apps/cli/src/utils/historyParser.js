@@ -5,7 +5,7 @@
  *
  * Markdown layout written by history.js `saveHistory`:
  *
- *   # t-cli Learning History — 2026-11-16      <- file header (ignored)
+ *   # t-cli Learning History — 2026-11-16 (local date)   <- file header
  *
  *   ---
  *
@@ -16,13 +16,27 @@
  *   <raw model response, may itself contain `---` and `## ...` lines>
  *
  *   ---
+ *
+ * File dates ("date basis"): files are named by the local calendar date and
+ * their header carries the "(local date)" marker. Files created before that
+ * rule have a bare header (`# t-cli Learning History — 2026-11-16`) and are
+ * named by the UTC date, while their [HH:MM] is still local time. Existing
+ * files are never renamed, so the header decides how a file is read.
+ *
+ * Known edge: on the day of the switch, the new rule may append to a file the
+ * old rule started that day; it keeps its bare header. East of UTC (e.g.
+ * UTC+8) those appended times read the same under both rules. West of UTC,
+ * evening entries appended that one day (local hour >= 24 - |offset|) read
+ * as the previous day.
  */
 import { createHash } from 'node:crypto';
 import { createEntry, classifyKind } from '@t-cli/core/entry';
 import { detectSourceLang } from '@t-cli/core/detect';
+import { localDateString } from './localDate.js';
 
 /** @typedef {import('@t-cli/core/entry').Entry} Entry */
 /** @typedef {'Translation'|'Grammar Check'} HistoryType */
+/** @typedef {'local'|'utc'} DateBasis  calendar the file name follows */
 
 /**
  * @typedef {Object} HistoryBlock
@@ -34,7 +48,8 @@ import { detectSourceLang } from '@t-cli/core/detect';
 
 /**
  * @typedef {Object} HistoryRecord
- * @property {string} fileDate     YYYY-MM-DD from the file name (a UTC date)
+ * @property {string} fileDate     YYYY-MM-DD from the file name
+ * @property {DateBasis} dateBasis  'local' for marked files, 'utc' for older ones
  * @property {number} index
  * @property {string} time
  * @property {HistoryType} type
@@ -54,8 +69,10 @@ import { detectSourceLang } from '@t-cli/core/detect';
 
 /** Entry headings. Splitting on `---` is unsafe: detail responses contain it. */
 export const HEADING_RE = /^## \[(\d{2}:\d{2})\] (Translation|Grammar Check)\s*$/;
-/** History file names: one file per UTC date. */
+/** History file names: one file per date (see "File dates" above). */
 export const HISTORY_FILE_RE = /^(\d{4}-\d{2}-\d{2})\.md$/;
+/** Header line of a file named by the local date. */
+const LOCAL_DATE_HEADER_RE = /^# t-cli Learning History — \d{4}-\d{2}-\d{2} \(local date\)\s*$/;
 
 const INPUT_PREFIX = '**Input:**';
 const SEPARATOR = '---';
@@ -66,6 +83,28 @@ const ENTROPY_BYTES = 10;
 const MS_PER_MINUTE = 60_000;
 
 const isBlank = (line) => line.trim() === '';
+
+/**
+ * Header saveHistory writes at the top of a new file.
+ * @param {string} date  YYYY-MM-DD local date
+ * @returns {string}
+ */
+export function formatHistoryHeader(date) {
+  return `# t-cli Learning History — ${date} (local date)\n\n---\n`;
+}
+
+/**
+ * Which calendar a file's name follows: 'local' when the header (the text
+ * before the first entry heading) has the "(local date)" marker, else 'utc'.
+ * @param {string} content
+ * @returns {DateBasis}
+ */
+export function detectDateBasis(content) {
+  const lines = content.split('\n');
+  const firstHeading = lines.findIndex((line) => HEADING_RE.test(line));
+  const header = firstHeading === -1 ? lines : lines.slice(0, firstHeading);
+  return header.some((line) => LOCAL_DATE_HEADER_RE.test(line)) ? 'local' : 'utc';
+}
 
 /**
  * Split a history file into heading blocks. Text before the first heading
@@ -158,6 +197,7 @@ function withOccurrence(records) {
  * @returns {{ headings: number, records: HistoryRecord[], failures: ParseFailure[] }}
  */
 export function parseHistoryFile(content, fileDate) {
+  const dateBasis = detectDateBasis(content);
   const blocks = splitBlocks(content);
   const results = blocks.map((block) => ({ block, result: parseBlock(block) }));
   const failures = results
@@ -167,7 +207,7 @@ export function parseHistoryFile(content, fileDate) {
     .filter(({ result }) => result.ok)
     .map(({ block, result }) => {
       const { input, output } = /** @type {{ input: string, output: string }} */ (result);
-      return { fileDate, index: block.index, time: block.time, type: block.type, input, output, multiLineInput: LINE_BREAK_RE.test(input) };
+      return { fileDate, dateBasis, index: block.index, time: block.time, type: block.type, input, output, multiLineInput: LINE_BREAK_RE.test(input) };
     });
   return { headings: blocks.length, records: withOccurrence(records), failures };
 }
@@ -188,30 +228,48 @@ function parseFileDate(fileDate) {
 }
 
 /**
- * Reconstruct the real local datetime of an entry.
+ * Reconstruct the real local datetime of an entry. `[HH:MM]` is always local
+ * wall-clock time (process time zone); what the file date means depends on
+ * the file's date basis.
  *
- * saveHistory names the file after the UTC date (`toISOString().slice(0,10)`)
- * but writes `[HH:MM]` in local time (`getHours()`). In UTC+8 an entry made at
- * local 07:30 on Nov 17 lands in `2026-11-16.md` as `[07:30]`. So try HH:MM on
- * local dates fileDate, fileDate+1 and fileDate-1 (process time zone) and pick
- * the one whose UTC calendar date equals the file date. With a fixed offset at
- * most one candidate matches; if none does (DST edge), fall back to fileDate.
+ * 'local' (current files): the file date is the local date, so the entry is
+ * simply fileDate HH:MM. `dateMatched` is false only for a wall-clock time a
+ * DST jump skipped, which Date shifts by the jump.
  *
- * @param {string} fileDate  YYYY-MM-DD (UTC date)
+ * 'utc' (files from before the local-date rule): the file was named after the
+ * UTC date (`toISOString().slice(0,10)`). In UTC+8 an entry made at local 07:30
+ * on Nov 17 lands in `2026-11-16.md` as `[07:30]`. So try HH:MM on local dates
+ * fileDate, fileDate+1 and fileDate-1 and pick the one whose UTC calendar date
+ * equals the file date. With a fixed offset at most one candidate matches; if
+ * none does (DST edge), fall back to fileDate. This path must keep returning
+ * the same instants: backfilled IDs embed them.
+ *
+ * @param {string} fileDate  YYYY-MM-DD
  * @param {string} time      HH:MM (local time)
- * @returns {{ createdAt: Date, utcDateMatched: boolean }}
- * @throws {TypeError} on a malformed date or time
+ * @param {DateBasis} [dateBasis]
+ * @returns {{ createdAt: Date, dateMatched: boolean }}
+ * @throws {TypeError} on a malformed date, time or date basis
  */
-export function reconstructCreatedAt(fileDate, time) {
+export function reconstructCreatedAt(fileDate, time, dateBasis = 'utc') {
   const [year, month, day] = parseFileDate(fileDate);
   const timeMatch = TIME_RE.exec(time);
   const [hours, minutes] = timeMatch ? timeMatch.slice(1).map(Number) : [NaN, NaN];
   if (!(hours <= 23 && minutes <= 59)) {
     throw new TypeError(`Invalid time: ${time}`);
   }
-  const candidates = [0, 1, -1].map((offset) => new Date(year, month - 1, day + offset, hours, minutes, 0, 0));
+  const onLocalDay = (offset) => new Date(year, month - 1, day + offset, hours, minutes, 0, 0);
+  if (dateBasis === 'local') {
+    const createdAt = onLocalDay(0);
+    const dateMatched = localDateString(createdAt) === fileDate
+      && createdAt.getHours() === hours && createdAt.getMinutes() === minutes;
+    return { createdAt, dateMatched };
+  }
+  if (dateBasis !== 'utc') {
+    throw new TypeError(`Invalid date basis: ${dateBasis}`);
+  }
+  const candidates = [0, 1, -1].map(onLocalDay);
   const match = candidates.find((date) => date.toISOString().slice(0, 10) === fileDate);
-  return { createdAt: match ?? candidates[0], utcDateMatched: match !== undefined };
+  return { createdAt: match ?? candidates[0], dateMatched: match !== undefined };
 }
 
 const countNonEmptyLines = (text) => text.split(LINE_BREAK_RE).filter((line) => !isBlank(line)).length;
@@ -262,11 +320,11 @@ export function entropyFor(key) {
 /**
  * Map a parsed Markdown record to an Entry.
  * @param {HistoryRecord} record
- * @returns {{ ok: true, entry: Readonly<Entry>, utcDateMatched: boolean } | { ok: false, error: string }}
+ * @returns {{ ok: true, entry: Readonly<Entry>, dateMatched: boolean } | { ok: false, error: string }}
  */
 export function recordToEntry(record) {
   try {
-    const { createdAt, utcDateMatched } = reconstructCreatedAt(record.fileDate, record.time);
+    const { createdAt, dateMatched } = reconstructCreatedAt(record.fileDate, record.time, record.dateBasis);
     const isCheck = record.type === 'Grammar Check';
     const entry = createEntry({
       source: 'cli',
@@ -279,7 +337,7 @@ export function recordToEntry(record) {
       createdAt,
       entropy: entropyFor(identityKey(record)),
     });
-    return { ok: true, entry, utcDateMatched };
+    return { ok: true, entry, dateMatched };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) };
   }
