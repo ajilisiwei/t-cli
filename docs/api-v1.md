@@ -72,8 +72,8 @@ Revokes the calling device. `200 { "revoked": true }`.
 
 `Settings` = `{ "explanationLang"?: "zh"|"en" }` (absent → `"zh"`). Clients send it as `lang` to the AI proxy.
 
-### `PATCH /v1/me/settings` (auth)
-Body: a partial `Settings`; unknown keys → `400 VALIDATION_FAILED`. Merges into the stored settings.
+### `POST /v1/me/settings` (auth)
+Body: a partial `Settings`; unknown keys → `400 VALIDATION_FAILED`. Merges into the stored settings (partial update; POST rather than PATCH because the mini-program's `wx.request` cannot send PATCH).
 `200 { "settings": Settings }` (the full settings after the merge).
 
 ### `GET /v1/devices` (auth) / `DELETE /v1/devices/:id` (auth)
