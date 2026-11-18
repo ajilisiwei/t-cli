@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 All commands run from the repository root (npm workspaces).
 
-- **Install dependencies**: `npm install`
+- **Install dependencies**: `npm install`. The repo `.npmrc` sets `ignore-scripts=true`: dependency install scripts never run (no dependency needs one; msedge-tts's `npx only-allow pnpm` preinstall would fail under npm). Keep it that way and do not add pre/post script hooks.
 - **Run the tool**: `npm start` or `node apps/cli/bin/t-cli.js`
 - **Run tests**: `npm test` (Node's built-in `node --test`; discovers `apps/*/test` and `packages/*/test`)
 - **Global installation**: `npm run release:local` → `scripts/release-local.mjs`. Bumps the CLI patch version, stages `apps/cli` with `@t-cli/core` bundled (`bundleDependencies` — the core package is private and never published, so a plain `npm pack` of `apps/cli` is NOT installable), packs, and installs into `~/.npm-global` (the prefix that wins on PATH; a plain `npm install -g` may target a shadowed prefix and keep serving stale code). Flags: `--no-bump`, `--prefix <dir>`, `--pack-only`.
@@ -38,6 +38,7 @@ scripts/         repo tooling (release-local.mjs)
   - `entry.js`: The raw record ("Entry") schema shared with the sync server: `createEntry`, `validateEntry`, `classifyKind` (word / sentence / paragraph), JSONL (de)serialization.
   - `ulid.js`: Offline ULID generation (optionally deterministic via fixed entropy) for idempotent sync writes.
   - `spelling.js`: `extractHeadTerm()` / `detectSpellingCorrection()` — deterministic misspelling detection for English word lookups (head word before the IPA vs. the input). Feeds the CLI's "拼写更正" notice and `Entry.correctedInput`; review material must use `correctedInput` when set.
+  - `ssml.js`: `escapeSsmlText()` — escapes text for msedge-tts's SSML template (used by the CLI's `/say` and the server's `POST /v1/tts`).
 - **CLI** (`apps/cli/`):
   - `bin/t-cli.js`: Entry point — loads dotenv and invokes the REPL.
   - `src/repl.js`: Ink `App` component. Renders the message log, streaming output, status line, and text input. Handles command routing (`/check`, `/lang`, `/mode`, `/history`, `/notes`, `/say`, `/clear`, `/login`, `/sync`, etc.) and orchestration of API calls. Uses `React.createElement` (no JSX, no build step).

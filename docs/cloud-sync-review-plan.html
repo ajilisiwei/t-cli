@@ -1854,7 +1854,7 @@ wx.login 换取 openid" data-shape="rounded">
         <tr><th>阶段</th><th>交付</th><th>验收方式</th></tr>
         <tr><td>M0 结构化采集 <span class="tag done">已完成</span></td><td>改为 monorepo，抽出 <code>packages/core</code>；CLI 每条记录同时写 JSONL；历史 Markdown 回填脚本；纠错 prompt 改为修改句放第一行</td><td>CLI 行为不变（现有测试全过）；回填条数与 <code>meta.json</code> 一致</td></tr>
         <tr><td>M1 服务端基础 <span class="tag todo">代码完成，待部署</span></td><td>账号：微信登录、邀请码、CLI 设备授权、令牌轮换。接口：同步 API、流式 AI 代理、按账号限流。基础设施：在已有 PostgreSQL 上建 <code>tcli</code> 库和专用角色、并入每晚备份、nginx 加站点、部署到 ECS。</td><td>断网写 10 条，联网后自动补传无重复；并发推送不漏拉；越权测试全部返回 404；实测首字延迟</td></tr>
-        <tr><td>M2 小程序：翻译与纠错</td><td>极简翻译页（中文 → 英文，外语 → 中文）、纠错 tab 与差异高亮、朗读、语音输入、记录、设置；方向规则扩展到其他外语（<code>packages/core</code>）；上传体验版</td><td>连续 7 天在手机上用它替代其它翻译工具</td></tr>
+        <tr><td>M2 小程序：翻译与纠错 <span class="tag todo">代码完成，待真机验证</span></td><td>极简翻译页（中文 → 英文，外语 → 中文）、纠错 tab 与差异高亮、朗读、语音输入、记录、设置；方向规则扩展到其他外语（<code>packages/core</code>）；上传体验版</td><td>连续 7 天在手机上用它替代其它翻译工具</td></tr>
         <tr><td>M3 AI 管线</td><td>学习单元抽取、每日材料、复习卡；CLI 的 <code>/notes</code> 可读云端材料</td><td>用 7 天真实数据生成；人工抽查 30 张卡，错误率 &lt; 5%</td></tr>
         <tr><td>M4 小程序：复习</td><td>复习 tab（含每日材料和词库）、FSRS、“我的”页的回顾统计</td><td>连续复习 7 天</td></tr>
         <tr><td>M5 延伸</td><td>CLI <code>/review</code>、周报、账号导出与注销（开放给别人前必须完成）、订阅消息提醒、H5（可选）</td><td>—</td></tr>
@@ -1913,8 +1913,9 @@ wx.login 换取 openid" data-shape="rounded">
       <table>
         <tr><th>#</th><th>核实项</th><th>何时之前</th><th>怎么核实</th></tr>
         <tr><td>V1</td><td>服务器实况 <span class="tag done">已核实 2026-11-18</span>：PostgreSQL 16.15（容器 <code>heji-postgres-1</code>），<code>max_connections</code> 50，已用 7；compose 网络 <code>heji_default</code>；nginx 1.27-alpine（<code>heji-nginx-1</code>，配置挂载自 <code>/home/deploy/heji/nginx.conf</code>）；可用内存 891 MB，磁盘剩 29 GB；证书为 Let's Encrypt，SAN 只有 <code>guangqingai.top</code>、<code>www</code>、<code>heyji</code>，2027-01-30 到期；<code>tcli.guangqingai.top</code> 尚无 DNS 记录</td><td>M1 部署前</td><td>登录服务器，用只读命令查看</td></tr>
-        <tr><td>V2</td><td>小程序 <code>enableChunked</code> 流式输出在真机上可用，中文不乱码</td><td>M1 结束</td><td>真机调试</td></tr>
-        <tr><td>V3</td><td>首字延迟 ≤ 2 秒</td><td>M1 结束</td><td>从小程序实测 p50 / p95</td></tr>
+        <tr><td>V2</td><td>小程序 <code>enableChunked</code> 流式输出在真机上可用，中文不乱码。<span class="tag done">解码逻辑已验证</span>：小程序自己的 UTF-8 / NDJSON 模块解析真实服务端的流（按 7 字节切块，汉字跨块），结果正确；真机待测</td><td>M2 上传体验版前</td><td>真机调试</td></tr>
+        <tr><td>V3</td><td>首字延迟 ≤ 2 秒。<span class="tag done">服务端实测</span>：本机经服务端代理，翻译、查词、纠错的首字 0.7–1.0 秒（2026-11-18）；小程序端 p50 / p95 待测</td><td>M2 上传体验版前</td><td>从小程序实测 p50 / p95</td></tr>
+        <tr><td>V6</td><td>服务器能访问 DeepSeek 和微软朗读端点 <span class="tag done">已核实 2026-11-18</span>：从 ECS 访问 <code>api.deepseek.com</code> 和 <code>speech.platform.bing.com</code> 都能建立 TLS 连接。<code>msedge-tts</code> 需 ≥ 2.1.1（旧版握手被拒，返回 403）</td><td>M1 部署前</td><td>从服务器只读探测</td></tr>
         <tr><td>V4</td><td>个人主体的限制：手机号能力、UnionID、体验成员上限</td><td>邀请别人之前</td><td>查微信官方文档和后台</td></tr>
         <tr><td>V5</td><td>正式发布的类目和生成式 AI 资质</td><td>需要公开发布时</td><td>查微信类目规范和监管要求</td></tr>
       </table>
