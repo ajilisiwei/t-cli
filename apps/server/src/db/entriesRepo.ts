@@ -140,3 +140,12 @@ export async function listEntriesBefore(
   const hasMore = rows.length > limit;
   return { entries: page, nextBefore: hasMore ? page[page.length - 1]!.seq : null, hasMore };
 }
+
+/** One of the account's entries by id; null when it does not exist or belongs to another account. */
+export async function getEntry(db: Executor, userId: string, id: string): Promise<SyncedEntry | null> {
+  const [row] = await db
+    .select()
+    .from(entries)
+    .where(and(eq(entries.userId, userId), eq(entries.id, id)));
+  return row ? fromRow(row) : null;
+}

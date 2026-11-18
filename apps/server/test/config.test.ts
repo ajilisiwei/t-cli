@@ -8,6 +8,10 @@ test('loadConfig: applies defaults', () => {
   assert.equal(config.AI_REQUESTS_PER_DAY, 200);
   assert.equal(config.MIGRATE_ON_START, false);
   assert.equal(config.WECHAT_DEV_LOGIN, false);
+  assert.equal(config.TTS_ENABLED, true);
+  assert.equal(config.TTS_REQUESTS_PER_MINUTE, 30);
+  assert.equal(config.TTS_TIMEOUT_MS, 15_000);
+  assert.equal(config.TTS_CACHE_MAX_BYTES, 16 * 1024 * 1024);
 });
 
 test('loadConfig: names invalid variables without echoing their values', () => {
@@ -40,4 +44,21 @@ test('loadConfig: WECHAT_DEV_LOGIN is refused in production', () => {
   }
   // NODE_ENV defaults to development.
   assert.equal(loadConfig({ ...BASE, WECHAT_DEV_LOGIN: '1' }).WECHAT_DEV_LOGIN, true);
+});
+
+test('loadConfig: TTS settings are validated', () => {
+  const tts = loadConfig({ ...BASE, TTS_ENABLED: 'false', TTS_REQUESTS_PER_MINUTE: '5', TTS_TIMEOUT_MS: '8000', TTS_CACHE_MAX_BYTES: '0' });
+  assert.deepEqual(
+    [tts.TTS_ENABLED, tts.TTS_REQUESTS_PER_MINUTE, tts.TTS_TIMEOUT_MS, tts.TTS_CACHE_MAX_BYTES],
+    [false, 5, 8000, 0],
+  );
+  for (const [name, value] of [
+    ['TTS_ENABLED', 'maybe'],
+    ['TTS_REQUESTS_PER_MINUTE', '0'],
+    ['TTS_TIMEOUT_MS', '10'],
+    ['TTS_CACHE_MAX_BYTES', '-1'],
+    ['TTS_CACHE_MAX_BYTES', String(1024 * 1024 * 1024)],
+  ] as const) {
+    assert.throws(() => loadConfig({ ...BASE, [name]: value }), new RegExp(name), `${name}=${value}`);
+  }
 });
