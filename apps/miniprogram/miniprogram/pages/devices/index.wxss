@@ -1,0 +1,16 @@
+.device {
+  flex: 1;
+  padding: 24rpx 0;
+}
+
+.device-meta {
+  display: block;
+  color: var(--muted);
+  font-size: 24rpx;
+}
+
+.revoke {
+  padding: 16rpx 0 16rpx 32rpx;
+  color: var(--danger);
+  font-size: 28rpx;
+}

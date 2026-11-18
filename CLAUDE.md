@@ -17,6 +17,7 @@ All commands run from the repository root (npm workspaces).
 - **Server dev login**: `WECHAT_DEV_LOGIN=1` makes `POST /v1/auth/wechat` accept `dev:<name>` codes without calling WeChat (mini-program simulator); the server refuses to start with it when `NODE_ENV=production`.
 - **Server typecheck**: `npm run typecheck -w @t-cli/server` (Node 24 runs the TypeScript sources directly; erasable syntax only, relative imports end in `.ts`).
 - **Server deploy**: see `apps/server/deploy/README.md`; API contract in `docs/api-v1.md`.
+- **Mini-program**: `npm run typecheck -w @t-cli/miniprogram`; unit tests run with `npm test`. Pure logic in `apps/miniprogram/miniprogram/lib` (no `wx`, no value imports between modules, so Node can load it). `vendor/core/` is a generated copy of core modules: after changing one, run `npm run sync:core -w @t-cli/miniprogram`. DevTools, configuration and upload: `apps/miniprogram/README.md`.
 
 ## Architecture & Structure
 
@@ -25,6 +26,7 @@ A minimalist, stateless CLI translation tool using DeepSeek API, rendered as an 
 ```
 apps/cli/        t-cli-translator — the Ink TUI (published as the `t-cli` binary)
 apps/server/     @t-cli/server — sync service: accounts, record sync, AI proxy (Fastify + Drizzle + PostgreSQL)
+apps/miniprogram/ @t-cli/miniprogram — WeChat mini-program (native + TypeScript + Skyline); see its README
 packages/core/   @t-cli/core — logic shared by every client and the server
 scripts/         repo tooling (release-local.mjs)
 ```

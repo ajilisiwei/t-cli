@@ -1,0 +1,27 @@
+<view class="page theme-{{theme}}">
+  <nav-bar title="授权 CLI 登录" back />
+  <scroll-view class="body" scroll-y type="list" show-scrollbar="{{false}}">
+    <view class="content">
+      <text class="notice">在终端执行 /login 后，输入显示的 6 位授权码，或扫描二维码。</text>
+      <input
+        class="field serif"
+        type="number"
+        maxlength="6"
+        value="{{code}}"
+        focus="{{!code}}"
+        placeholder="000000"
+        placeholder-class="placeholder"
+        confirm-type="done"
+        bindinput="onInput"
+        bindconfirm="onConfirm"
+      />
+      <view class="button {{busy ? 'button-disabled' : ''}}" bindtap="onConfirm" aria-role="button">
+        <text>{{busy ? '请稍候…' : '继续'}}</text>
+      </view>
+      <view class="button button-quiet" bindtap="onScan" aria-role="button"><text>扫码</text></view>
+
+      <text wx:if="{{resultText}}" class="notice">{{resultText}}</text>
+      <text wx:if="{{errorText}}" class="error">{{errorText}}</text>
+    </view>
+  </scroll-view>
+</view>

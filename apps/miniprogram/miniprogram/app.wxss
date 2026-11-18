@@ -1,0 +1,348 @@
+/*
+ * Paper-like and quiet: off-white ground, ink text, one indigo accent; thin
+ * rules and whitespace instead of cards, shadows or gradients. English
+ * results use a serif, everything else the system font.
+ *
+ * Colours are CSS variables on the page root (`theme-light` / `theme-dark`,
+ * set from the system theme in JS) so they work the same under Skyline and
+ * WebView. Secondary text meets 4.5:1 against the ground in both themes.
+ */
+.theme-light {
+  --bg: #f7f5f0;
+  --ink: #1d1c1a;
+  --ink-soft: #46433d;
+  --muted: #6f6a62;
+  --rule: #e2ddd3;
+  --accent: #2f3e7a;
+  --accent-soft: rgba(47, 62, 122, 0.12);
+  --danger: #9c3426;
+}
+
+.theme-dark {
+  --bg: #131312;
+  --ink: #ebe8e1;
+  --ink-soft: #c9c4ba;
+  --muted: #8f8a80;
+  --rule: #2c2b28;
+  --accent: #9fb0ee;
+  --accent-soft: rgba(159, 176, 238, 0.16);
+  --danger: #e59a8c;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei', sans-serif;
+  font-size: 32rpx;
+  line-height: 1.6;
+}
+
+/* The scrolling area below the navigation bar. */
+.body {
+  flex: 1;
+  height: 0;
+}
+
+.content {
+  padding: 16rpx 40rpx 96rpx;
+}
+
+.serif {
+  font-family: Georgia, 'Times New Roman', 'Songti SC', serif;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.rule {
+  height: 1px;
+  background-color: var(--rule);
+}
+
+.error {
+  display: block;
+  margin-top: 16rpx;
+  color: var(--danger);
+  font-size: 28rpx;
+}
+
+.placeholder {
+  color: var(--muted);
+}
+
+/* ---- composer: the input area of 翻译 and 纠错 ---- */
+.composer {
+  padding: 8rpx 0 16rpx;
+}
+
+.composer-input {
+  width: 100%;
+  min-height: 168rpx;
+  font-size: 36rpx;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.composer-tools {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  align-items: center;
+  height: 72rpx;
+}
+
+.tool {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72rpx;
+  height: 72rpx;
+  margin-left: 16rpx;
+  border-radius: 36rpx;
+  color: var(--muted);
+  font-size: 30rpx;
+}
+
+.tool-active {
+  background-color: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Microphone drawn with borders, so it follows the theme colours. */
+.mic {
+  position: relative;
+  width: 32rpx;
+  height: 38rpx;
+}
+
+.mic-capsule {
+  position: absolute;
+  top: 0;
+  left: 7rpx;
+  width: 12rpx;
+  height: 20rpx;
+  border: 3rpx solid var(--muted);
+  border-radius: 10rpx;
+}
+
+.mic-arc {
+  position: absolute;
+  top: 12rpx;
+  left: 0;
+  width: 26rpx;
+  height: 14rpx;
+  border: 3rpx solid var(--muted);
+  border-top-width: 0;
+  border-radius: 0 0 16rpx 16rpx;
+}
+
+.mic-stem {
+  position: absolute;
+  top: 29rpx;
+  left: 14rpx;
+  width: 3rpx;
+  height: 9rpx;
+  background-color: var(--muted);
+}
+
+.mic-on {
+  border-color: var(--accent);
+}
+
+.mic-stem-on {
+  background-color: var(--accent);
+}
+
+.hint {
+  display: block;
+  color: var(--accent);
+  font-size: 26rpx;
+}
+
+/* ---- result area ---- */
+.result {
+  padding-top: 32rpx;
+}
+
+.direction {
+  display: block;
+  margin-bottom: 16rpx;
+  color: var(--muted);
+  font-size: 26rpx;
+}
+
+.direction-flip {
+  color: var(--accent);
+}
+
+.output {
+  display: block;
+  font-size: 36rpx;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.output-en {
+  font-size: 44rpx;
+  line-height: 1.45;
+}
+
+.headline {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+
+.head {
+  margin-right: 20rpx;
+  font-size: 56rpx;
+  line-height: 1.3;
+}
+
+.ipa {
+  color: var(--muted);
+  font-size: 30rpx;
+}
+
+.gloss {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 34rpx;
+}
+
+.explanation {
+  display: block;
+  margin-top: 32rpx;
+  color: var(--ink-soft);
+  font-size: 30rpx;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 40rpx;
+  padding-top: 24rpx;
+  border-top: 1px solid var(--rule);
+}
+
+.action {
+  margin-right: 48rpx;
+  padding: 8rpx 0;
+  color: var(--accent);
+  font-size: 30rpx;
+}
+
+.action-disabled {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+/* ---- word diff (纠错) ---- */
+.diff-delete {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.diff-insert {
+  color: var(--accent);
+  background-color: var(--accent-soft);
+}
+
+/* ---- lists (我的, 记录, 设备) ---- */
+.row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 104rpx;
+  border-bottom: 1px solid var(--rule);
+}
+
+.row-label {
+  font-size: 32rpx;
+}
+
+.row-value {
+  color: var(--muted);
+  font-size: 28rpx;
+}
+
+.section-title {
+  display: block;
+  margin-top: 48rpx;
+  color: var(--muted);
+  font-size: 26rpx;
+}
+
+.segmented {
+  display: flex;
+  flex-direction: row;
+}
+
+.segment {
+  margin-left: 32rpx;
+  color: var(--muted);
+  font-size: 30rpx;
+}
+
+.segment-on {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.field {
+  display: block;
+  width: 100%;
+  height: 96rpx;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink);
+  font-size: 40rpx;
+  letter-spacing: 8rpx;
+}
+
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 88rpx;
+  margin-top: 40rpx;
+  border-radius: 8rpx;
+  background-color: var(--accent);
+  color: var(--bg);
+  font-size: 32rpx;
+}
+
+.button-quiet {
+  background-color: transparent;
+  color: var(--accent);
+  border: 1px solid var(--rule);
+}
+
+.button-disabled {
+  opacity: 0.4;
+}
+
+.notice {
+  display: block;
+  margin-top: 32rpx;
+  color: var(--ink-soft);
+  font-size: 30rpx;
+}
+
+.empty {
+  display: block;
+  padding: 96rpx 0;
+  color: var(--muted);
+  text-align: center;
+  font-size: 28rpx;
+}
