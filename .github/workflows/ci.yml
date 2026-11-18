@@ -38,6 +38,9 @@ jobs:
       - name: Typecheck server
         run: npm run typecheck -w @t-cli/server
 
+      - name: Typecheck mini-program
+        run: npm run typecheck -w @t-cli/miniprogram
+
       - name: Run tests
         # Unit tests never call the live API, so no API secret is injected here —
         # keeps secrets out of PR/fork build surfaces.
