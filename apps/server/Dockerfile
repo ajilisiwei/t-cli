@@ -22,6 +22,7 @@ WORKDIR /repo
 COPY package.json package-lock.json ./
 COPY apps/server/package.json apps/server/
 COPY apps/cli/package.json apps/cli/
+COPY apps/miniprogram/package.json apps/miniprogram/
 COPY packages/core/package.json packages/core/
 # --ignore-scripts: no install script is needed by the server's dependencies
 # (and msedge-tts's preinstall, `npx only-allow pnpm`, would fail under npm).

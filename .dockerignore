@@ -13,5 +13,8 @@ apps/cli/bin
 apps/cli/test
 apps/cli/scripts
 apps/server/test
+# The mini-program only contributes its manifest (npm ci needs every workspace).
+apps/miniprogram/*
+!apps/miniprogram/package.json
 packages/*/test
 *.md
