@@ -31,13 +31,15 @@ export function translateBodySchema(maxChars: number) {
     mode: z.enum(['simple', 'detail']).default('simple'),
     lang: z.enum(['zh', 'en']).default('zh'),
     utcOffsetMinutes: z.number().int().min(-720).max(840).default(DEFAULT_UTC_OFFSET_MINUTES),
+    // Overrides the detected direction for `translate`; ignored for `check`.
+    direction: z.enum(['toEn', 'toZh']).optional(),
   });
 }
 
 /**
  * Streaming AI proxy for the mini-program (docs/api-v1.md, "AI proxy").
  *
- *   POST /v1/ai/translate  → application/x-ndjson stream of delta / done / error lines
+ *   POST /v1/ai/translate  → application/x-ndjson stream of meta / delta / done / error lines
  *
  * Order of checks: auth → validation → per-minute limit → daily quota (counted
  * when the request starts) → upstream. Logs one line per request with sizes
@@ -55,8 +57,11 @@ export async function registerAiRoutes(app: FastifyInstance, deps: AppDeps): Pro
     const body = Body.parse(request.body);
     const text = normalizeText(body.text);
     const { task, mode, utcOffsetMinutes } = body;
+    // One source of truth for the meta line and the stored entry.
+    const kind = classifyKind(text);
+    const { messages, srcLang } = buildAiPrompt({ text, task, mode, lang: body.lang, direction: body.direction });
 
-    const logFields = { userId, task, kind: classifyKind(text), mode, inputChars: codePoints(text) };
+    const logFields = { userId, task, kind, mode, srcLang, direction: body.direction ?? null, inputChars: codePoints(text) };
     const logOutcome = (level: 'info' | 'warn' | 'error', outcome: string, extra: Record<string, unknown> = {}): void => {
       request.log[level]({ ...logFields, ...extra, totalMs: Math.round(performance.now() - startedAt), outcome }, 'ai request');
     };
@@ -83,9 +88,8 @@ export async function registerAiRoutes(app: FastifyInstance, deps: AppDeps): Pro
       throw new AppError(429, 'QUOTA_EXCEEDED', 'daily AI quota exhausted', { limit });
     }
 
-    const { messages, srcLang } = buildAiPrompt({ text, task, mode, lang: body.lang });
     const persist = async (output: string): Promise<DoneEntry> => {
-      const entry = buildMpEntry({ text, output, task, mode, srcLang, now: deps.clock(), utcOffsetMinutes });
+      const entry = buildMpEntry({ text, output, task, mode, srcLang, kind, now: deps.clock(), utcOffsetMinutes });
       const { inserted, lastSeq } = await insertEntries(deps.db, userId, [entry]);
       if (inserted !== 1) throw new Error('entry id collision');
       return { id: entry.id, seq: lastSeq, kind: entry.kind, correctedInput: entry.correctedInput };
@@ -93,7 +97,7 @@ export async function registerAiRoutes(app: FastifyInstance, deps: AppDeps): Pro
 
     let result: StreamResult;
     try {
-      result = await proxyStream({ reply, llm: deps.llm, messages, persist, startedAt });
+      result = await proxyStream({ reply, llm: deps.llm, messages, meta: { srcLang, kind }, persist, startedAt });
     } catch (error) {
       const errorCode = error instanceof AppError ? error.code : 'INTERNAL';
       logOutcome('warn', 'upstream_error', { errorCode, outputChars: 0, firstDeltaMs: null, streamed: false });

@@ -60,6 +60,30 @@ export async function startDeviceAuthorization(
 }
 
 /**
+ * Which device a pending, unexpired request is for, and how many seconds it
+ * has left — shown before the user approves. Read-only. Null when no such
+ * request exists (unknown, malformed, expired or already decided).
+ */
+export async function lookupDeviceAuthorization(
+  db: Executor,
+  { userCode, now }: { userCode: string; now: Date },
+): Promise<{ deviceName: string; expiresIn: number } | null> {
+  if (!USER_CODE_RE.test(userCode)) return null;
+  const [pending] = await db
+    .select({ deviceName: deviceAuthRequests.deviceName, expiresAt: deviceAuthRequests.expiresAt })
+    .from(deviceAuthRequests)
+    .where(
+      and(
+        eq(deviceAuthRequests.userCode, userCode),
+        eq(deviceAuthRequests.status, 'pending'),
+        gt(deviceAuthRequests.expiresAt, now),
+      ),
+    );
+  if (!pending) return null;
+  return { deviceName: pending.deviceName, expiresIn: Math.ceil((pending.expiresAt.getTime() - now.getTime()) / 1000) };
+}
+
+/**
  * Approve or deny a pending, unexpired request and bind it to `userId`.
  * Null when no such request exists (unknown, expired or already decided).
  * Shared by the HTTP route and the admin script.

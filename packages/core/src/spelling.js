@@ -31,7 +31,7 @@ export function extractHeadTerm(output) {
 /**
  * The corrected spelling for an English single-word lookup, or null when the
  * lookup is not an English word lookup or the head term matches the input.
- * @param {{ input: string, output: string, srcLang: 'zh'|'en'|null, kind: string }} fields
+ * @param {{ input: string, output: string, srcLang: 'zh'|'en'|'other'|null, kind: string }} fields
  * @returns {string | null}
  */
 export function detectSpellingCorrection({ input, output, srcLang, kind }) {

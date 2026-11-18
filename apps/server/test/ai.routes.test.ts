@@ -30,7 +30,7 @@ import { createAccount, makeEntry, type TestAccount } from './helpers/fixtures.t
 
 const URL_PATH = '/v1/ai/translate';
 // getTranslatePrompt is untyped JS; its 4th parameter is the detected source language.
-const translatePrompt = getTranslatePrompt as (lang: string, simple: boolean, word: boolean, src: 'zh' | 'en' | null) => string;
+const translatePrompt = getTranslatePrompt as (lang: string, simple: boolean, word: boolean, src: 'zh' | 'en' | 'other' | null) => string;
 
 /** An LLM that fails before producing anything. */
 function failingLlm(error: unknown): LlmClient {
@@ -155,14 +155,16 @@ describe('AI proxy routes', { skip: skipWithoutDb }, () => {
     assert.equal(res.headers['cache-control'], 'no-store');
     const lines = parseNdjson(res.body);
     const done = lines.at(-1);
-    assert.ok(lines.slice(0, -1).every((line) => line.type === 'delta' && typeof line.text === 'string'));
-    assert.deepEqual(lines.slice(0, -1).map((line) => line.text), ['The ', 'weather is ', 'nice today.']);
+    assert.deepEqual(lines[0], { type: 'meta', srcLang: 'zh', kind: 'sentence' }, 'the first line is always meta');
+    const deltas = lines.slice(1, -1);
+    assert.ok(deltas.every((line) => line.type === 'delta' && typeof line.text === 'string'));
+    assert.deepEqual(deltas.map((line) => line.text), ['The ', 'weather is ', 'nice today.']);
     assert.equal(done?.type, 'done');
     assert.deepEqual(Object.keys(done?.entry ?? {}).sort(), ['correctedInput', 'id', 'kind', 'seq']);
 
     const stored = (await storedEntries(account.userId)).find((entry) => entry.id === done?.entry?.id);
     assert.ok(stored, 'the done line names the stored entry');
-    assert.equal(stored.output, lines.slice(0, -1).map((line) => line.text).join(''), 'deltas concatenate to the stored output');
+    assert.equal(stored.output, deltas.map((line) => line.text).join(''), 'deltas concatenate to the stored output');
     assert.deepEqual(
       { source: stored.source, task: stored.task, kind: stored.kind, input: stored.input, srcLang: stored.srcLang, mode: stored.mode },
       { source: 'mp', task: 'translate', kind: 'sentence', input: '今天天气不错', srcLang: 'zh', mode: 'simple' },
@@ -264,6 +266,105 @@ describe('AI proxy routes', { skip: skipWithoutDb }, () => {
         ['translate', 'simple', 'en'],
       ],
     );
+  });
+
+  test('the meta line comes first and matches the stored entry (srcLang, kind)', async (ctx) => {
+    const llm = fakeLlm(['  ', 'result']);
+    const { app, account } = await setup(ctx, { llm });
+    const cases = [
+      { payload: { text: '今天天气不错', task: 'translate' }, meta: { srcLang: 'zh', kind: 'sentence' } },
+      { payload: { text: '苹果', task: 'translate' }, meta: { srcLang: 'zh', kind: 'word' } },
+      { payload: { text: 'ephemeral', task: 'translate' }, meta: { srcLang: 'en', kind: 'word' } },
+      { payload: { text: '会議室を予約しました', task: 'translate' }, meta: { srcLang: 'other', kind: 'sentence' } },
+      { payload: { text: 'привет', task: 'translate', mode: 'detail' }, meta: { srcLang: 'other', kind: 'sentence' } },
+      { payload: { text: 'He go to school.', task: 'check' }, meta: { srcLang: 'en', kind: 'sentence' } },
+      { payload: { text: 'word '.repeat(40), task: 'translate' }, meta: { srcLang: 'en', kind: 'paragraph' } },
+    ];
+    for (const { payload, meta } of cases) {
+      const res = await translate(app, account, payload);
+      assert.equal(res.statusCode, 200, payload.text);
+      const lines = parseNdjson(res.body);
+      assert.deepEqual(lines[0], { type: 'meta', ...meta }, payload.text);
+      assert.deepEqual(lines[1], { type: 'delta', text: '  result' }, 'meta precedes the first delta');
+      assert.equal(lines.filter((line) => line.type === 'meta').length, 1);
+      const done = lines.at(-1);
+      assert.equal(done?.entry?.kind, meta.kind);
+      const stored = (await storedEntries(account.userId)).find((entry) => entry.id === done?.entry?.id);
+      assert.deepEqual({ srcLang: stored?.srcLang, kind: stored?.kind }, meta, `stored entry matches meta: ${payload.text}`);
+    }
+  });
+
+  test('no meta line (and no 200) when the upstream fails before any content', async (ctx) => {
+    const { app, account } = await setup(ctx, { llm: fakeLlm(['', ' ']) });
+    const res = await translate(app, account, { text: 'hello', task: 'translate' });
+    assert.equal(res.statusCode, 502);
+    assert.deepEqual(res.json().error.code, 'AI_UPSTREAM');
+    assert.ok(!res.body.includes('"meta"'));
+  });
+
+  test('a foreign source uses the "other" prompt: into Chinese, no IPA or spelling rules', async (ctx) => {
+    const llm = fakeLlm(['我预约了会议室。']);
+    const { app, account } = await setup(ctx, { llm });
+    assert.equal((await translate(app, account, { text: '会議室を予約しました', task: 'translate' })).statusCode, 200);
+    const [system, user] = llm.calls[0]!;
+    assert.deepEqual(system, { role: 'system', content: translatePrompt('zh', true, false, 'other') });
+    assert.deepEqual(user, { role: 'user', content: buildSourceMessage('会議室を予約しました', 'translate') });
+    assert.match(system!.content, /NEITHER Chinese NOR English/);
+    assert.doesNotMatch(system!.content, /IPA|SPELLING RULE/);
+    const [entry] = await storedEntries(account.userId);
+    assert.equal(entry?.srcLang, 'other');
+    assert.equal(entry?.correctedInput, null);
+  });
+
+  test('direction overrides the detected direction for translate and is stored as srcLang', async (ctx) => {
+    const llm = fakeLlm(['ok']);
+    const { app, account } = await setup(ctx, { llm });
+    const cases: { text: string; direction?: 'toEn' | 'toZh'; srcLang: 'zh' | 'en' | 'other'; word: boolean }[] = [
+      { text: 'good morning', direction: 'toEn', srcLang: 'zh', word: false },
+      { text: 'good morning', direction: 'toZh', srcLang: 'en', word: false },
+      { text: '今天天气不错', direction: 'toEn', srcLang: 'zh', word: false },
+      // Pure-Han Japanese is detected as Chinese; toZh flips it to "other".
+      { text: '会議室予約', direction: 'toZh', srcLang: 'other', word: false },
+      { text: '日本', direction: 'toZh', srcLang: 'other', word: true },
+      { text: 'ありがとう', direction: 'toZh', srcLang: 'other', word: false },
+      { text: 'ありがとう', direction: 'toEn', srcLang: 'zh', word: false },
+      { text: 'apple', direction: 'toEn', srcLang: 'zh', word: true },
+    ];
+    for (const [i, { text, direction, srcLang, word }] of cases.entries()) {
+      const res = await translate(app, account, { text, task: 'translate', direction });
+      assert.equal(res.statusCode, 200, `${text} ${direction}`);
+      const lines = parseNdjson(res.body);
+      assert.equal(lines[0]?.srcLang, srcLang, `meta: ${text} ${direction}`);
+      assert.deepEqual(llm.calls[i]?.[0], { role: 'system', content: translatePrompt('zh', true, word, srcLang) }, `prompt: ${text} ${direction}`);
+      const stored = (await storedEntries(account.userId)).find((entry) => entry.id === lines.at(-1)?.entry?.id);
+      assert.equal(stored?.srcLang, srcLang, `stored: ${text} ${direction}`);
+    }
+    // An "other" source never gets the English IPA rule, even for a forced word lookup.
+    assert.doesNotMatch(llm.calls[4]![0]!.content, /IPA/);
+  });
+
+  test('direction is ignored for check', async (ctx) => {
+    const llm = fakeLlm(['ok']);
+    const { app, account } = await setup(ctx, { llm });
+    for (const direction of ['toEn', 'toZh'] as const) {
+      const res = await translate(app, account, { text: 'He go to school.', task: 'check', direction });
+      assert.equal(res.statusCode, 200);
+      assert.equal(parseNdjson(res.body)[0]?.srcLang, 'en');
+    }
+    assert.ok(llm.calls.every(([system]) => system?.content === getCheckPrompt('zh', true)));
+    assert.deepEqual((await storedEntries(account.userId)).map((entry) => entry.srcLang), ['en', 'en']);
+  });
+
+  test('an invalid direction is a validation error and costs nothing', async (ctx) => {
+    const llm = fakeLlm();
+    const { app, account } = await setup(ctx, { llm });
+    for (const direction of ['zh', 'toJa', '', null, 1]) {
+      const res = await translate(app, account, { text: 'hello', task: 'translate', direction });
+      assert.equal(res.statusCode, 400, String(direction));
+      assert.equal(res.json().error.code, 'VALIDATION_FAILED');
+    }
+    assert.equal(llm.calls.length, 0);
+    assert.deepEqual(await usageRows(account.userId), []);
   });
 
   test('per-minute limit → 429 RATE_LIMITED with retryAfterSeconds; the limited request costs no quota', async (ctx) => {
@@ -391,6 +492,7 @@ describe('AI proxy routes', { skip: skipWithoutDb }, () => {
       assert.equal(res.statusCode, 200);
       const lines = parseNdjson(res.body);
       assert.deepEqual(lines, [
+        { type: 'meta', srcLang: 'en', kind: 'word' },
         { type: 'delta', text: '  partial ' },
         { type: 'delta', text: 'answer' },
         { type: 'error', code, message },
@@ -416,7 +518,8 @@ describe('AI proxy routes', { skip: skipWithoutDb }, () => {
     assert.equal(response.headers.get('content-type'), 'application/x-ndjson');
     const lines = readNdjsonLines(response);
 
-    // The upstream is still open: the first line must arrive without waiting for the rest.
+    // The upstream is still open: the first lines must arrive without waiting for the rest.
+    assert.deepEqual((await within(lines.next(), 2000, 'the meta line')).value, { type: 'meta', srcLang: 'en', kind: 'sentence' });
     const first = await within(lines.next(), 2000, 'the first delta');
     assert.deepEqual(first.value, { type: 'delta', text: '你好' });
     llm.push('，最近');
@@ -449,6 +552,7 @@ describe('AI proxy routes', { skip: skipWithoutDb }, () => {
     await within(llm.started, 2000, 'the upstream call');
     llm.push('一段');
     const lines = readNdjsonLines(await within(pending, 2000, 'the response headers'));
+    assert.equal((await within(lines.next(), 2000, 'the meta line')).value?.type, 'meta');
     assert.deepEqual((await within(lines.next(), 2000, 'the first delta')).value, { type: 'delta', text: '一段' });
 
     client.abort();
@@ -479,6 +583,7 @@ describe('AI proxy routes', { skip: skipWithoutDb }, () => {
     assert.equal(res.statusCode, 200);
     const lines = parseNdjson(res.body);
     assert.deepEqual(lines.slice(0, -1), [
+      { type: 'meta', srcLang: 'en', kind: 'word' },
       { type: 'delta', text: 'ubiquitous /juːˈbɪk.wə.t̬əs/' },
       { type: 'delta', text: ' 无处不在的' },
     ]);
@@ -510,6 +615,7 @@ describe('AI proxy routes', { skip: skipWithoutDb }, () => {
       signal: client.signal,
     });
     const lines = readNdjsonLines(response);
+    assert.equal((await within(lines.next(), 2000, 'the meta line')).value?.type, 'meta');
     assert.deepEqual((await within(lines.next(), 2000, 'the first delta')).value, { type: 'delta', text: '第一段' });
     client.abort();
     await within(upstream.clientWentAway, 2000, 'the upstream connection to close');

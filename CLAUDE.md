@@ -14,6 +14,7 @@ All commands run from the repository root (npm workspaces).
 - **Spelling audit**: `npm run audit:spelling -w t-cli-translator -- --save-plan <file>` finds misspelled English word lookups in the outbox (deterministic + LLM); review the plan, then `--apply --from-plan <file>` sets `correctedInput` (backup + atomic rewrite). Never `--apply` without a reviewed plan: LLM verdicts are not stable between runs.
 - **Server dev database**: `docker compose -f apps/server/docker-compose.dev.yml up -d` — PostgreSQL 16 (same major as production) on `127.0.0.1:55433`, trust auth, local only.
 - **Server tests**: `TEST_DATABASE_URL=postgres://postgres@127.0.0.1:55433/postgres npm test`. Without the variable the database suites are skipped. Each test file creates and drops its own `tcli_test_*` database, so point `TEST_DATABASE_URL` at this dev instance only — never at any other database.
+- **Server dev login**: `WECHAT_DEV_LOGIN=1` makes `POST /v1/auth/wechat` accept `dev:<name>` codes without calling WeChat (mini-program simulator); the server refuses to start with it when `NODE_ENV=production`.
 - **Server typecheck**: `npm run typecheck -w @t-cli/server` (Node 24 runs the TypeScript sources directly; erasable syntax only, relative imports end in `.ts`).
 - **Server deploy**: see `apps/server/deploy/README.md`; API contract in `docs/api-v1.md`.
 
@@ -30,8 +31,8 @@ scripts/         repo tooling (release-local.mjs)
 
 - **Shared core** (`packages/core/src/`, import as `@t-cli/core/<module>`). Anything a second client (sync server, mini-program backend) must behave identically on belongs here, not in the CLI:
   - `prompts.js`: Constructs system prompts per language/detail mode. Exports `buildSourceMessage(text, task)` which wraps user input in `<source>` tags — the prompt-injection defense ensuring input is always treated as text to translate, never as instructions. Word lookups get an IPA transcription rule; detail mode enforces "best translation alone on the first line".
-  - `detect.js`: `isWordLookup()` (single-word detection for IPA), `containsCJK()` (TTS voice selection), `detectSourceLang()` (pinned translation direction).
-  - `speakable.js`: `extractSpeakable()` — derives the text `/say` reads aloud from a raw response (first line in detail mode, IPA/markdown stripped).
+  - `detect.js`: `isWordLookup()` (single-word detection for IPA), `containsCJK()` (TTS voice selection), `detectSourceLang()` (pinned translation direction: `zh` → English; `en` and `other` — kana, Hangul, Cyrillic, … — → Chinese; rule in `docs/api-v1.md`, "srcLang").
+  - `speakable.js`: `extractSpeakable()` — derives the text `/say` reads aloud from a raw response (first line in detail mode, IPA/markdown stripped). `speakableForEntry()` picks what the server's `POST /v1/tts` reads for a stored entry.
   - `entry.js`: The raw record ("Entry") schema shared with the sync server: `createEntry`, `validateEntry`, `classifyKind` (word / sentence / paragraph), JSONL (de)serialization.
   - `ulid.js`: Offline ULID generation (optionally deterministic via fixed entropy) for idempotent sync writes.
   - `spelling.js`: `extractHeadTerm()` / `detectSpellingCorrection()` — deterministic misspelling detection for English word lookups (head word before the IPA vs. the input). Feeds the CLI's "拼写更正" notice and `Entry.correctedInput`; review material must use `correctedInput` when set.

@@ -36,4 +36,6 @@ test('detectSpellingCorrection: only English word lookups qualify', () => {
   const output = 'checkpoint /ˈtʃek.pɔɪnt/';
   assert.equal(detectSpellingCorrection({ input: '把关', output, srcLang: 'zh', kind: 'word' }), null);
   assert.equal(detectSpellingCorrection({ input: 'prioritiz this', output, srcLang: 'en', kind: 'sentence' }), null);
+  assert.equal(detectSpellingCorrection({ input: 'checkpoin', output, srcLang: 'other', kind: 'word' }), null);
+  assert.equal(detectSpellingCorrection({ input: 'checkpoin', output, srcLang: null, kind: 'word' }), null);
 });

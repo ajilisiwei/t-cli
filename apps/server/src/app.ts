@@ -5,6 +5,7 @@ import { ok, fail, registerErrorHandler } from './http/errors.ts';
 import { registerAiRoutes } from './modules/ai/routes.ts';
 import { registerAuthRoutes } from './modules/auth/routes.ts';
 import { registerSyncRoutes } from './modules/sync/routes.ts';
+import { registerTtsRoutes } from './modules/tts/routes.ts';
 
 /**
  * Build the HTTP app. All I/O dependencies come in through `deps`, so tests
@@ -39,6 +40,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await registerAuthRoutes(app, deps);
   await registerSyncRoutes(app, deps);
   await registerAiRoutes(app, deps);
+  await registerTtsRoutes(app, deps);
 
   return app;
 }

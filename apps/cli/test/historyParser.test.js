@@ -73,6 +73,19 @@ test('detail output containing --- and ## lines is not split', () => {
   assert.equal(second.entry.srcLang, 'zh');
 });
 
+test('a kana or Cyrillic source maps to srcLang other; pure-Han text stays zh', () => {
+  const cases = [
+    ['会議室を予約しました', '我预约了会议室。', 'other'],
+    ['привет', '你好', 'other'],
+    ['日本語', 'Japanese', 'zh'],
+  ];
+  for (const [input, output, srcLang] of cases) {
+    const { entry } = parseOne(historyFile('2026-11-16', block('12:00', 'Translation', input, output)));
+    assert.equal(entry.srcLang, srcLang, input);
+    assert.equal(entry.correctedInput, null, input);
+  }
+});
+
 test('only the trailing separator is stripped (input and output "---")', () => {
   const { record } = parseOne(historyFile('2026-11-16', block('17:00', 'Translation', '---', '---')));
   assert.equal(record.input, '---');

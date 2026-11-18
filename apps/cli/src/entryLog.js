@@ -246,7 +246,7 @@ function readBytesFrom(fd, start) {
 /**
  * Record one live CLI result. Sets `liveSince` on the first successful write.
  * @param {{ task: 'translate'|'check', input: string, output: string,
- *           mode: 'simple'|'detail', srcLang?: 'zh'|'en'|null, createdAt?: Date }} fields
+ *           mode: 'simple'|'detail', srcLang?: 'zh'|'en'|'other'|null, createdAt?: Date }} fields
  * @returns {WriteResult}
  */
 export function recordLiveEntry({ task, input, output, mode, srcLang = null, createdAt = new Date() }) {

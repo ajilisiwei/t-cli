@@ -1,13 +1,14 @@
 import type { FastifyInstance } from 'fastify';
 import { validateEntry, type Entry } from '@t-cli/core/entry';
 import { z } from 'zod';
-import { insertEntries, listEntriesAfter } from '../../db/entriesRepo.ts';
+import { insertEntries, listEntriesAfter, listEntriesBefore } from '../../db/entriesRepo.ts';
 import type { AppDeps } from '../../deps.ts';
 import { authOf, requireAuth } from '../../http/auth.ts';
 import { ok } from '../../http/errors.ts';
 
 export const PUSH_MAX_ENTRIES = 500;
 export const PULL_MAX_LIMIT = 500;
+export const HISTORY_MAX_LIMIT = 100;
 // Outputs of detail-mode paragraph translations can be long; anything far
 // beyond these is not a real record.
 const INPUT_MAX_CHARS = 20_000;
@@ -20,6 +21,12 @@ const PushBody = z.object({
 const PullQuery = z.object({
   after: z.coerce.number().int().min(0).default(0),
   limit: z.coerce.number().int().min(1).max(PULL_MAX_LIMIT).default(200),
+});
+
+const HistoryQuery = z.object({
+  // Absent → start from the newest entry.
+  before: z.coerce.number().int().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(HISTORY_MAX_LIMIT).default(30),
 });
 
 type Rejection = { index: number; id: string | null; errors: string[] };
@@ -49,6 +56,7 @@ function partitionEntries(raw: readonly unknown[]): { valid: Entry[]; rejected: 
  * Record sync.
  *   POST /v1/entries   push a batch (idempotent by entry id)
  *   GET  /v1/entries   pull in seq order: ?after=<seq>&limit=<n>
+ *   GET  /v1/entries/history  browse newest first: ?before=<seq>&limit=<n>
  */
 export async function registerSyncRoutes(app: FastifyInstance, deps: AppDeps): Promise<void> {
   const authenticate = requireAuth(deps.config.JWT_SECRET, deps.clock);
@@ -66,5 +74,11 @@ export async function registerSyncRoutes(app: FastifyInstance, deps: AppDeps): P
     const { userId } = authOf(request);
     const query = PullQuery.parse(request.query);
     return ok(await listEntriesAfter(deps.db, userId, query));
+  });
+
+  app.get('/v1/entries/history', { preHandler: authenticate }, async (request) => {
+    const { userId } = authOf(request);
+    const query = HistoryQuery.parse(request.query);
+    return ok(await listEntriesBefore(deps.db, userId, query));
   });
 }
