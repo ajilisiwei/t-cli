@@ -22,6 +22,11 @@ const ConfigSchema = z.object({
 
   WECHAT_APPID: z.string().min(1).optional(),
   WECHAT_SECRET: z.string().min(1).optional(),
+  /**
+   * Development only: never call WeChat; the login code `dev:<name>` becomes
+   * the openid `dev_<name>`. Refused when NODE_ENV=production (see below).
+   */
+  WECHAT_DEV_LOGIN: z.stringbool().default(false),
 
   DEEPSEEK_API_KEY: z.string().min(1).optional(),
   DEEPSEEK_MODEL: z.string().min(1).default('deepseek-v4-flash'),
@@ -30,6 +35,9 @@ const ConfigSchema = z.object({
   AI_REQUESTS_PER_MINUTE: z.coerce.number().int().positive().default(20),
   AI_REQUESTS_PER_DAY: z.coerce.number().int().positive().default(200),
   AI_INPUT_MAX_CHARS: z.coerce.number().int().positive().default(2000),
+}).refine((config) => !(config.WECHAT_DEV_LOGIN && config.NODE_ENV === 'production'), {
+  path: ['WECHAT_DEV_LOGIN'],
+  message: 'WECHAT_DEV_LOGIN must not be enabled in production',
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

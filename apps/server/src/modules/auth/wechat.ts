@@ -40,6 +40,36 @@ export interface WechatClientOptions {
   timeoutMs?: number;
 }
 
+/** `dev:<name>`, name 1–32 of [a-z0-9_-] (docs/api-v1.md, WECHAT_DEV_LOGIN). */
+const DEV_LOGIN_CODE_RE = /^dev:([a-z0-9_-]{1,32})$/;
+
+/**
+ * Development-only stand-in for code2Session (WECHAT_DEV_LOGIN=1): never calls
+ * WeChat and maps the code `dev:<name>` to the openid `dev_<name>`, so the
+ * mini-program can log in from the simulator without an AppSecret. Every other
+ * code is rejected like an invalid wx.login code.
+ */
+export function createDevWechatClient(): WechatClient {
+  return {
+    async code2Session(code) {
+      const match = DEV_LOGIN_CODE_RE.exec(code);
+      if (!match) throw new WechatLoginError(401, 'WECHAT_CODE_INVALID', 'not a development login code');
+      return { openid: `dev_${match[1]}` };
+    },
+  };
+}
+
+/**
+ * The WeChat client the configuration selects. loadConfig already refuses
+ * WECHAT_DEV_LOGIN in production; this checks again so the fake can never be
+ * wired up there by a config object built some other way.
+ */
+export function selectWechatClient(config: Config, options: WechatClientOptions = {}): WechatClient {
+  if (!config.WECHAT_DEV_LOGIN) return createWechatClient(config, options);
+  if (config.NODE_ENV === 'production') throw new Error('WECHAT_DEV_LOGIN must not be enabled in production');
+  return createDevWechatClient();
+}
+
 /**
  * Real WeChat `code2Session` client. The URL carries the app secret and the
  * login code, so neither the URL nor upstream error messages are ever put into

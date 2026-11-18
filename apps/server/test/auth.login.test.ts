@@ -5,7 +5,8 @@ import { and, count, eq, isNull } from 'drizzle-orm';
 import { devices, identities, invites, users } from '../src/db/schema.ts';
 import { AUTH_IP_LIMIT_PER_MINUTE } from '../src/modules/auth/routes.ts';
 import { MAX_ACTIVE_MP_DEVICES } from '../src/modules/auth/devices.ts';
-import { buildTestApp, fakeWechat, fixedClock, type TestClock } from './helpers/app.ts';
+import { selectWechatClient } from '../src/modules/auth/wechat.ts';
+import { buildTestApp, fakeWechat, fixedClock, testConfig, type TestClock } from './helpers/app.ts';
 import { bearer, createInvite, getDevice, nextIp, nextWechatCode, softDeleteUser, type TokenPairBody } from './helpers/auth.ts';
 import { createTestDatabase, skipWithoutDb, type TestDatabase } from './helpers/db.ts';
 import { createAccount } from './helpers/fixtures.ts';
@@ -214,5 +215,47 @@ describe('auth: WeChat login', { skip: skipWithoutDb }, () => {
     assert.notEqual((await login({ code: 'unknown' }, nextIp())).statusCode, 429, 'other clients are unaffected');
     clock.advance(60_000);
     assert.notEqual((await login({ code: 'unknown' }, ip)).statusCode, 429, 'the window slides');
+  });
+});
+
+describe('auth: WeChat login with WECHAT_DEV_LOGIN=1', { skip: skipWithoutDb }, () => {
+  let t: TestDatabase;
+  let app: FastifyInstance;
+  const clock = fixedClock();
+
+  before(async () => {
+    t = await createTestDatabase();
+    const config = testConfig({ WECHAT_DEV_LOGIN: '1' });
+    app = await buildTestApp(t.db, { clock, config, wechat: selectWechatClient(config) });
+  });
+  after(async () => {
+    await app?.close();
+    await t?.drop();
+  });
+
+  const login = (payload: Record<string, unknown>) =>
+    app.inject({ method: 'POST', url: '/v1/auth/wechat', payload, remoteAddress: nextIp() });
+
+  test('dev:<name> signs up with an invite and logs in again as the same account', async () => {
+    const first = await login({ code: 'dev:alice', inviteCode: await createInvite(t.db, { now: clock() }) });
+    assert.equal(first.statusCode, 200);
+    const pair: TokenPairBody = first.json().data;
+    assert.equal(pair.user.isNew, true);
+    const [identity] = await t.db.select().from(identities).where(eq(identities.subject, 'dev_alice'));
+    assert.equal(identity?.userId, pair.user.id);
+
+    const again = await login({ code: 'dev:alice' });
+    assert.equal(again.statusCode, 200);
+    assert.equal(again.json().data.user.id, pair.user.id);
+    assert.equal(again.json().data.user.isNew, false);
+  });
+
+  test('the usual rules still apply: unknown identity needs an invite, bad codes are 401', async () => {
+    const noInvite = await login({ code: 'dev:carol' });
+    assert.equal(noInvite.statusCode, 403);
+    assert.equal(noInvite.json().error.code, 'INVITE_REQUIRED');
+    const bad = await login({ code: 'some-real-wx-code', inviteCode: await createInvite(t.db, { now: clock() }) });
+    assert.equal(bad.statusCode, 401);
+    assert.equal(bad.json().error.code, 'WECHAT_CODE_INVALID');
   });
 });

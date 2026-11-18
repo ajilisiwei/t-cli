@@ -7,6 +7,7 @@ test('loadConfig: applies defaults', () => {
   assert.equal(config.PORT, 3000);
   assert.equal(config.AI_REQUESTS_PER_DAY, 200);
   assert.equal(config.MIGRATE_ON_START, false);
+  assert.equal(config.WECHAT_DEV_LOGIN, false);
 });
 
 test('loadConfig: names invalid variables without echoing their values', () => {
@@ -21,4 +22,22 @@ test('loadConfig: names invalid variables without echoing their values', () => {
       return true;
     },
   );
+});
+
+const BASE = { DATABASE_URL: 'postgres://u@h:5432/db', JWT_SECRET: 'x'.repeat(32) };
+
+test('loadConfig: WECHAT_DEV_LOGIN is refused in production', () => {
+  for (const value of ['1', 'true']) {
+    assert.throws(
+      () => loadConfig({ ...BASE, NODE_ENV: 'production', WECHAT_DEV_LOGIN: value }),
+      (error: unknown) => error instanceof Error && /^Invalid configuration: WECHAT_DEV_LOGIN$/.test(error.message),
+    );
+  }
+  assert.equal(loadConfig({ ...BASE, NODE_ENV: 'production', WECHAT_DEV_LOGIN: '0' }).WECHAT_DEV_LOGIN, false);
+  assert.equal(loadConfig({ ...BASE, NODE_ENV: 'production' }).WECHAT_DEV_LOGIN, false);
+  for (const NODE_ENV of ['development', 'test']) {
+    assert.equal(loadConfig({ ...BASE, NODE_ENV, WECHAT_DEV_LOGIN: '1' }).WECHAT_DEV_LOGIN, true, NODE_ENV);
+  }
+  // NODE_ENV defaults to development.
+  assert.equal(loadConfig({ ...BASE, WECHAT_DEV_LOGIN: '1' }).WECHAT_DEV_LOGIN, true);
 });
