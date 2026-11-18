@@ -1,5 +1,6 @@
 import { buildSourceMessage, getCheckPrompt, getTranslatePrompt } from '@t-cli/core/prompts';
 import { detectSourceLang, isWordLookup } from '@t-cli/core/detect';
+import type { EntrySrcLang } from '@t-cli/core/entry';
 import type { ChatMessage } from '../../ports.ts';
 
 export type AiTask = 'translate' | 'check';
@@ -16,7 +17,7 @@ export interface AiPromptInput {
 export interface AiPrompt {
   messages: readonly ChatMessage[];
   /** Source language recorded on the entry ('en' for grammar checks, as the CLI does). */
-  srcLang: 'zh' | 'en';
+  srcLang: EntrySrcLang;
 }
 
 /**

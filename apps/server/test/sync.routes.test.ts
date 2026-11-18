@@ -60,6 +60,15 @@ describe('sync routes', { skip: skipWithoutDb }, () => {
     assert.equal(page2.hasMore, false);
   });
 
+  test('srcLang "other" entries are accepted and pulled back unchanged', async () => {
+    const account = await createAccount(t.db);
+    const entry = makeEntry({ input: '会議室を予約しました', output: '我预约了会议室。', srcLang: 'other' });
+    const push = await app.inject({ method: 'POST', url: '/v1/entries', headers: account.headers, payload: { entries: [entry] } });
+    assert.deepEqual(push.json().data.accepted, [entry.id]);
+    const [pulled] = (await app.inject({ method: 'GET', url: '/v1/entries?after=0', headers: account.headers })).json().data.entries;
+    assert.deepEqual(pulled, { ...entry, seq: 1 });
+  });
+
   test("an account never sees another account's entries", async () => {
     const alice = await createAccount(t.db);
     const bob = await createAccount(t.db);

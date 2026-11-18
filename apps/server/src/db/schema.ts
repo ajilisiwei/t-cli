@@ -108,7 +108,7 @@ export const entries = pgTable(
     kind: text({ enum: ['word', 'sentence', 'paragraph'] }).notNull(),
     input: text().notNull(),
     output: text().notNull(),
-    srcLang: text({ enum: ['zh', 'en'] }),
+    srcLang: text({ enum: ['zh', 'en', 'other'] }),
     mode: text({ enum: ['simple', 'detail'] }).notNull(),
     correctedInput: text(),
     createdAt: timestamp({ withTimezone: true }).notNull(),

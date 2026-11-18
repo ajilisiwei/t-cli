@@ -82,6 +82,24 @@ test('createEntry: rejects invalid fields', () => {
   assert.throws(() => createEntry({ ...BASE, createdAt: new Date('nope') }), TypeError);
 });
 
+test('srcLang: zh, en, other and null are valid; anything else is rejected', () => {
+  for (const srcLang of ['zh', 'en', 'other', null]) {
+    const entry = createEntry({ ...BASE, srcLang });
+    assert.equal(entry.srcLang, srcLang);
+    assert.equal(validateEntry(entry).ok, true);
+  }
+  for (const srcLang of ['ja', 'ko', '', 'OTHER', undefined]) {
+    const result = validateEntry({ ...createEntry(BASE), srcLang });
+    assert.equal(result.ok, false, String(srcLang));
+    assert.ok(result.errors.includes('srcLang must be zh, en, other or null'));
+  }
+});
+
+test('createEntry: no spelling correction for an "other" source', () => {
+  const entry = createEntry({ ...BASE, input: 'привет', output: 'privet /ˈpriː.vet/ 你好', srcLang: 'other', kind: 'word' });
+  assert.equal(entry.correctedInput, null);
+});
+
 test('toLocalIsoString: includes an explicit offset', () => {
   assert.match(toLocalIsoString(new Date()), /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/);
 });

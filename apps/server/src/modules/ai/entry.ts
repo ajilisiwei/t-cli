@@ -1,4 +1,4 @@
-import { createEntry, validateEntry, type Entry } from '@t-cli/core/entry';
+import { createEntry, validateEntry, type Entry, type EntrySrcLang } from '@t-cli/core/entry';
 import { toIsoWithOffset } from '../../db/entriesRepo.ts';
 import type { AiMode, AiTask } from './prompt.ts';
 
@@ -7,7 +7,7 @@ export interface MpEntryFields {
   output: string;
   task: AiTask;
   mode: AiMode;
-  srcLang: 'zh' | 'en';
+  srcLang: EntrySrcLang;
   /** Server time when the result finished. */
   now: Date;
   /** The client's local offset; createdAt is expressed in it. */
