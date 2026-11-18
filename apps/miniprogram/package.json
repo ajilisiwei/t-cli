@@ -1,0 +1,20 @@
+{
+  "name": "@t-cli/miniprogram",
+  "version": "0.1.0",
+  "private": true,
+  "description": "t-cli WeChat mini-program: translate and grammar check (native + TypeScript + Skyline).",
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"test/**/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json && tsc -p test/tsconfig.json",
+    "sync:core": "node scripts/sync-core.mjs",
+    "upload": "node scripts/upload.mjs"
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "@t-cli/core": "0.1.0",
+    "@types/node": "24.13.3",
+    "miniprogram-api-typings": "5.2.3",
+    "typescript": "5.9.3"
+  }
+}
