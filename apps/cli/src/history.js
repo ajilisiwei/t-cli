@@ -1,6 +1,15 @@
+/**
+ * Markdown history: one file per day, `<config>/t-cli/history/YYYY-MM-DD.md`,
+ * plus a `meta.json` count cache.
+ *
+ * Nothing here writes to stdout/stderr (the Ink TUI owns the terminal).
+ * Write failures are returned to the caller instead.
+ */
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+
+/** @typedef {{ ok: true } | { ok: false, error: string }} WriteResult */
 
 export function getHistoryDir() {
   if (process.platform === 'win32') {
@@ -29,6 +38,7 @@ function getTimeString() {
  * @param {'Translation'|'Grammar Check'} type
  * @param {string} input - the user's original text
  * @param {string} response - the raw API response (no ANSI codes)
+ * @returns {WriteResult}
  */
 export function saveHistory(type, input, response) {
   try {
@@ -78,11 +88,17 @@ export function saveHistory(type, input, response) {
       metadata[today] = (metadata[today] || 0) + 1;
       fs.writeFileSync(metaPath, JSON.stringify(metadata), 'utf8');
     } catch (metaErr) {
-      // Silently ignore metadata update failures
+      // meta.json is a best-effort count cache for /history; a failed update
+      // only leaves a stale count, and the entry itself is saved.
     }
+    return { ok: true };
   } catch (error) {
-    console.error(`\x1b[33mWarning: Failed to save history: ${error.message}\x1b[0m`);
+    return { ok: false, error: errorMessage(error) };
   }
+}
+
+function errorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
 }
 
 /**

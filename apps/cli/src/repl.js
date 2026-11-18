@@ -6,7 +6,7 @@ import TextInput from 'ink-text-input';
 import { callDeepSeekStream } from './api.js';
 import { getTranslatePrompt, getCheckPrompt, getNoteGenPrompt, buildSourceMessage } from '@t-cli/core/prompts';
 import { loadConfig, saveConfig } from './config.js';
-import { saveHistory, listHistory, readHistory, getHistoryDir } from './history.js';
+import { saveHistory as writeHistoryFile, listHistory, readHistory, getHistoryDir } from './history.js';
 import { recordLiveEntry } from './entryLog.js';
 import { listGeneratedNotes, readGeneratedNote, saveGeneratedNote, getNotesDir } from './notes.js';
 import { isWordLookup, detectSourceLang } from '@t-cli/core/detect';
@@ -109,6 +109,15 @@ function App() {
   const clearOutput = () => {
     setMessages(buildWelcomeMessages(currentLang, isSimpleMode));
     setActiveStream(null);
+  };
+
+  // Markdown history (history/YYYY-MM-DD.md). A failed write must not break
+  // the translation flow; it is shown in the log, never via stdout/stderr.
+  const saveHistory = (type, text, rawResponse) => {
+    const result = writeHistoryFile(type, text, rawResponse);
+    if (!result.ok) {
+      appendMessage(`Warning: failed to save history (${result.error}).`, { color: 'yellow' });
+    }
   };
 
   // Structured record for sync (outbox.jsonl). A failure must not break the
@@ -311,8 +320,12 @@ function App() {
       loadingText: `Generating AI learning note for ${dateArg}...`,
       onCompleted: (rawResponse) => {
         if (rawResponse.trim()) {
-          saveGeneratedNote(dateArg, rawResponse);
-          appendMessage(`Note saved. Use /notes ${dateArg} to view again.`, { dim: true });
+          const saved = saveGeneratedNote(dateArg, rawResponse);
+          if (saved.ok) {
+            appendMessage(`Note saved. Use /notes ${dateArg} to view again.`, { dim: true });
+          } else {
+            appendMessage(`Warning: failed to save note (${saved.error}).`, { color: 'yellow' });
+          }
         }
       }
     });

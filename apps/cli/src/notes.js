@@ -1,6 +1,15 @@
+/**
+ * AI learning notes: `<config>/t-cli/notes/YYYY-MM-DD.md`, one per local date
+ * of the history file they were generated from.
+ *
+ * Nothing here writes to stdout/stderr (the Ink TUI owns the terminal).
+ * Write failures are returned to the caller instead.
+ */
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+
+/** @typedef {{ ok: true } | { ok: false, error: string }} WriteResult */
 
 export function getNotesDir() {
   if (process.platform === 'win32') {
@@ -53,13 +62,15 @@ export function readGeneratedNote(date) {
  * Save (overwrite) an AI-generated note for a given date.
  * @param {string} date - YYYY-MM-DD
  * @param {string} content - full Markdown content
+ * @returns {WriteResult}
  */
 export function saveGeneratedNote(date, content) {
   try {
     const notesDir = getNotesDir();
     fs.mkdirSync(notesDir, { recursive: true });
     fs.writeFileSync(path.join(notesDir, `${date}.md`), content, 'utf8');
+    return { ok: true };
   } catch (error) {
-    console.error(`\x1b[33mWarning: Failed to save note: ${error.message}\x1b[0m`);
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
