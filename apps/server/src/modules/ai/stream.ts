@@ -2,7 +2,7 @@ import { once } from 'node:events';
 import type { ServerResponse } from 'node:http';
 import { performance } from 'node:perf_hooks';
 import type { FastifyReply } from 'fastify';
-import type { EntryKind } from '@t-cli/core/entry';
+import type { EntryKind, EntrySrcLang } from '@t-cli/core/entry';
 import { AppError } from '../../http/errors.ts';
 import type { ChatMessage, LlmClient } from '../../ports.ts';
 
@@ -17,8 +17,15 @@ export interface DoneEntry {
   correctedInput: string | null;
 }
 
+/** What the client shows before the text arrives (the direction label). */
+export interface StreamMeta {
+  srcLang: EntrySrcLang;
+  kind: EntryKind;
+}
+
 /** One line of the NDJSON response body (docs/api-v1.md, AI proxy). */
 export type StreamLine =
+  | ({ type: 'meta' } & StreamMeta)
   | { type: 'delta'; text: string }
   | { type: 'done'; entry: DoneEntry }
   | { type: 'error'; code: string; message: string };
@@ -39,6 +46,8 @@ export interface ProxyStreamOptions {
   reply: FastifyReply;
   llm: LlmClient;
   messages: readonly ChatMessage[];
+  /** Sent as the first line once streaming starts; must describe what `persist` stores. */
+  meta: StreamMeta;
   /** Store the finished output; called only when the client is still connected. */
   persist(output: string): Promise<DoneEntry>;
   /** performance.now() at request start. */
@@ -80,11 +89,12 @@ function endResponse(res: ServerResponse, line?: StreamLine): void {
  *
  * Until the upstream produced non-blank content nothing is sent, so failures
  * and empty answers before that point are thrown as AppErrors and answered as
- * normal JSON envelopes (502 / 503). After the first delta the status is
- * committed: a later failure ends the body with an `error` line. When the
+ * normal JSON envelopes (502 / 503). Then the status is committed: the body
+ * starts with the `meta` line and the first delta, and a later failure ends
+ * it with an `error` line. When the
  * client disconnects, the upstream request is aborted and nothing is stored.
  */
-export async function proxyStream({ reply, llm, messages, persist, startedAt }: ProxyStreamOptions): Promise<StreamResult> {
+export async function proxyStream({ reply, llm, messages, meta, persist, startedAt }: ProxyStreamOptions): Promise<StreamResult> {
   const res = reply.raw;
   const controller = new AbortController();
   const onClose = (): void => {
@@ -134,6 +144,7 @@ export async function proxyStream({ reply, llm, messages, persist, startedAt }: 
       'x-accel-buffering': 'no',
     });
     try {
+      await writeLine(res, controller.signal, { type: 'meta', srcLang: meta.srcLang, kind: meta.kind });
       await writeLine(res, controller.signal, { type: 'delta', text: output });
       firstDeltaMs = performance.now() - startedAt;
       for (;;) {

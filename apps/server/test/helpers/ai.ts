@@ -81,7 +81,9 @@ export async function listen(app: FastifyInstance): Promise<string> {
 }
 
 export interface NdjsonLine {
-  type: 'delta' | 'done' | 'error';
+  type: 'meta' | 'delta' | 'done' | 'error';
+  srcLang?: string;
+  kind?: string;
   text?: string;
   entry?: { id: string; seq: number; kind: string; correctedInput: string | null };
   code?: string;
