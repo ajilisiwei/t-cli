@@ -12,6 +12,10 @@ All commands run from the repository root (npm workspaces).
 - **Global installation**: `npm run release:local` → `scripts/release-local.mjs`. Bumps the CLI patch version, stages `apps/cli` with `@t-cli/core` bundled (`bundleDependencies` — the core package is private and never published, so a plain `npm pack` of `apps/cli` is NOT installable), packs, and installs into `~/.npm-global` (the prefix that wins on PATH; a plain `npm install -g` may target a shadowed prefix and keep serving stale code). Flags: `--no-bump`, `--prefix <dir>`, `--pack-only`.
 - **Backfill structured records**: `npm run backfill -w t-cli-translator -- --dry-run` imports the Markdown history into `outbox.jsonl` (one-off, idempotent).
 - **Spelling audit**: `npm run audit:spelling -w t-cli-translator -- --save-plan <file>` finds misspelled English word lookups in the outbox (deterministic + LLM); review the plan, then `--apply --from-plan <file>` sets `correctedInput` (backup + atomic rewrite). Never `--apply` without a reviewed plan: LLM verdicts are not stable between runs.
+- **Server dev database**: `docker compose -f apps/server/docker-compose.dev.yml up -d` — PostgreSQL 16 (same major as production) on `127.0.0.1:55433`, trust auth, local only.
+- **Server tests**: `TEST_DATABASE_URL=postgres://postgres@127.0.0.1:55433/postgres npm test`. Without the variable the database suites are skipped. Each test file creates and drops its own `tcli_test_*` database, so point `TEST_DATABASE_URL` at this dev instance only — never at any other database.
+- **Server typecheck**: `npm run typecheck -w @t-cli/server` (Node 24 runs the TypeScript sources directly; erasable syntax only, relative imports end in `.ts`).
+- **Server deploy**: see `apps/server/deploy/README.md`; API contract in `docs/api-v1.md`.
 
 ## Architecture & Structure
 
@@ -19,7 +23,8 @@ A minimalist, stateless CLI translation tool using DeepSeek API, rendered as an 
 
 ```
 apps/cli/        t-cli-translator — the Ink TUI (published as the `t-cli` binary)
-packages/core/   @t-cli/core — logic shared by every client and the future server
+apps/server/     @t-cli/server — sync service: accounts, record sync, AI proxy (Fastify + Drizzle + PostgreSQL)
+packages/core/   @t-cli/core — logic shared by every client and the server
 scripts/         repo tooling (release-local.mjs)
 ```
 
