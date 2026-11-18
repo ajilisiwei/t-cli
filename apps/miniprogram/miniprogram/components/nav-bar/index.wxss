@@ -1,0 +1,32 @@
+/* Colours come from the page root's CSS variables (they inherit into components). */
+.nav {
+  flex-shrink: 0;
+  background-color: var(--bg);
+}
+
+.bar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 0 40rpx;
+}
+
+.back {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  margin-left: -16rpx;
+  padding: 0 16rpx;
+}
+
+.chevron {
+  color: var(--ink);
+  font-size: 56rpx;
+  line-height: 1;
+}
+
+.title {
+  color: var(--ink);
+  font-size: 34rpx;
+  font-weight: 600;
+}

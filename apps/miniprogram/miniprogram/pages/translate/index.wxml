@@ -1,0 +1,74 @@
+<view class="page theme-{{theme}}">
+  <nav-bar title="翻译" />
+  <scroll-view class="body" scroll-y type="list" show-scrollbar="{{false}}">
+    <view class="content">
+      <view class="composer">
+        <textarea
+          class="composer-input"
+          value="{{input}}"
+          focus="{{focus}}"
+          auto-height
+          maxlength="2000"
+          confirm-type="send"
+          show-confirm-bar="{{false}}"
+          adjust-position
+          placeholder="输入中文或外语，按发送翻译"
+          placeholder-class="placeholder"
+          bindinput="onInput"
+          bindconfirm="onSubmit"
+        />
+        <view class="composer-tools">
+          <view
+            class="tool {{recording ? 'tool-active' : ''}}"
+            bindtouchstart="onMicStart"
+            bindtouchend="onMicEnd"
+            bindtouchcancel="onMicEnd"
+            aria-role="button"
+            aria-label="按住说话"
+          >
+            <view class="mic">
+              <view class="mic-capsule {{recording ? 'mic-on' : ''}}" />
+              <view class="mic-arc {{recording ? 'mic-on' : ''}}" />
+              <view class="mic-stem {{recording ? 'mic-stem-on' : ''}}" />
+            </view>
+          </view>
+          <view wx:if="{{input}}" class="tool" bindtap="onClear" aria-role="button" aria-label="清空">
+            <text>✕</text>
+          </view>
+        </view>
+        <text wx:if="{{recording}}" class="hint">正在听，松开即翻译</text>
+      </view>
+
+      <view class="rule" />
+
+      <view wx:if="{{status !== 'idle'}}" class="result">
+        <view wx:if="{{label}}" class="direction" bindtap="onFlip" aria-role="button" aria-label="反向翻译">
+          <text>{{label}}</text>
+          <text wx:if="{{!busy}}" class="direction-flip">　反向</text>
+        </view>
+
+        <block wx:if="{{headline}}">
+          <view class="headline">
+            <text class="head serif" user-select>{{headline.head}}</text>
+            <text class="ipa">/{{headline.ipa}}/</text>
+          </view>
+          <text wx:if="{{headline.gloss}}" class="gloss" user-select>{{headline.gloss}}</text>
+          <text wx:if="{{headline.rest}}" class="explanation" user-select>{{headline.rest}}</text>
+        </block>
+        <text wx:elif="{{text}}" class="output {{english ? 'serif output-en' : ''}}" user-select>{{text}}</text>
+
+        <text wx:if="{{status === 'waiting'}}" class="muted">翻译中…</text>
+        <text wx:if="{{status === 'stopped'}}" class="muted">已停止</text>
+        <text wx:if="{{errorText}}" class="error">{{errorText}}</text>
+
+        <view class="actions">
+          <view wx:if="{{busy}}" class="action" bindtap="onStop"><text>停止</text></view>
+          <block wx:else>
+            <view class="action {{canSpeak ? '' : 'action-disabled'}}" bindtap="onSpeak"><text>朗读</text></view>
+            <view class="action {{text ? '' : 'action-disabled'}}" bindtap="onCopy"><text>复制</text></view>
+          </block>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+</view>

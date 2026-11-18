@@ -1,0 +1,23 @@
+<view class="page theme-{{theme}}">
+  <nav-bar title="t-cli" />
+  <scroll-view class="body" scroll-y type="list" show-scrollbar="{{false}}">
+    <view class="content">
+      <text class="notice">t-cli 目前仅限受邀使用。输入邀请码即可开始。</text>
+      <input
+        class="field"
+        value="{{code}}"
+        focus
+        maxlength="64"
+        placeholder="邀请码"
+        placeholder-class="placeholder"
+        confirm-type="go"
+        bindinput="onInput"
+        bindconfirm="onSubmit"
+      />
+      <view class="button {{busy || !code ? 'button-disabled' : ''}}" bindtap="onSubmit" aria-role="button">
+        <text>{{busy ? '请稍候…' : '开始使用'}}</text>
+      </view>
+      <text wx:if="{{errorText}}" class="error">{{errorText}}</text>
+    </view>
+  </scroll-view>
+</view>

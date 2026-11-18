@@ -1,0 +1,9 @@
+{
+  "desc": "A personal tool: no page is meant for WeChat search.",
+  "rules": [
+    {
+      "action": "disallow",
+      "page": "*"
+    }
+  ]
+}
