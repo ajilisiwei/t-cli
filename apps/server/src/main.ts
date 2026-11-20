@@ -34,7 +34,8 @@ const app = await buildApp(deps);
 appLog = app.log;
 
 const scheduler = createScheduler({ db, clock: deps.clock, log: app.log, alerter });
-registerPipelineJobs(scheduler, deps);
+// One summary line per account per night (ids and counts only).
+registerPipelineJobs(scheduler, deps, app.log);
 registerNotifyJobs(scheduler, deps);
 if (config.JOBS_ENABLED) scheduler.start();
 app.addHook('onClose', async () => {
