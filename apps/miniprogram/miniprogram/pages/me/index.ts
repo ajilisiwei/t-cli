@@ -42,8 +42,8 @@ Page({
     this.setData({ lang: explanationLang() })
     // Another client may have changed it; quiet when offline.
     refreshSettings()
-      .then((lang) => {
-        if (!this.data.saving) this.setData({ lang })
+      .then(() => {
+        if (!this.data.saving) this.setData({ lang: explanationLang() })
       })
       .catch(() => undefined)
   },

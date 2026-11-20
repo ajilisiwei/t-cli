@@ -17,7 +17,15 @@ const badResponse = (what: string): ApiError =>
 const readSettings = (value: unknown): Settings => {
   if (!isRecord(value)) return {}
   const lang = value['explanationLang']
-  return lang === 'zh' || lang === 'en' ? { explanationLang: lang } : {}
+  const hour = value['reminderHour']
+  return {
+    ...(lang === 'zh' || lang === 'en' ? { explanationLang: lang } : {}),
+    ...(typeof value['autoSpeakWord'] === 'boolean' ? { autoSpeakWord: value['autoSpeakWord'] } : {}),
+    ...(typeof value['autoSpeakOnFlip'] === 'boolean' ? { autoSpeakOnFlip: value['autoSpeakOnFlip'] } : {}),
+    ...(hour === null || (typeof hour === 'number' && Number.isInteger(hour) && hour >= 0 && hour <= 23)
+      ? { reminderHour: hour }
+      : {}),
+  }
 }
 
 export async function fetchMe(): Promise<Me> {
