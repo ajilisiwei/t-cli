@@ -241,6 +241,10 @@ export function useSync({ notify }) {
   };
 
   return {
+    /** The API client, or null when sync is off (no server configured). */
+    client,
+    server,
+    loggedIn,
     indicator: formatSyncIndicator({ server, loggedIn, login, snapshot }),
     runLogin,
     runLogout,
