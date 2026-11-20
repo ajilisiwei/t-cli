@@ -4,3 +4,8 @@ node_modules/
 
 # Agent worktrees (Claude Code)
 .claude/worktrees/
+
+# Private keys (e.g. the mini-program upload key) never belong in the repo;
+# keep them in ~/.wx-miniprogram/ (see apps/miniprogram/README.md).
+*.key
+*.pem
