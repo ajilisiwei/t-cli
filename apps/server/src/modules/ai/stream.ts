@@ -4,7 +4,7 @@ import { performance } from 'node:perf_hooks';
 import type { FastifyReply } from 'fastify';
 import type { EntryKind, EntrySrcLang } from '@t-cli/core/entry';
 import { AppError } from '../../http/errors.ts';
-import type { ChatMessage, LlmClient } from '../../ports.ts';
+import type { ChatMessage, LlmClient, LlmUsage } from '../../ports.ts';
 
 export const NDJSON_CONTENT_TYPE = 'application/x-ndjson';
 /** Same bound as record sync accepts, so every stored result stays pushable/pullable. */
@@ -35,6 +35,8 @@ export type StreamOutcome = 'ok' | 'aborted' | 'upstream_error' | 'store_failed'
 export interface StreamResult {
   outcome: StreamOutcome;
   outputChars: number;
+  /** The upstream output received so far, in code points (the token estimate when no usage was reported). */
+  outputCodePoints: number;
   /** Milliseconds from `startedAt` until the first delta line was written; null if none was. */
   firstDeltaMs: number | null;
   errorCode?: string;
@@ -52,6 +54,8 @@ export interface ProxyStreamOptions {
   persist(output: string): Promise<DoneEntry>;
   /** performance.now() at request start. */
   startedAt: number;
+  /** Called when the upstream reports the request's token usage. */
+  onUsage?: (usage: LlmUsage) => void;
 }
 
 /** Abort reason used when the HTTP client goes away. */
@@ -94,7 +98,7 @@ function endResponse(res: ServerResponse, line?: StreamLine): void {
  * it with an `error` line. When the
  * client disconnects, the upstream request is aborted and nothing is stored.
  */
-export async function proxyStream({ reply, llm, messages, meta, persist, startedAt }: ProxyStreamOptions): Promise<StreamResult> {
+export async function proxyStream({ reply, llm, messages, meta, persist, startedAt, onUsage }: ProxyStreamOptions): Promise<StreamResult> {
   const res = reply.raw;
   const controller = new AbortController();
   const onClose = (): void => {
@@ -103,7 +107,9 @@ export async function proxyStream({ reply, llm, messages, meta, persist, started
   res.on('close', onClose);
   if (res.destroyed) controller.abort(new ClientDisconnected());
 
-  const upstream = llm.streamChat(messages, { signal: controller.signal })[Symbol.asyncIterator]();
+  const upstream = llm
+    .streamChat(messages, { signal: controller.signal, ...(onUsage ? { onUsage } : {}) })
+    [Symbol.asyncIterator]();
   const clientGone = (error: unknown): boolean => {
     const gone = controller.signal.aborted || error instanceof ClientDisconnected || res.destroyed;
     // Make sure the upstream sees the abort even if the close event was missed.
@@ -115,6 +121,7 @@ export async function proxyStream({ reply, llm, messages, meta, persist, started
   const result = (outcome: StreamOutcome, extra: Partial<StreamResult> = {}): StreamResult => ({
     outcome,
     outputChars: output.length,
+    outputCodePoints: [...output].length,
     firstDeltaMs,
     ...extra,
   });

@@ -90,6 +90,18 @@ describe('chat stream events', () => {
     assert.deepEqual(parseStreamEvent('[DONE]'), { kind: 'done' });
   });
 
+  test('a usage chunk carries the usage; an unexpected usage shape is ignored', () => {
+    assert.deepEqual(parseStreamEvent(JSON.stringify({ choices: [], usage: { prompt_tokens: 7, completion_tokens: 9, total_tokens: 16 } })), {
+      kind: 'chunk',
+      content: '',
+      finished: false,
+      usage: { promptTokens: 7, completionTokens: 9 },
+    });
+    for (const usage of [null, {}, { prompt_tokens: -1, completion_tokens: 2 }, { prompt_tokens: '7', completion_tokens: 9 }, 'many']) {
+      assert.deepEqual(parseStreamEvent(JSON.stringify({ choices: [], usage })), { kind: 'chunk', content: '', finished: false });
+    }
+  });
+
   test('malformed payloads and in-band errors are upstream errors', () => {
     for (const data of ['{"choices": [', '{"error":{"message":"overloaded"}}', '{"choices":"nope"}']) {
       assert.throws(
