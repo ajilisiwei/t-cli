@@ -1,3 +1,89 @@
 <view class="page theme-{{theme}}">
   <nav-bar title="复习" />
+  <scroll-view
+    class="body"
+    scroll-y
+    type="list"
+    show-scrollbar="{{false}}"
+    refresher-enabled
+    refresher-triggered="{{refreshing}}"
+    bindrefresherrefresh="onRefresh"
+  >
+    <view class="content">
+      <view class="today">
+        <text class="today-date">{{dateLabel}}</text>
+        <text wx:if="{{view.streak}}" class="today-streak">{{view.streak}}</text>
+      </view>
+
+      <block wx:if="{{loaded}}">
+        <view wx:if="{{view.mode !== 'idle'}}" class="hero">
+          <view class="ring" aria-role="img" aria-label="今日复习 {{view.done}} / {{view.total}} 张">
+            <view class="ring-track" />
+            <view class="ring-half ring-right">
+              <view class="ring-arc ring-arc-right" style="transform: rotate({{view.ring.right}}deg);" />
+            </view>
+            <view class="ring-half ring-left">
+              <view class="ring-arc ring-arc-left" style="transform: rotate({{view.ring.left}}deg);" />
+            </view>
+            <view class="ring-center">
+              <text class="ring-caption">今日复习</text>
+              <text class="ring-done serif">{{view.done}}</text>
+              <text class="ring-total">/ {{view.total}} 张</text>
+            </view>
+          </view>
+          <block wx:if="{{view.mode === 'due'}}">
+            <text class="hero-meta">{{view.meta}}</text>
+            <view class="start" bindtap="onStart" aria-role="button" aria-label="开始复习">
+              <text>开始复习</text>
+            </view>
+          </block>
+          <text wx:else class="hero-meta">今天的复习完成了</text>
+        </view>
+
+        <view wx:else class="calm">
+          <text class="calm-title">今天没有要复习的卡片</text>
+          <text class="calm-note">查过的单词、句子和纠错，第二天早上会整理成复习卡。</text>
+        </view>
+      </block>
+      <text wx:elif="{{!errorText}}" class="empty">加载中…</text>
+
+      <view wx:if="{{errorText}}" class="load-error">
+        <text class="error load-error-text">{{errorText}}</text>
+        <view class="retry" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+      </view>
+
+      <view wx:if="{{material}}" class="material" bindtap="onMaterial" aria-role="button" aria-label="{{material.title}}">
+        <view class="material-head">
+          <text class="material-title">{{material.title}}</text>
+          <text class="material-chevron">›</text>
+        </view>
+        <text class="material-counts">{{material.counts}}</text>
+        <view
+          wx:if="{{material.hasStory}}"
+          class="material-story"
+          catchtap="onPlayStory"
+          aria-role="button"
+          aria-label="{{playingStory ? '停止朗读' : '朗读情景短文'}}"
+        >
+          <text>附 1 篇情景短文</text>
+          <text class="material-play">{{playingStory ? '■' : '▶︎'}}</text>
+        </view>
+      </view>
+      <view wx:elif="{{materialMissing}}" class="material">
+        <text class="material-title">每日材料</text>
+        <text class="material-counts material-note">每天早上 5 点，前一天查过的词句会整理成一份材料。</text>
+      </view>
+
+      <view class="links">
+        <view class="row" bindtap="onLibrary" aria-role="button">
+          <text class="row-label">词库</text>
+          <text class="row-value">搜索 ›</text>
+        </view>
+        <view class="row" bindtap="onWeekly" aria-role="button">
+          <text class="row-label">周报</text>
+          <text class="row-value">›</text>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
 </view>

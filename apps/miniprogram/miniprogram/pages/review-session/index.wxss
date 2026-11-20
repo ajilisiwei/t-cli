@@ -1,1 +1,363 @@
-/* Shared styles live in app.wxss; page-only styles go here. */
+/* 复习卡. Shared tokens live in app.wxss; no shadows, hairlines only. */
+.session {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: 0;
+}
+
+.session-head {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 8rpx 40rpx 0;
+}
+
+.session-label {
+  color: var(--ink-soft);
+  font-size: 26rpx;
+}
+
+.session-count {
+  color: var(--muted);
+  font-size: 26rpx;
+}
+
+.progress {
+  height: 4rpx;
+  margin: 16rpx 40rpx 0;
+  border-radius: 2rpx;
+  background-color: var(--rule);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 4rpx;
+  background-color: var(--accent);
+}
+
+/* The card fills the space between the progress line and the dock. */
+.card-area {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: 0;
+  padding: 28rpx 40rpx 8rpx;
+}
+
+/* The card follows the finger while dragging; otherwise it eases back. */
+.card {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 32rpx 40rpx 28rpx;
+  background-color: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 28rpx;
+  transition: transform 180ms ease-out;
+}
+
+.card-dragging {
+  transition: none;
+}
+
+.card-top {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 40rpx;
+}
+
+.card-prompt {
+  color: var(--muted);
+  font-size: 24rpx;
+}
+
+.card-intent {
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.card-intent-left {
+  color: var(--danger);
+}
+
+.card-intent-right {
+  color: var(--accent);
+}
+
+.card-body {
+  flex: 1;
+  height: 0;
+}
+
+.face {
+  margin-top: 28rpx;
+}
+
+.face-text {
+  display: block;
+  color: var(--ink);
+  font-size: 36rpx;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.face-en {
+  font-size: 42rpx;
+  line-height: 1.45;
+}
+
+.face-head {
+  font-size: 64rpx;
+  line-height: 1.2;
+}
+
+.mark {
+  color: var(--accent);
+}
+
+.ipa-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 8rpx;
+}
+
+.face-ipa {
+  color: var(--muted);
+  font-size: 30rpx;
+}
+
+.speak {
+  margin-left: 8rpx;
+  padding: 4rpx 16rpx;
+  color: var(--accent);
+  font-size: 22rpx;
+}
+
+.speak-line {
+  margin-top: 28rpx;
+  color: var(--accent);
+  font-size: 28rpx;
+}
+
+.face-sub {
+  display: block;
+  margin-top: 16rpx;
+  color: var(--ink-soft);
+  font-size: 30rpx;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.example {
+  margin-top: 28rpx;
+  padding-left: 20rpx;
+  border-left: 2px solid var(--rule);
+}
+
+.example-en {
+  display: block;
+  color: var(--ink);
+  font-size: 32rpx;
+  line-height: 1.5;
+}
+
+.example-zh {
+  display: block;
+  margin-top: 4rpx;
+  color: var(--muted);
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+
+.face-back {
+  margin-top: 36rpx;
+  padding-top: 28rpx;
+  border-top: 1px solid var(--rule);
+}
+
+.tap-hint {
+  display: block;
+  flex-shrink: 0;
+  padding-top: 24rpx;
+  color: var(--muted);
+  font-size: 24rpx;
+  text-align: center;
+}
+
+/* ---- dock: undo strip + grade buttons ---- */
+.dock {
+  flex-shrink: 0;
+  padding-left: 40rpx;
+  padding-right: 40rpx;
+  background-color: var(--bg);
+}
+
+.undo-strip {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  height: 72rpx;
+}
+
+.undo-label {
+  color: var(--ink-soft);
+  font-size: 26rpx;
+}
+
+.undo-action {
+  padding: 12rpx 0 12rpx 32rpx;
+  color: var(--accent);
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.gesture-hint {
+  width: 100%;
+  color: var(--muted);
+  font-size: 24rpx;
+  text-align: center;
+}
+
+.grades {
+  display: flex;
+  flex-direction: row;
+  margin: 0 -8rpx;
+}
+
+.grade {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 120rpx;
+  margin: 0 8rpx;
+  background-color: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 20rpx;
+}
+
+/* 记得 is the usual answer: the one tinted button. */
+.grade-3 {
+  background-color: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.grade-label {
+  color: var(--ink);
+  font-size: 30rpx;
+}
+
+.grade-label-1 {
+  color: var(--danger);
+}
+
+.grade-label-3 {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.grade-interval {
+  margin-top: 4rpx;
+  color: var(--muted);
+  font-size: 22rpx;
+}
+
+.reveal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 104rpx;
+  border-radius: 52rpx;
+  background-color: var(--surface);
+  border: 1px solid var(--rule);
+  color: var(--accent);
+  font-size: 30rpx;
+}
+
+/* ---- end screen ---- */
+.end {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 40rpx;
+}
+
+.end-title {
+  color: var(--ink);
+  font-size: 40rpx;
+  font-weight: 600;
+  text-align: center;
+}
+
+.end-sub {
+  margin-top: 12rpx;
+  color: var(--muted);
+  font-size: 28rpx;
+  text-align: center;
+}
+
+.stats {
+  display: flex;
+  flex-direction: row;
+  align-self: stretch;
+  margin-top: 64rpx;
+  padding: 40rpx 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+.stat {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-figure {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+}
+
+.stat-value {
+  color: var(--ink);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 52rpx;
+  line-height: 1.25;
+}
+
+.stat-unit {
+  margin-left: 6rpx;
+  color: var(--ink-soft);
+  font-size: 24rpx;
+}
+
+.stat-label {
+  margin-top: 8rpx;
+  color: var(--muted);
+  font-size: 24rpx;
+}
+
+.finish {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 96rpx;
+  border-radius: 48rpx;
+  background-color: var(--accent);
+  color: var(--accent-ink);
+  font-size: 32rpx;
+  font-weight: 600;
+}

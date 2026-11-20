@@ -1,3 +1,143 @@
 <view class="page theme-{{theme}}">
   <nav-bar title="复习" back />
+
+  <view wx:if="{{phase === 'reviewing'}}" class="session">
+    <view class="session-head">
+      <text class="session-label">{{label}}</text>
+      <text class="session-count">{{position}} / {{total}}</text>
+    </view>
+    <view class="progress"><view class="progress-fill" style="width: {{progressPct}}%;" /></view>
+
+    <view class="card-area">
+      <view
+        class="card {{dragging ? 'card-dragging' : ''}}"
+        style="transform: translateX({{dragX}}px) rotate({{dragTilt}}deg);"
+        bindtap="onCardTap"
+        bindlongpress="onLongPress"
+        bindtouchstart="onTouchStart"
+        bindtouchmove="onTouchMove"
+        bindtouchend="onTouchEnd"
+        bindtouchcancel="onTouchEnd"
+        aria-role="button"
+        aria-label="{{flipped ? '复习卡' : '翻面'}}"
+      >
+        <view class="card-top">
+          <text class="card-prompt">{{flipped ? '' : prompt}}</text>
+          <text wx:if="{{dragIntent === 'left'}}" class="card-intent card-intent-left">忘记</text>
+          <text wx:elif="{{dragIntent === 'right'}}" class="card-intent card-intent-right">记得</text>
+        </view>
+
+        <!-- A long back scrolls inside the card; the card itself always fills the space. -->
+        <scroll-view class="card-body" scroll-y type="list" show-scrollbar="{{false}}">
+          <view class="face">
+            <!-- One line on purpose: whitespace inside <text> is rendered. -->
+            <text class="face-text {{front.serif ? 'serif face-en' : ''}} {{front.headword ? 'face-head' : ''}}"><text wx:for="{{front.segments}}" wx:key="index" class="{{item.mark ? 'mark' : ''}}">{{item.text}}</text></text>
+            <view wx:if="{{front.ipa}}" class="ipa-row">
+              <text class="face-ipa">/{{front.ipa}}/</text>
+              <view wx:if="{{flipped && speakSlot === 'front'}}" class="speak" catchtap="onSpeak" aria-role="button" aria-label="朗读">
+                <text>▶︎</text>
+              </view>
+            </view>
+            <text wx:if="{{front.sub}}" class="face-sub {{front.subSerif ? 'serif' : ''}}">{{front.sub}}</text>
+            <view wx:if="{{front.exampleEn}}" class="example">
+              <text class="example-en serif">{{front.exampleEn}}</text>
+              <text wx:if="{{front.exampleZh}}" class="example-zh">{{front.exampleZh}}</text>
+            </view>
+          </view>
+
+          <view wx:if="{{flipped}}" class="face face-back">
+            <text class="face-text {{back.serif ? 'serif face-en' : ''}} {{back.headword ? 'face-head' : ''}}"><text wx:for="{{back.segments}}" wx:key="index" class="{{item.mark ? 'mark' : ''}}">{{item.text}}</text></text>
+            <view wx:if="{{back.ipa}}" class="ipa-row">
+              <text class="face-ipa">/{{back.ipa}}/</text>
+              <view wx:if="{{speakSlot === 'back'}}" class="speak" catchtap="onSpeak" aria-role="button" aria-label="朗读">
+                <text>▶︎</text>
+              </view>
+            </view>
+            <text wx:if="{{back.sub}}" class="face-sub {{back.subSerif ? 'serif' : ''}}">{{back.sub}}</text>
+            <view wx:if="{{back.exampleEn}}" class="example">
+              <text class="example-en serif">{{back.exampleEn}}</text>
+              <text wx:if="{{back.exampleZh}}" class="example-zh">{{back.exampleZh}}</text>
+            </view>
+            <view wx:if="{{speakSlot === 'line'}}" class="speak-line" catchtap="onSpeak" aria-role="button">
+              <text>▶︎ 朗读</text>
+            </view>
+          </view>
+        </scroll-view>
+
+        <text wx:if="{{!flipped}}" class="tap-hint">轻点翻面 · 长按报错</text>
+      </view>
+    </view>
+
+    <view class="dock" style="padding-bottom: {{safeBottom + 16}}px;">
+      <view class="undo-strip">
+        <block wx:if="{{undoLabel}}">
+          <text class="undo-label">{{undoLabel}}</text>
+          <view class="undo-action" bindtap="onUndo" aria-role="button"><text>{{undoing ? '撤销中…' : '撤销'}}</text></view>
+        </block>
+        <text wx:elif="{{showGestureHint}}" class="gesture-hint">左滑 忘记 · 右滑 记得</text>
+      </view>
+      <view wx:if="{{flipped}}" class="grades">
+        <view
+          wx:for="{{buttons}}"
+          wx:key="rating"
+          class="grade grade-{{item.rating}}"
+          data-rating="{{item.rating}}"
+          bindtap="onRate"
+          aria-role="button"
+          aria-label="{{item.label}}，{{item.interval}}后再见"
+        >
+          <text class="grade-label grade-label-{{item.rating}}">{{item.label}}</text>
+          <text class="grade-interval">{{item.interval}}</text>
+        </view>
+      </view>
+      <view wx:else class="reveal" bindtap="onReveal" aria-role="button"><text>显示答案</text></view>
+    </view>
+  </view>
+
+  <view wx:elif="{{phase === 'done'}}" class="session">
+    <view class="end">
+      <text class="end-title">复习完成</text>
+      <text wx:if="{{stats.reviewed > 0}}" class="end-sub">这一轮复习了 {{stats.reviewed}} 张</text>
+      <text wx:else class="end-sub">这一轮没有复习卡片</text>
+      <view wx:if="{{stats.reviewed > 0}}" class="stats">
+        <view wx:for="{{stats.items}}" wx:key="label" class="stat">
+          <view class="stat-figure">
+            <text class="stat-value">{{item.value}}</text>
+            <text class="stat-unit">{{item.unit}}</text>
+          </view>
+          <text class="stat-label">{{item.label}}</text>
+        </view>
+      </view>
+    </view>
+    <view class="dock" style="padding-bottom: {{safeBottom + 16}}px;">
+      <view class="undo-strip">
+        <block wx:if="{{undoLabel}}">
+          <text class="undo-label">{{undoLabel}}</text>
+          <view class="undo-action" bindtap="onUndo" aria-role="button"><text>{{undoing ? '撤销中…' : '撤销'}}</text></view>
+        </block>
+      </view>
+      <view class="finish" bindtap="onFinish" aria-role="button"><text>完成</text></view>
+    </view>
+  </view>
+
+  <view wx:elif="{{phase === 'empty'}}" class="session">
+    <view class="end">
+      <text class="end-title">现在没有要复习的卡片</text>
+      <text class="end-sub">刚复习过的卡会按间隔再回来</text>
+    </view>
+    <view class="dock" style="padding-bottom: {{safeBottom + 16}}px;">
+      <view class="reveal" bindtap="onFinish" aria-role="button"><text>返回</text></view>
+    </view>
+  </view>
+
+  <view wx:elif="{{phase === 'error'}}" class="session">
+    <view class="end">
+      <text class="end-sub">{{errorText}}</text>
+    </view>
+    <view class="dock" style="padding-bottom: {{safeBottom + 16}}px;">
+      <view class="reveal" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+    </view>
+  </view>
+
+  <text wx:else class="empty">加载中…</text>
 </view>
