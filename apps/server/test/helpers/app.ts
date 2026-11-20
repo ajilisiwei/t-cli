@@ -3,7 +3,7 @@ import { buildApp } from '../../src/app.ts';
 import { loadConfig, type Config } from '../../src/config.ts';
 import type { Database } from '../../src/db/client.ts';
 import type { AppDeps } from '../../src/deps.ts';
-import type { ChatMessage, LlmClient, TtsClient, WechatClient } from '../../src/ports.ts';
+import type { Alerter, ChatMessage, ItemRegenerator, LlmClient, TtsClient, WechatClient } from '../../src/ports.ts';
 import { AppError } from '../../src/http/errors.ts';
 
 export const TEST_JWT_SECRET = 'test-only-jwt-secret-0123456789abcdef0123456789';
@@ -84,6 +84,37 @@ export function fakeTts(
   };
 }
 
+export interface FakeRegenerator extends ItemRegenerator {
+  calls: { userId: string; itemId: string }[];
+}
+
+/** Fake "内容有误" regenerator: records calls; `fail` makes it reject. */
+export function fakeRegenerator(fail = false): FakeRegenerator {
+  const calls: FakeRegenerator['calls'] = [];
+  return {
+    calls,
+    async regenerate(userId, itemId) {
+      calls.push({ userId, itemId });
+      if (fail) throw new Error('regeneration failed');
+    },
+  };
+}
+
+export interface FakeAlerter extends Alerter {
+  alerts: { kind: string; message: string }[];
+}
+
+/** Fake alerter: records alerts so tests can assert on them (and that no user text leaks into them). */
+export function fakeAlerter(): FakeAlerter {
+  const alerts: FakeAlerter['alerts'] = [];
+  return {
+    alerts,
+    async alert(kind, message) {
+      alerts.push({ kind, message });
+    },
+  };
+}
+
 export async function buildTestApp(db: Database, overrides: Partial<AppDeps> = {}): Promise<FastifyInstance> {
   const app = await buildApp({
     config: testConfig(),
@@ -92,6 +123,8 @@ export async function buildTestApp(db: Database, overrides: Partial<AppDeps> = {
     wechat: fakeWechat(),
     llm: fakeLlm(),
     tts: fakeTts(),
+    regenerator: fakeRegenerator(),
+    alerter: fakeAlerter(),
     ...overrides,
   });
   await app.ready();

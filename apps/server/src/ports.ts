@@ -28,6 +28,24 @@ export interface LlmClient {
   streamChat(messages: readonly ChatMessage[], options: { signal: AbortSignal }): AsyncIterable<string>;
 }
 
+/**
+ * Regenerates one learning unit's content and cards (modules/pipeline).
+ * Called when a user reports a card as wrong ("内容有误"). Resolves when the
+ * item is ready again, rejects when generation failed (the item then stays
+ * `needs_regen` and its cards stay suspended).
+ */
+export interface ItemRegenerator {
+  regenerate(userId: string, itemId: string): Promise<void>;
+}
+
+/**
+ * Operator alerts (modules/pipeline/alerts.ts: e-mail when ALERT_* is
+ * configured, otherwise a log line). `message` must never contain user text.
+ */
+export interface Alerter {
+  alert(kind: string, message: string): Promise<void>;
+}
+
 /** Text to speech (modules/tts/edgeTts.ts, Microsoft Edge Read Aloud). */
 export interface TtsClient {
   /**
