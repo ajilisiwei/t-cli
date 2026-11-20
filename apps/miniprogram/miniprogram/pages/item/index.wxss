@@ -1,1 +1,247 @@
-/* Shared styles live in app.wxss; page-only styles go here. */
+.hero {
+  padding-top: 24rpx;
+}
+
+/* Why the content is missing or about to change: a quiet indigo band on top. */
+.status {
+  display: block;
+  margin-top: 16rpx;
+  padding: 16rpx 24rpx;
+  border-radius: 16rpx;
+  background-color: var(--accent-soft);
+  color: var(--accent);
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+
+.failed {
+  padding-top: 48rpx;
+}
+
+.meta {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--muted);
+  font-size: 24rpx;
+}
+
+/* ▶: a small round button next to what it reads. */
+.speak {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60rpx;
+  height: 60rpx;
+  margin-left: 16rpx;
+  border-radius: 30rpx;
+  background-color: var(--accent-soft);
+  color: var(--accent);
+  font-size: 24rpx;
+}
+
+.meanings {
+  margin-top: 20rpx;
+}
+
+.meaning {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 34rpx;
+  line-height: 1.55;
+}
+
+.pos {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.example {
+  margin-top: 20rpx;
+}
+
+/* The user's own sentence: an indigo hairline on the left. */
+.example-mine {
+  padding-left: 20rpx;
+  border-left: 4rpx solid var(--accent);
+}
+
+.mine {
+  display: block;
+  color: var(--accent);
+  font-size: 22rpx;
+}
+
+.example-en {
+  display: block;
+  font-size: 32rpx;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.example-zh {
+  display: block;
+  margin-top: 4rpx;
+  color: var(--ink-soft);
+  font-size: 28rpx;
+  line-height: 1.55;
+}
+
+.lines {
+  margin-top: 8rpx;
+}
+
+.line {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 30rpx;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.term {
+  font-size: 30rpx;
+}
+
+.note {
+  color: var(--muted);
+  font-size: 26rpx;
+}
+
+.alternative {
+  margin-top: 16rpx;
+}
+
+.note-block {
+  display: block;
+  color: var(--muted);
+  font-size: 26rpx;
+}
+
+.phrase-text {
+  margin-right: 20rpx;
+  font-size: 44rpx;
+  line-height: 1.35;
+}
+
+.grammar-title {
+  display: block;
+  font-size: 40rpx;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.grammar-rule {
+  display: block;
+  margin-top: 24rpx;
+  color: var(--ink-soft);
+  font-size: 30rpx;
+  line-height: 1.7;
+}
+
+.contrast {
+  margin-top: 28rpx;
+  padding: 24rpx 28rpx;
+  background-color: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 20rpx;
+}
+
+.contrast-line {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.contrast-right {
+  margin-top: 12rpx;
+}
+
+.speak-middle {
+  align-self: center;
+}
+
+.wrong {
+  flex: 1;
+  color: var(--muted);
+  font-size: 32rpx;
+  line-height: 1.5;
+  text-decoration: line-through;
+}
+
+.right {
+  flex: 1;
+  color: var(--accent);
+  font-size: 32rpx;
+  line-height: 1.5;
+}
+
+.mark {
+  width: 40rpx;
+  flex-shrink: 0;
+  font-size: 30rpx;
+  line-height: 48rpx;
+}
+
+.mark-wrong {
+  color: var(--muted);
+}
+
+.mark-right {
+  color: var(--accent);
+}
+
+.exercise {
+  padding: 24rpx 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.exercise-wrong {
+  display: block;
+  font-size: 32rpx;
+  line-height: 1.5;
+}
+
+.exercise-right {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--accent);
+  font-size: 32rpx;
+  line-height: 1.5;
+}
+
+.exercise-hint {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--accent);
+  font-size: 26rpx;
+}
+
+.card-state {
+  color: var(--muted);
+  font-size: 28rpx;
+}
+
+.resting {
+  color: var(--muted);
+}
+
+.source {
+  padding: 20rpx 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.source-input {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 30rpx;
+  word-break: break-word;
+}
+
+.source-time {
+  display: block;
+  margin-top: 4rpx;
+  color: var(--muted);
+  font-size: 24rpx;
+}
