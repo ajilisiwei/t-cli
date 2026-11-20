@@ -1,0 +1,3 @@
+<view class="page theme-{{theme}}">
+  <nav-bar title="每日材料" back />
+</view>

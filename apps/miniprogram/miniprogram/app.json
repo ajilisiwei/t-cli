@@ -7,7 +7,15 @@
     "pages/history/index",
     "pages/devices/index",
     "pages/authorize/index",
-    "pages/invite/index"
+    "pages/invite/index",
+    "pages/review/index",
+    "pages/review-session/index",
+    "pages/materials/index",
+    "pages/library/index",
+    "pages/item/index",
+    "pages/stats/index",
+    "pages/weekly/index",
+    "pages/account/index"
   ],
   "window": {
     "navigationStyle": "custom",
@@ -22,9 +30,22 @@
     "backgroundColor": "@tabBgColor",
     "borderStyle": "@tabBorderStyle",
     "list": [
-      { "pagePath": "pages/translate/index", "text": "翻译" },
-      { "pagePath": "pages/check/index", "text": "纠错" },
-      { "pagePath": "pages/me/index", "text": "我的" }
+      {
+        "pagePath": "pages/translate/index",
+        "text": "翻译"
+      },
+      {
+        "pagePath": "pages/check/index",
+        "text": "纠错"
+      },
+      {
+        "pagePath": "pages/review/index",
+        "text": "复习"
+      },
+      {
+        "pagePath": "pages/me/index",
+        "text": "我的"
+      }
     ]
   },
   "usingComponents": {

@@ -1,0 +1,3 @@
+<view class="page theme-{{theme}}">
+  <nav-bar title="账号与数据" back />
+</view>
