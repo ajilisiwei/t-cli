@@ -115,6 +115,7 @@ export function createWechatReminderSender(
         template_id: message.templateId,
         page: message.page,
         data: message.data,
+        miniprogram_state: config.WECHAT_REMINDER_MINIPROGRAM_STATE,
         lang: 'zh_CN',
       }),
     );

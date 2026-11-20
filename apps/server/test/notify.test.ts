@@ -297,7 +297,15 @@ describe('WeChat reminder sender (fake fetch)', () => {
     for (const call of calls) assert.ok(!call.url.includes(SECRET), 'never in a URL');
     const send = calls[1]!;
     assert.equal(send.url, 'https://api.weixin.qq.com/cgi-bin/message/subscribe/send?access_token=token-1');
-    assert.deepEqual(send.body, { touser: 'openid-x', template_id: TEMPLATE, page: REMINDER_PAGE, data: { thing1: { value: '3' } }, lang: 'zh_CN' });
+    assert.deepEqual(send.body, {
+      touser: 'openid-x',
+      template_id: TEMPLATE,
+      page: REMINDER_PAGE,
+      data: { thing1: { value: '3' } },
+      // Opens the 体验版 by default (WECHAT_REMINDER_MINIPROGRAM_STATE).
+      miniprogram_state: 'trial',
+      lang: 'zh_CN',
+    });
 
     clock.advance(7200 * 1000 - 4 * 60_000);
     await sender.send(message);

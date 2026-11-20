@@ -68,6 +68,8 @@ const ConfigSchema = z.object({
   WECHAT_REMINDER_TEMPLATE_ID: z.string().min(1).optional(),
   /** JSON of the template's data fields, with {due} / {date} placeholders. */
   WECHAT_REMINDER_DATA: z.string().min(2).optional(),
+  /** Which mini-program version a reminder opens; `trial` while only the 体验版 exists. */
+  WECHAT_REMINDER_MINIPROGRAM_STATE: z.enum(['developer', 'trial', 'formal']).default('trial'),
 }).refine((config) => !(config.WECHAT_DEV_LOGIN && config.NODE_ENV === 'production'), {
   path: ['WECHAT_DEV_LOGIN'],
   message: 'WECHAT_DEV_LOGIN must not be enabled in production',
