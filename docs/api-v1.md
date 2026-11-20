@@ -143,3 +143,135 @@ The server picks the text (`speakableForEntry` in `packages/core/src/speakable.j
 Voice: text containing CJK → a Chinese voice, otherwise an American English voice.
 Errors (JSON envelopes): `404 NOT_FOUND` (unknown entry or another account's), `422 NOTHING_TO_SPEAK` (empty text), `422 TEXT_TOO_LONG` (over 1000 code points), `429 RATE_LIMITED` (30 per account per minute), `502 TTS_UPSTREAM`, `503 TTS_UNAVAILABLE` (disabled by config).
 Not counted against the AI daily quota. The server caches audio by voice and text in a bounded in-memory cache.
+
+## Learning (M3–M5)
+
+Built on the tables in `apps/server/src/db/schema.ts` (items, item_sources, cards, review_logs, materials, pipeline_state, notify_grants, job_runs; migration `0001_learning`). Every query filters on the caller's `user_id`; another account's id is `404 NOT_FOUND`.
+
+**Local day.** Endpoints that need a local date take `utcOffsetMinutes` (query or body, -720…840, default 480). The nightly jobs use the offset of the user's most recent entry (default 480).
+
+### Content shapes
+
+`items.content`, by item type (explanations — `zh`, `note`, `rule`, `summary` — are written in the user's `settings.explanationLang`, default zh):
+
+```ts
+type WordContent    = { headword: string; ipa: string; meanings: { pos: string; zh: string }[];
+                        examples: { en: string; zh: string; fromUser: boolean }[];   // 2; ≤1 fromUser
+                        collocations: string[]; synonyms: { word: string; note: string }[]; family: string[] };
+type PhraseContent  = { phrase: string; zh: string; register: 'formal' | 'neutral' | 'casual';
+                        alternatives: { en: string; note: string }[];               // 2
+                        examples: { en: string; zh: string; fromUser: boolean }[] };
+type GrammarContent = { title: string; rule: string; wrong: string; right: string;
+                        exercises: { wrong: string; right: string }[] };            // 3
+```
+
+`fromUser` examples may quote the user's own word/sentence records, never a paragraph-level record (materials never contain paragraph text).
+
+Cards per item: word → `recognize`, `produce`, `cloze`; phrase → `cloze`; grammar → `fix` (`dictation` is reserved, not generated). Every card face has one shape, so clients render all types the same way:
+
+```ts
+type CardFace = { text: string; ipa?: string; sub?: string; example?: { en: string; zh: string } };
+```
+
+| cardType | front | back | read aloud (TTS) |
+|---|---|---|---|
+| recognize | `{ text: headword, ipa }` | `{ text: meanings, example }` | headword |
+| produce | `{ text: meanings }` | `{ text: headword, ipa }` | headword |
+| cloze | `{ text: sentence with "____", sub: its translation }` | `{ text: full sentence, sub: the answer }` | full sentence |
+| fix | `{ text: wrong sentence }` | `{ text: right sentence, sub: rule }` | right sentence |
+
+### Scheduling (FSRS)
+
+`ts-fsrs` with `request_retention` 0.9, `maximum_interval` 36500, `enable_fuzz` false. Ratings: 1 忘记 (Again), 2 困难 (Hard), 3 记得 (Good), 4 简单 (Easy). A card's state is always the replay of its logs ordered by `(reviewed_at, id)`, so concurrent offline reviews from two devices both count. `mastered` = last scheduled interval > `MASTERED_DAYS` (180); mastered and suspended cards leave the queue. Daily limits per local day (D10): at most `REVIEW_NEW_PER_DAY` (15) new cards introduced (a card is introduced on the day of its first log) and `REVIEW_MAX_PER_DAY` (60) reviews of non-new cards.
+
+### Review
+
+`GET /v1/review/summary?utcOffsetMinutes=` →
+`{ due, newAvailable, reviewDue, doneToday, estimatedMinutes, streakDays }`. `due` = cards the queue would serve now (limits applied) — the 复习 tab badge. `estimatedMinutes` = ceil(due × 8 s / 60).
+
+`GET /v1/review/queue?utcOffsetMinutes=&limit=` (1–100, default 50) → `{ cards: QueueCard[] }`: due non-new cards first (oldest due first), then new cards by item weight (`errorCount × 2 + lookupCount`, desc).
+```ts
+type QueueCard = { id: string; itemId: string; itemType: 'word' | 'phrase' | 'grammar'; cardType: string;
+                   front: CardFace; back: CardFace; state: 'new' | 'learning' | 'review' | 'relearning';
+                   intervals: { '1': number; '2': number; '3': number; '4': number } };   // seconds until due if rated so
+```
+
+`POST /v1/reviews` — Body `{ logs: { id: ULID; cardId: string; rating: 1|2|3|4; reviewedAt: ISO; durationMs?: number }[] }` (1–200) →
+`{ accepted: string[], rejected: { id: string|null, errors: string[] }[], cards: { id, state, due, mastered }[] }`.
+Idempotent by log id (already stored = accepted). An unknown or foreign `cardId`, or `reviewedAt` more than 5 min in the future, is rejected (not a 404: it is a batch). `cards` = the new state of every touched card.
+
+`DELETE /v1/reviews/:id` — undo. Allowed for 5 minutes after the server accepted the log, else `409 UNDO_EXPIRED`; unknown → 404. → `{ card: { id, state, due, mastered } }`.
+
+`POST /v1/cards/:id/report` — "内容有误". Suspends the item's cards, sets the item `needs_regen` and starts regeneration (`ItemRegenerator`, not awaited) → `202 { regenerating: true }`. Regeneration rewrites the item content and the faces of its existing cards in place (same ids, scheduling kept), then unsuspends them. At most 10 reports per account per minute.
+
+### Materials
+
+`GET /v1/materials/daily?date=YYYY-MM-DD` (omit `date` → latest) → `{ date, content: DailyMaterial, createdAt }`, or 404.
+`GET /v1/materials/weekly?date=YYYY-MM-DD` (the week's Monday; omit → latest) → `{ date, content: WeeklyReport, createdAt }`, or 404.
+`GET /v1/materials?kind=daily|weekly&before=YYYY-MM-DD&limit=` (1–60, default 30) → `{ dates: string[] (desc), nextBefore: string|null }`.
+```ts
+type DailyMaterial = {
+  date: string;
+  overview: { newWords: number; newPhrases: number; corrections: number; streakDays: number };
+  words:   ({ itemId: string } & WordContent)[];      // ≤ 12
+  phrases: ({ itemId: string } & PhraseContent)[];    // ≤ 6
+  grammar: ({ itemId: string } & GrammarContent)[];   // ≤ 4
+  story: { title: string; text: string; words: string[]; zh: string } | null;   // ≈120 words using 5–8 of the day's words
+  mistakes: { itemId: string; display: string; note: string; example: { en: string; zh: string } }[];  // ≤ 5
+};
+type WeeklyReport = {
+  weekStart: string; weekEnd: string;
+  totals: { entries: number; newItems: number; reviews: number };
+  topErrors: { title: string; count: number }[];      // grammar items by errors this week, ≤ 5
+  topLookups: { display: string; count: number }[];   // ≤ 10
+  retention: { thisWeek: number | null; lastWeek: number | null };   // share of ratings ≥ 2 on non-new cards
+  summary: string;
+};
+```
+
+### Library and stats
+
+`GET /v1/items?q=&type=word|phrase|grammar&level=new|learning|mastered&offset=&limit=` (limit 1–50, default 20) → `{ items: { id, type, display, lookupCount, errorCount, level, lastSeenAt }[], nextOffset: number|null }`. Without `q`: by `lastSeenAt` desc. With `q`: pg_trgm similarity on `display` (plus a prefix match), best first. `level`: `new` = every card new, `mastered` = every card mastered, otherwise `learning`.
+
+`GET /v1/items/:id` → `{ id, type, display, status, content, lookupCount, errorCount, firstSeenAt, lastSeenAt, level, cards: { id, cardType, state, due, mastered, suspended }[], sources: { entryId, input, createdAt }[] }` (the 10 latest sources).
+
+`GET /v1/stats?days=&utcOffsetMinutes=` (days 1–366, default 120) → `{ days: { date, entries, reviews }[], streakDays, retention: { weekStart, rate }[], totals: { entries, items, cards, mastered } }`. `days` lists only days with activity. `streakDays` = consecutive local days with ≥ 1 entry or review, ending today (or yesterday when today has none yet). `retention` = the last 12 weeks (share of ratings ≥ 2 on non-new cards; weeks without such ratings are omitted).
+
+`GET /v1/entries/day?date=YYYY-MM-DD&utcOffsetMinutes=` → `{ entries: (Entry & { seq: number })[] }` — that local day's records, oldest first, at most 500. The CLI's `/history` uses it to show mini-program records.
+
+### Account
+
+Settings (`GET /v1/me`, `POST /v1/me/settings`) grow to
+`{ explanationLang?: 'zh'|'en', autoSpeakWord?: boolean (default true), autoSpeakOnFlip?: boolean (default true), reminderHour?: number 0–23 | null (default null) }`.
+
+`POST /v1/export` → `200 text/markdown; charset=utf-8` with `Content-Disposition: attachment; filename="t-cli-export-YYYYMMDD.md"`: every record grouped by local date (input and output), then the learning units. At most 3 per account per hour.
+
+`POST /v1/me/delete` — Body `{ "confirm": "DELETE" }` → deletes the account and all of its data (cascade) and thereby every device → `{ deleted: true }`. Any other body → `400 VALIDATION_FAILED`. A later WeChat login of the same person needs a new invite.
+
+### Reminders (WeChat subscribe messages)
+
+`GET /v1/notify/config` → `{ reminderTemplateId: string|null }` (null → reminders are not configured; clients hide the option).
+`POST /v1/notify/grant` — Body `{ templateId }` after `wx.requestSubscribeMessage` returned `accept` → `{ available: number }`. A template other than the configured one → 400.
+Hourly job: for every account with `reminderHour` equal to the current local hour, at least one card due and a grant available, send one subscribe message that opens `pages/review/index`, and consume the grant. Config: `WECHAT_REMINDER_TEMPLATE_ID`, `WECHAT_REMINDER_DATA` (JSON of the template's data fields; the placeholders `{due}` and `{date}` are filled in). Unset → no job, config returns null.
+
+### Speech (extended)
+
+`POST /v1/tts` takes exactly one of `{ entryId }`, `{ cardId }`, `{ itemId }`, `{ material: { kind: 'daily', date, section: 'story' } }` (all of the caller's own). Card → the "read aloud" column above; item → word headword / phrase / grammar `right`; story → `story.text`. Same limits, errors and cache as before.
+
+### AI quotas (extended)
+
+Besides the daily request count, each account has a daily token budget for the AI proxy, `AI_TOKENS_PER_DAY` (default 300 000), counted from the upstream's reported usage (estimated as code points / 2 when missing). Exceeded → `429 QUOTA_EXCEEDED` with `details: { limit, kind: 'tokens' }` (the request quota now also sends `kind: 'requests'`).
+
+### Nightly pipeline
+
+Job `pipeline-nightly`, 05:00 Asia/Shanghai. For each account with entries newer than `pipeline_state.last_seq`:
+1. **Extract** units (LLM JSON mode, zod-validated): a word record → one word item (head = `correctedInput` or the head term; unrecognizable words are skipped); a sentence record → ≤ 2 phrases; a check record → ≤ 2 grammar points (`errorCount` + 1); a paragraph record → ≤ 3 units in total, never quoting it. Upsert by `(user, type, normKey)`; every new source record adds an `item_sources` row and bumps `lookupCount`.
+2. **Generate** content for new and `needs_regen` items, then their cards (state new, due now).
+3. **Daily material** for the previous local day (the day the records were made).
+4. **Weekly report** on Sundays (local) for Monday–Sunday.
+5. Advance the cursor only past what succeeded. One account failing does not stop the others. A zod failure is retried twice, then the item is `needs_regen` and an alert goes out.
+Tokens per account per run are capped by `AI_PIPELINE_TOKENS_PER_RUN` (default 200 000); hitting the cap ends that account's run early (cursor kept) and alerts. `apps/server/scripts/admin.ts run-pipeline [userId]` runs it now.
+
+### Alerts
+
+`ALERT_SMTP_URL` (e.g. `smtps://user:pass@smtp.example.com:465`), `ALERT_EMAIL_FROM`, `ALERT_EMAIL_TO`; unset → log line only. Kinds: `job_failed`, `pipeline_user_failed`, `item_needs_regen`, `token_budget_exceeded`, `reminder_failed`. At most one mail per kind per hour. Alert text never contains user text.
