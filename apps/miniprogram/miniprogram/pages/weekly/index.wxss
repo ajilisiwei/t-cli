@@ -1,1 +1,123 @@
-/* Shared styles live in app.wxss; page-only styles go here. */
+/* Week navigation stays put under the navigation bar. */
+.weeknav {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  height: 88rpx;
+  padding: 0 40rpx;
+  border-bottom: 1px solid var(--rule);
+}
+
+.step {
+  min-width: 140rpx;
+  padding: 16rpx 0;
+  color: var(--accent);
+  font-size: 28rpx;
+}
+
+.step-right {
+  text-align: right;
+}
+
+.step-off {
+  color: var(--muted);
+  opacity: 0.45;
+}
+
+.range {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.switching {
+  opacity: 0.5;
+}
+
+.failed {
+  padding-top: 48rpx;
+}
+
+.nothing {
+  padding-top: 96rpx;
+}
+
+.nothing-title {
+  display: block;
+  font-size: 36rpx;
+  font-weight: 600;
+}
+
+.summary {
+  display: block;
+  padding-top: 32rpx;
+  color: var(--ink);
+  font-size: 32rpx;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.totals {
+  display: flex;
+  flex-direction: row;
+  margin-top: 40rpx;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+.total {
+  flex: 1;
+  padding: 24rpx 0;
+}
+
+.total-value {
+  display: block;
+  font-size: 48rpx;
+  line-height: 1.25;
+}
+
+.total-label {
+  display: block;
+  color: var(--muted);
+  font-size: 24rpx;
+}
+
+.retention {
+  display: flex;
+  flex-direction: row;
+  margin-top: 12rpx;
+}
+
+.retention-cell {
+  margin-right: 72rpx;
+}
+
+.retention-value {
+  display: block;
+  color: var(--accent);
+  font-size: 56rpx;
+  line-height: 1.2;
+}
+
+.retention-last {
+  color: var(--ink-soft);
+}
+
+.change {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--ink-soft);
+  font-size: 28rpx;
+}
+
+.ranked-text {
+  flex: 1;
+  min-width: 0;
+  margin-right: 24rpx;
+  padding: 20rpx 0;
+  font-size: 32rpx;
+  line-height: 1.4;
+  word-break: break-word;
+}
