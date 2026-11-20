@@ -17,6 +17,7 @@ All commands run from the repository root (npm workspaces).
 - **Server dev login**: `WECHAT_DEV_LOGIN=1` makes `POST /v1/auth/wechat` accept `dev:<name>` codes without calling WeChat (mini-program simulator); the server refuses to start with it when `NODE_ENV=production`.
 - **Server typecheck**: `npm run typecheck -w @t-cli/server` (Node 24 runs the TypeScript sources directly; erasable syntax only, relative imports end in `.ts`).
 - **Server deploy**: see `apps/server/deploy/README.md`; API contract in `docs/api-v1.md`.
+- **Run the AI pipeline now**: `npm run admin -w @t-cli/server -- run-pipeline [userId]` (needs `DATABASE_URL` and `DEEPSEEK_API_KEY`). In production: `docker exec tcli-api node --disable-warning=ExperimentalWarning scripts/admin.ts run-pipeline [userId]`.
 - **Mini-program**: `npm run typecheck -w @t-cli/miniprogram`; unit tests run with `npm test`. Pure logic in `apps/miniprogram/miniprogram/lib` (no `wx`, no value imports between modules, so Node can load it). `vendor/core/` is a generated copy of core modules: after changing one, run `npm run sync:core -w @t-cli/miniprogram`. DevTools, configuration and upload: `apps/miniprogram/README.md`.
 
 ## Architecture & Structure
@@ -25,7 +26,7 @@ A minimalist, stateless CLI translation tool using DeepSeek API, rendered as an 
 
 ```
 apps/cli/        t-cli-translator — the Ink TUI (published as the `t-cli` binary)
-apps/server/     @t-cli/server — sync service: accounts, record sync, AI proxy (Fastify + Drizzle + PostgreSQL)
+apps/server/     @t-cli/server — sync service: accounts, record sync, AI proxy, nightly AI pipeline, review/FSRS, library, stats (Fastify + Drizzle + PostgreSQL)
 apps/miniprogram/ @t-cli/miniprogram — WeChat mini-program (native + TypeScript + Skyline); see its README
 packages/core/   @t-cli/core — logic shared by every client and the server
 scripts/         repo tooling (release-local.mjs)
@@ -39,6 +40,7 @@ scripts/         repo tooling (release-local.mjs)
   - `ulid.js`: Offline ULID generation (optionally deterministic via fixed entropy) for idempotent sync writes.
   - `spelling.js`: `extractHeadTerm()` / `detectSpellingCorrection()` — deterministic misspelling detection for English word lookups (head word before the IPA vs. the input). Feeds the CLI's "拼写更正" notice and `Entry.correctedInput`; review material must use `correctedInput` when set.
   - `ssml.js`: `escapeSsmlText()` — escapes text for msedge-tts's SSML template (used by the CLI's `/say` and the server's `POST /v1/tts`).
+- **Server** (`apps/server/src/`; contract `docs/api-v1.md`): `modules/auth` (WeChat login, invites, CLI device flow, settings), `sync` (entry push/pull, `entries/day`), `ai` (streaming proxy, request + token quotas), `tts`, `pipeline` (nightly 05:00 job: extract items → content and cards → daily material, weekly report on Sundays; regenerator for 内容有误; alert mail), `review` (FSRS via ts-fsrs, state = replay of review_logs; queue, ratings, undo, report), `library` (materials, items + pg_trgm search, stats, export), `account` (delete, reminders), `notify` (WeChat subscribe-message reminders). `lib/scheduler.ts` runs jobs once per run key under a PostgreSQL advisory lock. `http/auth.ts`'s `requireAuth` also checks that the device is active and the account exists on every request. Every query filters on the caller's `user_id`; logs and alerts never contain user text.
 - **CLI** (`apps/cli/`):
   - `bin/t-cli.js`: Entry point — loads dotenv and invokes the REPL.
   - `src/repl.js`: Ink `App` component. Renders the message log, streaming output, status line, and text input. Handles command routing (`/check`, `/lang`, `/mode`, `/history`, `/notes`, `/say`, `/clear`, `/login`, `/sync`, etc.) and orchestration of API calls. Uses `React.createElement` (no JSX, no build step).
