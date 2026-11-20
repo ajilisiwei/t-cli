@@ -53,7 +53,7 @@ export function translateBodySchema(maxChars: number) {
  */
 export async function registerAiRoutes(app: FastifyInstance, deps: AppDeps): Promise<void> {
   const { config } = deps;
-  const authenticate = requireAuth(config.JWT_SECRET, deps.clock);
+  const authenticate = requireAuth(config.JWT_SECRET, deps.clock, deps.db);
   const perMinute = createRateLimiter({ limit: config.AI_REQUESTS_PER_MINUTE, windowMs: 60_000 });
   const Body = translateBodySchema(config.AI_INPUT_MAX_CHARS);
 

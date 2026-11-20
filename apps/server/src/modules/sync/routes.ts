@@ -96,7 +96,7 @@ async function listEntriesOfDay(db: Executor, userId: string, { date, utcOffsetM
  *   GET  /v1/entries/day      one local day, oldest first: ?date=YYYY-MM-DD&utcOffsetMinutes=<n>
  */
 export async function registerSyncRoutes(app: FastifyInstance, deps: AppDeps): Promise<void> {
-  const authenticate = requireAuth(deps.config.JWT_SECRET, deps.clock);
+  const authenticate = requireAuth(deps.config.JWT_SECRET, deps.clock, deps.db);
 
   app.post('/v1/entries', { preHandler: authenticate, bodyLimit: 8 * 1024 * 1024 }, async (request) => {
     const { userId } = authOf(request);

@@ -44,7 +44,7 @@ async function deleteAccount(db: Executor, userId: string): Promise<boolean> {
  */
 export async function registerAccountRoutes(app: FastifyInstance, deps: AppDeps): Promise<void> {
   const { db, clock } = deps;
-  const authenticate = requireAuth(deps.config.JWT_SECRET, clock);
+  const authenticate = requireAuth(deps.config.JWT_SECRET, clock, deps.db);
   const exports = createRateLimiter({ limit: EXPORTS_PER_HOUR, windowMs: 60 * MINUTE_MS });
 
   app.post('/v1/export', { preHandler: authenticate, bodyLimit: 1024 }, async (request, reply) => {

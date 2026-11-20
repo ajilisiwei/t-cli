@@ -54,7 +54,7 @@ const SEARCH_LOG_SERIALIZERS = {
  */
 export async function registerLibraryRoutes(app: FastifyInstance, deps: AppDeps): Promise<void> {
   const { db, clock } = deps;
-  const authenticate = requireAuth(deps.config.JWT_SECRET, clock);
+  const authenticate = requireAuth(deps.config.JWT_SECRET, clock, deps.db);
 
   const materialRoute = (kind: MaterialKind) => async (request: FastifyRequest) => {
     const { userId } = authOf(request);

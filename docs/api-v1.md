@@ -10,7 +10,7 @@ Single source of truth for the server (`apps/server`), the CLI sync client
   - success: `{ "success": true, "data": <T>, "error": null }`
   - failure: `{ "success": false, "data": null, "error": { "code": "<CODE>", "message": "...", "details"?: ... } }`
 - Clients branch on `error.code`, never on `message`.
-- Authenticated endpoints need `Authorization: Bearer <accessToken>`. A missing, invalid or expired token yields `401 UNAUTHORIZED`; the client then refreshes once and retries.
+- Authenticated endpoints need `Authorization: Bearer <accessToken>`. A missing, invalid or expired token — or the token of a revoked device or a deleted account, checked on every request — yields `401 UNAUTHORIZED`; the client then refreshes once and retries.
 - Validation failures: `400 VALIDATION_FAILED`, `details` = `[{ path, message }]` (submitted values are never echoed).
 - Rate limited: `429 RATE_LIMITED` with `details.retryAfterSeconds` and a `Retry-After` header. Unauthenticated auth endpoints are limited per client IP (30/min each).
 - Text lengths count Unicode code points after trimming.

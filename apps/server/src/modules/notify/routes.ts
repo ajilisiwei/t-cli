@@ -15,7 +15,7 @@ const GrantBody = z.object({ templateId: z.string().trim().min(1).max(128) });
  */
 export async function registerNotifyRoutes(app: FastifyInstance, deps: AppDeps): Promise<void> {
   const { db, clock } = deps;
-  const authenticate = requireAuth(deps.config.JWT_SECRET, clock);
+  const authenticate = requireAuth(deps.config.JWT_SECRET, clock, deps.db);
   const reminder = reminderConfig(deps.config);
 
   app.get('/v1/notify/config', { preHandler: authenticate }, async () => ok({ reminderTemplateId: reminder?.templateId ?? null }));

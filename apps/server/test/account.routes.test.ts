@@ -237,7 +237,7 @@ describe('account: settings, export, delete', { skip: skipWithoutDb }, () => {
       assert.equal((await t.db.select().from(identities).where(eq(identities.userId, account.userId))).length, 0);
     });
 
-    test("a deleted account's still-valid access token fails cleanly everywhere (never 500)", async () => {
+    test("a deleted account's still-valid access token is rejected with 401 everywhere", async () => {
       const { account } = await signUp();
       const item = await seedItem(t.db, account.userId, { type: 'word', display: 'ghost' });
       const entry = makeEntry();
@@ -251,28 +251,26 @@ describe('account: settings, export, delete', { skip: skipWithoutDb }, () => {
         { method: 'POST', url: '/v1/me/delete', payload: { confirm: 'DELETE' }, expect: 401 },
         { method: 'POST', url: '/v1/export', payload: {}, expect: 401 },
         { method: 'POST', url: '/v1/notify/grant', payload: { templateId: TEMPLATE }, expect: 401 },
-        { method: 'POST', url: '/v1/entries', payload: { entries: [makeEntry()] }, expect: 404 },
-        { method: 'GET', url: '/v1/entries', expect: 200 },
-        { method: 'GET', url: '/v1/review/summary', expect: 200 },
-        { method: 'GET', url: '/v1/review/queue', expect: 200 },
-        { method: 'POST', url: '/v1/reviews', payload: { logs: [{ id: ulid(), cardId: item.cardIds[0], rating: 3, reviewedAt: clock().toISOString() }] }, expect: 200 },
-        { method: 'DELETE', url: `/v1/reviews/${ulid()}`, expect: 404 },
-        { method: 'POST', url: `/v1/cards/${item.cardIds[0]}/report`, expect: 404 },
-        { method: 'GET', url: '/v1/items', expect: 200 },
-        { method: 'GET', url: `/v1/items/${item.itemId}`, expect: 404 },
-        { method: 'GET', url: '/v1/stats', expect: 200 },
-        { method: 'GET', url: '/v1/materials/daily', expect: 404 },
-        { method: 'GET', url: '/v1/entries/day?date=2026-11-17', expect: 200 },
-        { method: 'POST', url: '/v1/tts', payload: { entryId: entry.id }, expect: 404 },
-        { method: 'GET', url: '/v1/devices', expect: 200 },
-        { method: 'POST', url: '/v1/auth/logout', expect: 200 },
+        { method: 'POST', url: '/v1/entries', payload: { entries: [makeEntry()] }, expect: 401 },
+        { method: 'GET', url: '/v1/entries', expect: 401 },
+        { method: 'GET', url: '/v1/review/summary', expect: 401 },
+        { method: 'GET', url: '/v1/review/queue', expect: 401 },
+        { method: 'POST', url: '/v1/reviews', payload: { logs: [{ id: ulid(), cardId: item.cardIds[0], rating: 3, reviewedAt: clock().toISOString() }] }, expect: 401 },
+        { method: 'DELETE', url: `/v1/reviews/${ulid()}`, expect: 401 },
+        { method: 'POST', url: `/v1/cards/${item.cardIds[0]}/report`, expect: 401 },
+        { method: 'GET', url: '/v1/items', expect: 401 },
+        { method: 'GET', url: `/v1/items/${item.itemId}`, expect: 401 },
+        { method: 'GET', url: '/v1/stats', expect: 401 },
+        { method: 'GET', url: '/v1/materials/daily', expect: 401 },
+        { method: 'GET', url: '/v1/entries/day?date=2026-11-17', expect: 401 },
+        { method: 'POST', url: '/v1/tts', payload: { entryId: entry.id }, expect: 401 },
+        { method: 'GET', url: '/v1/devices', expect: 401 },
+        { method: 'POST', url: '/v1/auth/logout', expect: 401 },
       ];
       for (const { method, url, payload, expect } of requests) {
         const res = await app.inject({ method, url, headers, ...(payload ? { payload } : {}) });
         assert.equal(res.statusCode, expect, `${method} ${url}: ${res.body}`);
       }
-      const pushed = await app.inject({ method: 'POST', url: '/v1/reviews', headers, payload: { logs: [{ id: ulid(), cardId: item.cardIds[0], rating: 3, reviewedAt: clock().toISOString() }] } });
-      assert.deepEqual(pushed.json().data.accepted, []);
       assert.deepEqual((await rowsOf(account.userId)).users, 0, 'nothing was recreated');
     });
   });

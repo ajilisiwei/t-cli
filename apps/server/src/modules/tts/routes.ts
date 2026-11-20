@@ -34,7 +34,7 @@ const sinceMs = (startedAt: number): number => Math.round(performance.now() - st
  */
 export async function registerTtsRoutes(app: FastifyInstance, deps: AppDeps): Promise<void> {
   const { config } = deps;
-  const authenticate = requireAuth(config.JWT_SECRET, deps.clock);
+  const authenticate = requireAuth(config.JWT_SECRET, deps.clock, deps.db);
   const perMinute = createRateLimiter({ limit: config.TTS_REQUESTS_PER_MINUTE, windowMs: 60_000 });
   const cache = createByteLruCache({ maxBytes: config.TTS_CACHE_MAX_BYTES });
 

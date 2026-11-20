@@ -480,7 +480,7 @@ describe('AI proxy routes', { skip: skipWithoutDb }, () => {
     await t.db.delete(users).where(eq(users.id, account.userId)); // POST /v1/me/delete: hard delete, cascade
     const res = await translate(app, account, { text: 'hello', task: 'translate' });
     assert.equal(res.statusCode, 401);
-    assert.deepEqual(res.json().error, { code: 'UNAUTHORIZED', message: 'account not found' });
+    assert.equal(res.json().error.code, 'UNAUTHORIZED');
     assert.equal(llm.calls.length, 0);
     assert.deepEqual(await tokenRows(account.userId), []);
 
