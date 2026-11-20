@@ -1,0 +1,183 @@
+<view class="page theme-{{theme}}">
+  <nav-bar title="每日材料" back />
+
+  <view class="mat-head">
+    <view wx:if="{{dateLabel || older || newer || moreOlder}}" class="date-nav">
+      <view class="date-step" bindtap="onOlder" aria-role="button" aria-label="前一天">
+        <text class="{{older || moreOlder ? 'step' : 'step step-off'}}">‹</text>
+      </view>
+      <text class="date-label">{{dateLabel || ' '}}</text>
+      <view class="date-step" bindtap="onNewer" aria-role="button" aria-label="后一天">
+        <text class="{{newer ? 'step' : 'step step-off'}}">›</text>
+      </view>
+    </view>
+    <view wx:if="{{phase === 'ready'}}" class="tabs">
+      <view
+        wx:for="{{tabs}}"
+        wx:key="id"
+        class="tab {{item.id === section ? 'tab-on' : ''}}"
+        data-id="{{item.id}}"
+        bindtap="onSection"
+        aria-role="tab"
+      >
+        <text>{{item.label}}</text>
+      </view>
+    </view>
+  </view>
+
+  <scroll-view class="body" scroll-y type="list" show-scrollbar="{{false}}" scroll-into-view="{{anchor}}">
+    <view id="mat-top" />
+    <view class="content">
+      <block wx:if="{{phase === 'ready'}}">
+        <!-- 概览 -->
+        <block wx:if="{{section === 'overview'}}">
+          <view class="stats">
+            <view wx:for="{{stats}}" wx:key="label" class="stat">
+              <text class="stat-value serif">{{item.value}}</text>
+              <text class="stat-label">{{item.label}}</text>
+            </view>
+          </view>
+          <block wx:for="{{tabs}}" wx:key="id">
+            <view wx:if="{{item.id !== 'overview'}}" class="row" data-id="{{item.id}}" bindtap="onSection" aria-role="button">
+              <text class="row-label">{{item.label}}</text>
+              <text class="row-value">{{item.countLabel}} ›</text>
+            </view>
+          </block>
+        </block>
+
+        <!-- 单词 -->
+        <block wx:elif="{{section === 'words'}}">
+          <view wx:for="{{words}}" wx:key="itemId" class="entry">
+            <view class="headline">
+              <text class="entry-head serif" user-select>{{item.headword}}</text>
+              <text wx:if="{{item.ipa}}" class="entry-ipa">/{{item.ipa}}/</text>
+              <view class="play" data-id="{{item.itemId}}" data-key="{{item.key}}" bindtap="onPlayItem" aria-role="button" aria-label="朗读">
+                <text>{{playing === item.key ? '■' : '▶︎'}}</text>
+              </view>
+            </view>
+            <view wx:for="{{item.meanings}}" wx:for-item="meaning" wx:key="zh" class="meaning">
+              <text wx:if="{{meaning.pos}}" class="pos">{{meaning.pos}}</text>
+              <text class="meaning-zh">{{meaning.zh}}</text>
+            </view>
+            <view wx:for="{{item.examples}}" wx:for-item="example" wx:key="en" class="example">
+              <text class="example-en serif" user-select>{{example.en}}</text>
+              <text class="example-zh">{{example.zh}}<text wx:if="{{example.fromUser}}" class="tag">　你的原句</text></text>
+            </view>
+            <view wx:if="{{item.collocationsText}}" class="detail">
+              <text class="detail-key">搭配</text>
+              <text class="detail-value serif">{{item.collocationsText}}</text>
+            </view>
+            <view wx:if="{{item.synonyms.length}}" class="detail">
+              <text class="detail-key">近义</text>
+              <view class="detail-list">
+                <text wx:for="{{item.synonyms}}" wx:for-item="synonym" wx:key="word" class="detail-value"><text class="serif">{{synonym.word}}</text><text wx:if="{{synonym.note}}" class="detail-note">　{{synonym.note}}</text></text>
+              </view>
+            </view>
+            <view wx:if="{{item.familyText}}" class="detail">
+              <text class="detail-key">词族</text>
+              <text class="detail-value serif">{{item.familyText}}</text>
+            </view>
+          </view>
+        </block>
+
+        <!-- 句型 -->
+        <block wx:elif="{{section === 'phrases'}}">
+          <view wx:for="{{phrases}}" wx:key="itemId" class="entry">
+            <view class="headline">
+              <text class="entry-phrase serif" user-select>{{item.phrase}}</text>
+              <view class="play" data-id="{{item.itemId}}" data-key="{{item.key}}" bindtap="onPlayItem" aria-role="button" aria-label="朗读">
+                <text>{{playing === item.key ? '■' : '▶︎'}}</text>
+              </view>
+            </view>
+            <text class="gloss-line">{{item.zh}}<text class="register"> · {{item.registerLabel}}</text></text>
+            <view wx:for="{{item.alternatives}}" wx:for-item="alternative" wx:key="en" class="alternative">
+              <text class="alternative-en serif">≈ {{alternative.en}}</text>
+              <text wx:if="{{alternative.note}}" class="alternative-note">{{alternative.note}}</text>
+            </view>
+            <view wx:for="{{item.examples}}" wx:for-item="example" wx:key="en" class="example">
+              <text class="example-en serif" user-select>{{example.en}}</text>
+              <text class="example-zh">{{example.zh}}<text wx:if="{{example.fromUser}}" class="tag">　你的原句</text></text>
+            </view>
+          </view>
+        </block>
+
+        <!-- 语法 -->
+        <block wx:elif="{{section === 'grammar'}}">
+          <view wx:for="{{grammar}}" wx:key="itemId" class="entry">
+            <text class="grammar-title">{{item.title}}</text>
+            <view wx:if="{{item.wrong}}" class="pair">
+              <text class="pair-mark pair-wrong">✗</text>
+              <text class="pair-text pair-text-wrong serif">{{item.wrong}}</text>
+            </view>
+            <view wx:if="{{item.right}}" class="pair">
+              <text class="pair-mark pair-right">✓</text>
+              <text class="pair-text serif">{{item.right}}</text>
+            </view>
+            <text wx:if="{{item.rule}}" class="rule-text">{{item.rule}}</text>
+            <block wx:if="{{item.exerciseViews.length}}">
+              <text class="exercise-title">改错练习</text>
+              <view
+                wx:for="{{item.exerciseViews}}"
+                wx:for-item="exercise"
+                wx:key="key"
+                class="exercise"
+                data-key="{{exercise.key}}"
+                bindtap="onReveal"
+                aria-role="button"
+              >
+                <text class="exercise-text serif">{{exercise.wrong}}</text>
+                <view wx:if="{{revealed[exercise.key]}}" class="pair">
+                  <text class="pair-mark pair-right">✓</text>
+                  <text class="pair-text serif">{{exercise.right}}</text>
+                </view>
+                <text wx:else class="exercise-hint">轻点看答案</text>
+              </view>
+            </block>
+          </view>
+        </block>
+
+        <!-- 短文 -->
+        <block wx:elif="{{section === 'story'}}">
+          <view wx:if="{{story}}" class="story">
+            <text wx:if="{{story.title}}" class="story-title serif">{{story.title}}</text>
+            <view class="story-actions">
+              <view class="story-action" bindtap="onPlayStory" aria-role="button">
+                <text>{{playing === story.key ? '■ 停止' : '▶︎ 朗读'}}</text>
+              </view>
+              <view wx:if="{{story.zh}}" class="story-action" bindtap="onToggleStoryZh" aria-role="button">
+                <text>{{showStoryZh ? '隐藏译文' : '显示译文'}}</text>
+              </view>
+            </view>
+            <!-- One line on purpose: whitespace inside <text> is rendered. -->
+            <text class="story-text serif" user-select><text wx:for="{{story.segments}}" wx:key="index" class="{{item.word ? 'story-word' : ''}}">{{item.text}}</text></text>
+            <text wx:if="{{showStoryZh}}" class="story-zh">{{story.zh}}</text>
+          </view>
+        </block>
+
+        <!-- 易错 -->
+        <block wx:elif="{{section === 'mistakes'}}">
+          <view wx:for="{{mistakes}}" wx:key="itemId" class="entry">
+            <text class="entry-phrase serif" user-select>{{item.display}}</text>
+            <text wx:if="{{item.note}}" class="gloss-line">{{item.note}}</text>
+            <view wx:if="{{item.example.en}}" class="example">
+              <text class="example-en serif" user-select>{{item.example.en}}</text>
+              <text wx:if="{{item.example.zh}}" class="example-zh">{{item.example.zh}}</text>
+            </view>
+          </view>
+        </block>
+      </block>
+
+      <view wx:elif="{{phase === 'none'}}" class="none">
+        <text class="none-title">{{noneText}}</text>
+        <text class="none-note">每天早上 5 点，前一天查过的单词、句子和纠错会整理成一份材料。</text>
+      </view>
+
+      <view wx:elif="{{phase === 'error'}}" class="none">
+        <text class="error">{{errorText}}</text>
+        <view class="retry" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+      </view>
+
+      <text wx:else class="empty">加载中…</text>
+    </view>
+  </scroll-view>
+</view>

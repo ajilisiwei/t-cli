@@ -1,0 +1,95 @@
+<view class="page theme-{{theme}}">
+  <nav-bar title="周报" back />
+  <view wx:if="{{loaded && !empty}}" class="weeknav">
+    <view
+      class="step {{hasPrevious ? '' : 'step-off'}}"
+      bindtap="onPrevious"
+      aria-role="button"
+      aria-label="上一周"
+      aria-disabled="{{!hasPrevious}}"
+    >
+      <text>‹ 上一周</text>
+    </view>
+    <text class="range">{{range}}</text>
+    <view
+      class="step step-right {{hasNext ? '' : 'step-off'}}"
+      bindtap="onNext"
+      aria-role="button"
+      aria-label="下一周"
+      aria-disabled="{{!hasNext}}"
+    >
+      <text>下一周 ›</text>
+    </view>
+  </view>
+
+  <scroll-view class="body" scroll-y type="list" show-scrollbar="{{false}}">
+    <view class="content {{loading && loaded ? 'switching' : ''}}">
+      <text wx:if="{{loading && !loaded}}" class="empty">加载中…</text>
+      <view wx:if="{{errorText}}" class="failed">
+        <text class="error">{{errorText}}</text>
+        <view class="button button-quiet" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+      </view>
+
+      <view wx:if="{{loaded && empty}}" class="nothing">
+        <text class="nothing-title">还没有周报</text>
+        <text class="notice">每周整理一次：这一周查了多少、新学了哪些、复习记住了多少，以及最常错的语法和反复查的词。</text>
+      </view>
+
+      <block wx:if="{{loaded && !empty}}">
+        <text wx:if="{{summary}}" class="summary" user-select>{{summary}}</text>
+
+        <view class="totals">
+          <view wx:for="{{totals}}" wx:key="key" class="total" aria-label="{{item.value}} {{item.label}}">
+            <text class="total-value serif">{{item.value}}</text>
+            <text class="total-label">{{item.label}}</text>
+          </view>
+        </view>
+
+        <text class="section-title">保持率</text>
+        <view class="retention" aria-label="保持率：本周 {{thisWeek}}，上周 {{lastWeek}}">
+          <view class="retention-cell">
+            <text class="retention-value serif">{{thisWeek}}</text>
+            <text class="total-label">本周</text>
+          </view>
+          <view class="retention-cell">
+            <text class="retention-value retention-last serif">{{lastWeek}}</text>
+            <text class="total-label">上周</text>
+          </view>
+        </view>
+        <text wx:if="{{change}}" class="change">{{change}}</text>
+
+        <block wx:if="{{topErrors.length > 0}}">
+          <text class="section-title">最常错的语法</text>
+          <view
+            wx:for="{{topErrors}}"
+            wx:key="key"
+            class="row"
+            data-text="{{item.text}}"
+            bindtap="onSearchGrammar"
+            aria-role="button"
+            aria-label="{{item.text}}，{{item.count}}"
+          >
+            <text class="ranked-text">{{item.text}}</text>
+            <text class="row-value">{{item.count}}</text>
+          </view>
+        </block>
+
+        <block wx:if="{{topLookups.length > 0}}">
+          <text class="section-title">反复查询</text>
+          <view
+            wx:for="{{topLookups}}"
+            wx:key="key"
+            class="row"
+            data-text="{{item.text}}"
+            bindtap="onSearchLookup"
+            aria-role="button"
+            aria-label="{{item.text}}，{{item.count}}"
+          >
+            <text class="ranked-text serif">{{item.text}}</text>
+            <text class="row-value">{{item.count}}</text>
+          </view>
+        </block>
+      </block>
+    </view>
+  </scroll-view>
+</view>

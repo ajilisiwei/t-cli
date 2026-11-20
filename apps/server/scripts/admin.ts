@@ -5,6 +5,11 @@
  *   npm run admin -w @t-cli/server -- set-role <userId> <admin|member>
  *   npm run admin -w @t-cli/server -- approve-device <userCode> <userId>
  *   npm run admin -w @t-cli/server -- list-users
+ *   npm run admin -w @t-cli/server -- run-pipeline [userId]
+ *
+ * `run-pipeline` runs the nightly AI pipeline now (every account with
+ * records, or one) and prints a summary of counts. It also reads the
+ * DEEPSEEK_*, AI_PIPELINE_TOKENS_PER_RUN and ALERT_* variables.
  *
  * `approve-device` lets an account owner log the CLI in before the
  * mini-program exists: run `t-cli login`, then approve the 6-digit code here.
@@ -12,11 +17,14 @@
 import { parseArgs } from 'node:util';
 import { and, count, eq, isNull, sql } from 'drizzle-orm';
 import { DrizzleQueryError } from 'drizzle-orm/errors';
+import { loadConfig } from '../src/config.ts';
 import { createDb, type Database } from '../src/db/client.ts';
 import { devices, invites, users } from '../src/db/schema.ts';
+import { createLlmClient } from '../src/modules/ai/llm.ts';
 import { isActiveAccount } from '../src/modules/auth/accounts.ts';
 import { decideDeviceAuthorization } from '../src/modules/auth/deviceFlow.ts';
 import { generateInviteCode } from '../src/modules/auth/tokens.ts';
+import { createAlerter, runPipeline, type AccountRunSummary } from '../src/modules/pipeline/index.ts';
 
 const DAY_MS = 86_400_000;
 const MAX_INVITE_DAYS = 365;
@@ -27,7 +35,9 @@ const USAGE = `usage: admin.ts <command>
   invite [--days N]                    create an invite code (default 7 days)
   set-role <userId> <admin|member>     change an account's role
   approve-device <userCode> <userId>   approve a pending CLI login for an account
-  list-users                           list accounts`;
+  list-users                           list accounts
+  run-pipeline [userId]                run the nightly AI pipeline now (all accounts, or one)`;
+const COMMANDS = ['invite', 'set-role', 'approve-device', 'list-users', 'run-pipeline'];
 
 class UsageError extends Error {}
 
@@ -87,17 +97,61 @@ async function listUsers(db: Database): Promise<void> {
   );
 }
 
+/** One row per account: ids, counts and error classes only (never user text). */
+function summaryRow(summary: AccountRunSummary): Record<string, string | number> {
+  return {
+    userId: summary.userId,
+    status: summary.status,
+    error: summary.error ?? '',
+    entries: summary.entriesProcessed,
+    skipped: summary.recordsSkipped,
+    newItems: summary.itemsCreated,
+    sources: summary.sourcesAdded,
+    generated: summary.itemsGenerated,
+    needsRegen: summary.itemsNeedsRegen,
+    newCards: summary.cardsCreated,
+    updatedCards: summary.cardsUpdated,
+    daily: summary.daily ? `${summary.daily.date} ${summary.daily.outcome}` : '',
+    weekly: summary.weekly ? `${summary.weekly.date} ${summary.weekly.outcome}` : '',
+    tokens: summary.tokens,
+    seconds: Math.round(summary.ms / 100) / 10,
+  };
+}
+
+async function runPipelineNow(db: Database, [userId, ...rest]: string[]): Promise<void> {
+  if (rest.length > 0) throw new UsageError('run-pipeline [userId]');
+  if (userId !== undefined && !(await isActiveAccount(db, userId))) throw new Error(`no active account ${userId}`);
+  // Only the AI, pipeline and alert settings matter here; the server's JWT secret does not.
+  const config = loadConfig({ ...process.env, JWT_SECRET: process.env.JWT_SECRET ?? 'unused-by-admin-run-pipeline-0123456789' });
+  const log = {
+    info: (obj: object, msg: string) => console.error(msg, JSON.stringify(obj)),
+    warn: (obj: object, msg: string) => console.error(msg, JSON.stringify(obj)),
+  };
+  const summaries = await runPipeline(
+    { config, db, clock: () => new Date(), llm: createLlmClient(config), alerter: createAlerter(config, log) },
+    { userId },
+  );
+  if (summaries.length === 0) console.log('no accounts with records');
+  else console.table(summaries.map(summaryRow));
+  for (const summary of summaries) {
+    if (Object.keys(summary.rejected).length > 0) console.log(`${summary.userId} rejected answers: ${JSON.stringify(summary.rejected)}`);
+  }
+  if (summaries.some((summary) => summary.status === 'failed')) process.exitCode = 1;
+}
+
 async function main(argv: string[]): Promise<void> {
   const [command, ...args] = argv;
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is required');
-  if (!command || !['invite', 'set-role', 'approve-device', 'list-users'].includes(command)) throw new UsageError(USAGE);
+  if (!command || !COMMANDS.includes(command)) throw new UsageError(USAGE);
 
-  const { db, sql: client } = createDb(url, { max: 1 });
+  // The pipeline holds an account lock on one connection while it works on others.
+  const { db, sql: client } = createDb(url, { max: command === 'run-pipeline' ? 3 : 1 });
   try {
     if (command === 'invite') await createInvite(db, args);
     else if (command === 'set-role') await setRole(db, args);
     else if (command === 'approve-device') await approveDevice(db, args);
+    else if (command === 'run-pipeline') await runPipelineNow(db, args);
     else await listUsers(db);
   } finally {
     await client.end({ timeout: 5 });

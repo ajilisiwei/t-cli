@@ -7,12 +7,19 @@
  */
 import { errorMessage } from '../../lib/api'
 import { codePointLength, parseWordHeadline, type WordHeadline } from '../../lib/output'
-import { directionLabel, flipDirection, isBusy, outputIsEnglish, type ResultStatus } from '../../lib/result'
+import {
+  directionLabel,
+  flipDirection,
+  isBusy,
+  outputIsEnglish,
+  type ResultState,
+  type ResultStatus,
+} from '../../lib/result'
 import type { Direction } from '../../lib/types'
 import { takeTranslationHandOff } from '../../services/handoff'
 import { utcOffsetMinutes } from '../../services/platform'
 import { createResultRunner, type ResultRunner, type RunnerView } from '../../services/result-runner'
-import { explanationLang } from '../../services/settings'
+import { autoSpeakWord, explanationLang } from '../../services/settings'
 import { speakEntry } from '../../services/speech'
 import { currentTheme, watchTheme, type Theme } from '../../services/theme'
 import { toast } from '../../services/ui'
@@ -35,6 +42,8 @@ interface TranslateData extends ResultView {
   theme: Theme
   input: string
   focus: boolean
+  /** The input has focus: the composer border turns indigo. */
+  focused: boolean
   /** The mic is shown only when the WechatSI plugin is declared and authorized. */
   voiceEnabled: boolean
   recording: boolean
@@ -55,6 +64,7 @@ const initialData: TranslateData = {
   theme: currentTheme(),
   input: '',
   focus: true,
+  focused: false,
   voiceEnabled: false,
   recording: false,
   status: 'idle',
@@ -72,10 +82,15 @@ Page({
   runner: null as ResultRunner | null,
   /** The text of the shown result: what a direction flip re-runs. */
   lastText: '',
+  /** The word result already read aloud automatically (each one once). */
+  autoSpokenId: '',
   stopWatchingTheme: null as (() => void) | null,
 
   onLoad() {
-    this.runner = createResultRunner((view) => this.setData(resultView(view)))
+    this.runner = createResultRunner((view) => {
+      this.setData(resultView(view))
+      this.autoSpeak(view.state)
+    })
     this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme }))
     this.setData({ theme: currentTheme(), voiceEnabled: voiceAvailable() })
   },
@@ -101,6 +116,16 @@ Page({
   onSubmit(event: WechatMiniprogram.TextareaConfirm) {
     this.translate(event.detail.value)
   },
+  /** The send button: same as the keyboard's send key. */
+  onSend() {
+    this.translate(this.data.input)
+  },
+  onFocus() {
+    this.setData({ focused: true })
+  },
+  onBlur() {
+    this.setData({ focused: false })
+  },
 
   onClear() {
     this.runner?.reset()
@@ -122,6 +147,14 @@ Page({
     const state = this.runner?.current().state
     if (state === undefined || state.status !== 'done' || state.entryId === null) return
     speakEntry(state.entryId).catch((error: unknown) => toast(errorMessage(error)))
+  },
+
+  /** 单词自动朗读: a finished word lookup is read aloud once, when the setting is on. */
+  autoSpeak(state: ResultState) {
+    if (state.status !== 'done' || state.kind !== 'word' || state.entryId === null) return
+    if (state.entryId === this.autoSpokenId || !autoSpeakWord()) return
+    this.autoSpokenId = state.entryId
+    speakEntry(state.entryId).catch((error: unknown) => console.warn('[translate] auto speak failed', error))
   },
 
   onCopy() {

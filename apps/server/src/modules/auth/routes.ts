@@ -113,7 +113,7 @@ async function exchangeWechatCode(wechat: WechatClient, code: string, request: F
  */
 export async function registerAuthRoutes(app: FastifyInstance, deps: AppDeps): Promise<void> {
   const { config, db, clock } = deps;
-  const authenticate = requireAuth(config.JWT_SECRET, clock);
+  const authenticate = requireAuth(config.JWT_SECRET, clock, deps.db);
   const refreshTtlDays = config.REFRESH_TOKEN_TTL_DAYS;
   const perIp = () => createRateLimiter({ limit: AUTH_IP_LIMIT_PER_MINUTE, windowMs: MINUTE_MS });
   const limits = {

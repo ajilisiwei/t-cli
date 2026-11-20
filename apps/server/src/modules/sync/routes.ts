@@ -1,14 +1,20 @@
 import type { FastifyInstance } from 'fastify';
+import { and, asc, eq, gte, lt } from 'drizzle-orm';
 import { validateEntry, type Entry } from '@t-cli/core/entry';
 import { z } from 'zod';
-import { insertEntries, listEntriesAfter, listEntriesBefore } from '../../db/entriesRepo.ts';
+import type { Executor } from '../../db/client.ts';
+import { insertEntries, listEntriesAfter, listEntriesBefore, toIsoWithOffset, type SyncedEntry } from '../../db/entriesRepo.ts';
+import { entries } from '../../db/schema.ts';
 import type { AppDeps } from '../../deps.ts';
 import { authOf, requireAuth } from '../../http/auth.ts';
 import { ok } from '../../http/errors.ts';
+import { LocalDate, localDay, UtcOffsetMinutes } from '../review/common.ts';
 
 export const PUSH_MAX_ENTRIES = 500;
 export const PULL_MAX_LIMIT = 500;
 export const HISTORY_MAX_LIMIT = 100;
+/** Records returned for one local day (docs/api-v1.md, `GET /v1/entries/day`). */
+export const DAY_MAX_ENTRIES = 500;
 // Outputs of detail-mode paragraph translations can be long; anything far
 // beyond these is not a real record.
 const INPUT_MAX_CHARS = 20_000;
@@ -28,6 +34,8 @@ const HistoryQuery = z.object({
   before: z.coerce.number().int().min(1).optional(),
   limit: z.coerce.number().int().min(1).max(HISTORY_MAX_LIMIT).default(30),
 });
+
+const DayQuery = z.object({ date: LocalDate, utcOffsetMinutes: UtcOffsetMinutes });
 
 type Rejection = { index: number; id: string | null; errors: string[] };
 
@@ -53,13 +61,42 @@ function partitionEntries(raw: readonly unknown[]): { valid: Entry[]; rejected: 
 }
 
 /**
+ * The account's records made on one local day (at the caller's offset),
+ * oldest first, at most DAY_MAX_ENTRIES.
+ */
+async function listEntriesOfDay(db: Executor, userId: string, { date, utcOffsetMinutes }: { date: string; utcOffsetMinutes: number }): Promise<SyncedEntry[]> {
+  const day = localDay(date, utcOffsetMinutes);
+  const rows = await db
+    .select()
+    .from(entries)
+    .where(and(eq(entries.userId, userId), gte(entries.createdAt, day.start), lt(entries.createdAt, day.end)))
+    .orderBy(asc(entries.createdAt), asc(entries.seq))
+    .limit(DAY_MAX_ENTRIES);
+  return rows.map((row) => ({
+    v: 1,
+    id: row.id,
+    source: row.source,
+    task: row.task,
+    kind: row.kind,
+    input: row.input,
+    output: row.output,
+    srcLang: row.srcLang,
+    mode: row.mode,
+    createdAt: toIsoWithOffset(row.createdAt, row.utcOffsetMinutes),
+    correctedInput: row.correctedInput,
+    seq: row.seq,
+  }));
+}
+
+/**
  * Record sync.
  *   POST /v1/entries   push a batch (idempotent by entry id)
  *   GET  /v1/entries   pull in seq order: ?after=<seq>&limit=<n>
  *   GET  /v1/entries/history  browse newest first: ?before=<seq>&limit=<n>
+ *   GET  /v1/entries/day      one local day, oldest first: ?date=YYYY-MM-DD&utcOffsetMinutes=<n>
  */
 export async function registerSyncRoutes(app: FastifyInstance, deps: AppDeps): Promise<void> {
-  const authenticate = requireAuth(deps.config.JWT_SECRET, deps.clock);
+  const authenticate = requireAuth(deps.config.JWT_SECRET, deps.clock, deps.db);
 
   app.post('/v1/entries', { preHandler: authenticate, bodyLimit: 8 * 1024 * 1024 }, async (request) => {
     const { userId } = authOf(request);
@@ -80,5 +117,11 @@ export async function registerSyncRoutes(app: FastifyInstance, deps: AppDeps): P
     const { userId } = authOf(request);
     const query = HistoryQuery.parse(request.query);
     return ok(await listEntriesBefore(deps.db, userId, query));
+  });
+
+  app.get('/v1/entries/day', { preHandler: authenticate }, async (request) => {
+    const { userId } = authOf(request);
+    const query = DayQuery.parse(request.query);
+    return ok({ entries: await listEntriesOfDay(deps.db, userId, query) });
   });
 }

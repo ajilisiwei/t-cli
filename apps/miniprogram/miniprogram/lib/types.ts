@@ -21,6 +21,12 @@ export interface TokenPair {
 
 export interface Settings {
   readonly explanationLang?: ExplanationLang
+  /** Read a word lookup's result aloud automatically (default true). */
+  readonly autoSpeakWord?: boolean
+  /** Read a review card aloud when it is flipped (default true). */
+  readonly autoSpeakOnFlip?: boolean
+  /** Local hour (0–23) for the daily review reminder; null = off. */
+  readonly reminderHour?: number | null
 }
 
 export interface Me {

@@ -179,6 +179,20 @@ describe('auth: refresh, logout, me and devices', { skip: skipWithoutDb }, () =>
     assert.ok(after.find((d: { id: string }) => d.id === other.deviceId).revokedAt);
   });
 
+  test("a revoked device's unexpired access token stops working at once", async () => {
+    const pair = await signUp();
+    const other = await loginAgain(pair.openid);
+    assert.equal((await app.inject({ method: 'GET', url: '/v1/me', headers: bearer(other.accessToken) })).statusCode, 200);
+
+    await app.inject({ method: 'DELETE', url: `/v1/devices/${other.deviceId}`, headers: bearer(pair.accessToken) });
+    const revoked = await app.inject({ method: 'GET', url: '/v1/me', headers: bearer(other.accessToken) });
+    assert.equal(revoked.statusCode, 401);
+    assert.equal(revoked.json().error.code, 'UNAUTHORIZED');
+
+    await app.inject({ method: 'POST', url: '/v1/auth/logout', headers: bearer(pair.accessToken) });
+    assert.equal((await app.inject({ method: 'GET', url: '/v1/devices', headers: bearer(pair.accessToken) })).statusCode, 401, 'logout too');
+  });
+
   test("an account can neither list nor revoke another account's devices", async () => {
     const alice = await signUp();
     const bob = await signUp();

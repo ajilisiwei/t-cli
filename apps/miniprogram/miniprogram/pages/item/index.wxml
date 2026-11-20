@@ -1,0 +1,147 @@
+<view class="page theme-{{theme}}">
+  <nav-bar title="学习单元" back />
+  <scroll-view class="body" scroll-y type="list" show-scrollbar="{{false}}">
+    <view class="content">
+      <text wx:if="{{loading && !loaded}}" class="empty">加载中…</text>
+      <view wx:if="{{errorText && !loaded}}" class="failed">
+        <text class="error">{{errorText}}</text>
+        <view class="button button-quiet" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+      </view>
+
+      <text wx:if="{{loaded && notice}}" class="status">{{notice}}</text>
+
+      <!-- 单词 -->
+      <view wx:if="{{word}}" class="hero">
+        <view class="headline">
+          <text class="head serif" user-select>{{word.headword}}</text>
+          <text wx:if="{{word.ipa}}" class="ipa serif">/{{word.ipa}}/</text>
+          <view class="speak" bindtap="onSpeak" aria-role="button" aria-label="朗读 {{word.headword}}">
+            <text>{{speaking ? '…' : '▶'}}</text>
+          </view>
+        </view>
+        <text class="meta">{{meta}}</text>
+        <view class="meanings">
+          <text wx:for="{{word.meanings}}" wx:key="key" class="meaning"><text class="pos serif">{{item.pos}}</text>{{item.zh}}</text>
+        </view>
+
+        <block wx:if="{{word.examples.length > 0}}">
+          <text class="section-title">例句</text>
+          <view wx:for="{{word.examples}}" wx:key="key" class="example {{item.fromUser ? 'example-mine' : ''}}">
+            <text wx:if="{{item.fromUser}}" class="mine">你的句子</text>
+            <text class="example-en serif" user-select>{{item.en}}</text>
+            <text wx:if="{{item.zh}}" class="example-zh">{{item.zh}}</text>
+          </view>
+        </block>
+
+        <block wx:if="{{word.collocations.length > 0}}">
+          <text class="section-title">搭配</text>
+          <view class="lines">
+            <text wx:for="{{word.collocations}}" wx:key="*this" class="line serif">{{item}}</text>
+          </view>
+        </block>
+
+        <block wx:if="{{word.synonyms.length > 0}}">
+          <text class="section-title">近义词</text>
+          <view class="lines">
+            <text wx:for="{{word.synonyms}}" wx:key="key" class="line"><text class="serif term">{{item.word}}</text><text class="note">{{item.note ? '  ' + item.note : ''}}</text></text>
+          </view>
+        </block>
+
+        <block wx:if="{{word.family}}">
+          <text class="section-title">词族</text>
+          <text class="line serif">{{word.family}}</text>
+        </block>
+      </view>
+
+      <!-- 句型 -->
+      <view wx:if="{{phrase}}" class="hero">
+        <view class="headline">
+          <text class="phrase-text serif" user-select>{{phrase.phrase}}</text>
+          <view class="speak" bindtap="onSpeak" aria-role="button" aria-label="朗读 {{phrase.phrase}}">
+            <text>{{speaking ? '…' : '▶'}}</text>
+          </view>
+        </view>
+        <text wx:if="{{phrase.zh}}" class="gloss">{{phrase.zh}}</text>
+        <text class="meta">{{meta}}{{phrase.register ? ' · ' + phrase.register : ''}}</text>
+
+        <block wx:if="{{phrase.alternatives.length > 0}}">
+          <text class="section-title">换个说法</text>
+          <view class="lines">
+            <view wx:for="{{phrase.alternatives}}" wx:key="key" class="alternative">
+              <text class="serif term">≈ {{item.en}}</text>
+              <text wx:if="{{item.note}}" class="note-block">{{item.note}}</text>
+            </view>
+          </view>
+        </block>
+
+        <block wx:if="{{phrase.examples.length > 0}}">
+          <text class="section-title">例句</text>
+          <view wx:for="{{phrase.examples}}" wx:key="key" class="example {{item.fromUser ? 'example-mine' : ''}}">
+            <text wx:if="{{item.fromUser}}" class="mine">你的句子</text>
+            <text class="example-en serif" user-select>{{item.en}}</text>
+            <text wx:if="{{item.zh}}" class="example-zh">{{item.zh}}</text>
+          </view>
+        </block>
+      </view>
+
+      <!-- 语法 -->
+      <view wx:if="{{grammar}}" class="hero">
+        <text class="grammar-title">{{grammar.title}}</text>
+        <text class="meta">{{meta}}</text>
+        <text wx:if="{{grammar.rule}}" class="grammar-rule">{{grammar.rule}}</text>
+        <view wx:if="{{grammar.wrong || grammar.right}}" class="contrast">
+          <view wx:if="{{grammar.wrong}}" class="contrast-line" aria-label="错误：{{grammar.wrong}}">
+            <text class="mark mark-wrong">✗</text>
+            <text class="wrong serif">{{grammar.wrong}}</text>
+          </view>
+          <view wx:if="{{grammar.right}}" class="contrast-line contrast-right" aria-label="正确：{{grammar.right}}">
+            <text class="mark mark-right">✓</text>
+            <text class="right serif" user-select>{{grammar.right}}</text>
+            <view class="speak speak-middle" bindtap="onSpeak" aria-role="button" aria-label="朗读正确的句子">
+              <text>{{speaking ? '…' : '▶'}}</text>
+            </view>
+          </view>
+        </view>
+
+        <block wx:if="{{exercises.length > 0}}">
+          <text class="section-title">练习 · 点一下看答案</text>
+          <view
+            wx:for="{{exercises}}"
+            wx:key="key"
+            class="exercise"
+            data-index="{{index}}"
+            bindtap="onReveal"
+            aria-role="button"
+            aria-label="第 {{index + 1}} 题：{{item.wrong}}{{item.revealed ? '。答案：' + item.right : '。点一下看答案'}}"
+          >
+            <text class="exercise-wrong serif">{{index + 1}}. {{item.wrong}}</text>
+            <text wx:if="{{item.revealed}}" class="exercise-right serif">✓ {{item.right}}</text>
+            <text wx:else class="exercise-hint">看答案</text>
+          </view>
+        </block>
+      </view>
+
+      <!-- No content yet: the unit's name and why. -->
+      <view wx:if="{{loaded && !word && !phrase && !grammar}}" class="hero">
+        <text class="head serif">{{display}}</text>
+        <text class="meta">{{meta}}</text>
+      </view>
+
+      <block wx:if="{{cards.length > 0}}">
+        <text class="section-title">复习卡片</text>
+        <view wx:for="{{cards}}" wx:key="id" class="row">
+          <text class="row-label {{item.resting ? 'resting' : ''}}">{{item.typeLabel}}<text class="card-state"> · {{item.stateLabel}}</text></text>
+          <text class="row-value">{{item.dueLabel}}</text>
+        </view>
+      </block>
+
+      <block wx:if="{{sources.length > 0}}">
+        <text class="section-title">来自这些记录</text>
+        <view wx:for="{{sources}}" wx:key="id" class="source">
+          <text class="source-input">{{item.input}}</text>
+          <text wx:if="{{item.time}}" class="source-time">{{item.time}}</text>
+        </view>
+      </block>
+    </view>
+  </scroll-view>
+</view>

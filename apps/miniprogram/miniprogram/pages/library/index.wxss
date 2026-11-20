@@ -1,0 +1,97 @@
+/* Search and chips stay above the scrolling list. */
+.filters {
+  flex-shrink: 0;
+  padding: 8rpx 40rpx 24rpx;
+  border-bottom: 1px solid var(--rule);
+}
+
+.search {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: 80rpx;
+  padding: 0 8rpx 0 28rpx;
+  background-color: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 40rpx;
+}
+
+.search-focused {
+  border-color: var(--accent);
+}
+
+.search-input {
+  flex: 1;
+  height: 80rpx;
+  color: var(--ink);
+  font-size: 30rpx;
+}
+
+.chips {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  margin-top: 20rpx;
+}
+
+.chip {
+  margin-right: 16rpx;
+  padding: 6rpx 26rpx;
+  border: 1px solid var(--rule);
+  border-radius: 32rpx;
+  color: var(--muted);
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+
+.chip-on {
+  border-color: var(--accent-soft);
+  background-color: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.unit {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 26rpx 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.unit-main {
+  flex: 1;
+  min-width: 0;
+  margin-right: 24rpx;
+}
+
+.unit-display {
+  display: block;
+  font-size: 36rpx;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.unit-meta {
+  display: block;
+  margin-top: 6rpx;
+  color: var(--muted);
+  font-size: 24rpx;
+}
+
+.level {
+  flex-shrink: 0;
+  font-size: 24rpx;
+}
+
+.level-new {
+  color: var(--muted);
+}
+
+.level-learning {
+  color: var(--accent);
+}
+
+.level-mastered {
+  color: var(--ink-soft);
+}

@@ -1,21 +1,17 @@
 import { performance } from 'node:perf_hooks';
 import type { FastifyInstance } from 'fastify';
 import { containsCJK } from '@t-cli/core/detect';
-import { speakableForEntry } from '@t-cli/core/speakable';
-import { z } from 'zod';
-import { getEntry } from '../../db/entriesRepo.ts';
 import type { AppDeps } from '../../deps.ts';
 import { authOf, requireAuth } from '../../http/auth.ts';
 import { AppError, loggableError, notFound } from '../../http/errors.ts';
 import { createByteLruCache } from '../../lib/byteLruCache.ts';
 import { createRateLimiter } from '../../lib/rateLimit.ts';
+import { speakableText, targetOf, TtsBody } from './targets.ts';
 
 /** Longest text read aloud, in code points. */
 export const TTS_TEXT_MAX_CHARS = 1000;
 /** Same neural voices as the CLI's `/say` (apps/cli/src/tts.js). */
 export const TTS_VOICES = Object.freeze({ zh: 'zh-CN-XiaoxiaoNeural', en: 'en-US-AriaNeural' });
-
-const TtsBody = z.object({ entryId: z.string().trim().min(1).max(64) });
 
 /** Text containing CJK → the Chinese voice, otherwise American English. */
 export function voiceFor(text: string): string {
@@ -25,28 +21,29 @@ export function voiceFor(text: string): string {
 const sinceMs = (startedAt: number): number => Math.round(performance.now() - startedAt);
 
 /**
- * Speech (docs/api-v1.md, "Speech"):
+ * Speech (docs/api-v1.md, "Speech" and "Speech (extended)"):
  *
- *   POST /v1/tts  → audio/mpeg for one of the caller's entries
+ *   POST /v1/tts  → audio/mpeg for one of the caller's entries, cards, items
+ *                   or daily stories
  *
- * The client names an entry, never free text: the server picks what to read
- * (speakableForEntry), so the endpoint cannot be used as a general TTS proxy.
- * Order of checks: auth → validation → enabled → per-minute limit → entry →
+ * The client names a target, never free text: the server picks what to read
+ * (targets.ts), so the endpoint cannot be used as a general TTS proxy.
+ * Order of checks: auth → validation → enabled → per-minute limit → target →
  * text → cache → upstream. Logs sizes, timings and outcomes only — never the
  * text.
  */
 export async function registerTtsRoutes(app: FastifyInstance, deps: AppDeps): Promise<void> {
   const { config } = deps;
-  const authenticate = requireAuth(config.JWT_SECRET, deps.clock);
+  const authenticate = requireAuth(config.JWT_SECRET, deps.clock, deps.db);
   const perMinute = createRateLimiter({ limit: config.TTS_REQUESTS_PER_MINUTE, windowMs: 60_000 });
   const cache = createByteLruCache({ maxBytes: config.TTS_CACHE_MAX_BYTES });
 
   app.post('/v1/tts', { preHandler: authenticate, bodyLimit: 4 * 1024 }, async (request, reply) => {
     const startedAt = performance.now();
     const { userId } = authOf(request);
-    const { entryId } = TtsBody.parse(request.body);
+    const target = targetOf(TtsBody.parse(request.body));
     const log = (level: 'info' | 'warn', outcome: string, extra: Record<string, unknown> = {}): void => {
-      request.log[level]({ userId, entryId, ...extra, totalMs: sinceMs(startedAt), outcome }, 'tts request');
+      request.log[level]({ userId, target: target.kind, targetId: target.id, ...extra, totalMs: sinceMs(startedAt), outcome }, 'tts request');
     };
 
     if (!config.TTS_ENABLED) {
@@ -62,17 +59,15 @@ export async function registerTtsRoutes(app: FastifyInstance, deps: AppDeps): Pr
       throw new AppError(429, 'RATE_LIMITED', 'too many speech requests, slow down', { retryAfterSeconds });
     }
 
-    const entry = await getEntry(deps.db, userId, entryId);
-    if (!entry) {
+    const text = await speakableText(deps.db, userId, target);
+    if (text === null) {
       log('info', 'not_found');
-      throw notFound('entry');
+      throw notFound(target.kind);
     }
-
-    const text = speakableForEntry(entry);
     const textChars = [...text].length;
     if (textChars === 0) {
       log('info', 'nothing_to_speak');
-      throw new AppError(422, 'NOTHING_TO_SPEAK', 'the entry has no text to read aloud');
+      throw new AppError(422, 'NOTHING_TO_SPEAK', `the ${target.kind} has no text to read aloud`);
     }
     if (textChars > TTS_TEXT_MAX_CHARS) {
       log('info', 'text_too_long', { textChars });

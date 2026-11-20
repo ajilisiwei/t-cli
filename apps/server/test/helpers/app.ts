@@ -3,7 +3,16 @@ import { buildApp } from '../../src/app.ts';
 import { loadConfig, type Config } from '../../src/config.ts';
 import type { Database } from '../../src/db/client.ts';
 import type { AppDeps } from '../../src/deps.ts';
-import type { ChatMessage, LlmClient, TtsClient, WechatClient } from '../../src/ports.ts';
+import type {
+  Alerter,
+  ChatMessage,
+  ItemRegenerator,
+  JsonCompletion,
+  LlmClient,
+  LlmUsage,
+  TtsClient,
+  WechatClient,
+} from '../../src/ports.ts';
 import { AppError } from '../../src/http/errors.ts';
 
 export const TEST_JWT_SECRET = 'test-only-jwt-secret-0123456789abcdef0123456789';
@@ -48,17 +57,45 @@ export function fakeWechat(codes: Record<string, string> = {}): WechatClient {
   };
 }
 
-/** Fake LLM: streams the given chunks (or chunks computed from the messages). */
-export function fakeLlm(reply: readonly string[] | ((messages: readonly ChatMessage[]) => readonly string[]) = ['ok']): LlmClient & {
+export interface FakeLlmOptions {
+  /**
+   * Answers completeJson: the JSON text, or the text with its usage (a bare
+   * string reports 100 prompt + 50 completion tokens). Throwing simulates an
+   * upstream failure. Omitted → completeJson rejects.
+   */
+  json?: (messages: readonly ChatMessage[]) => string | JsonCompletion | Promise<string | JsonCompletion>;
+  /** Usage streamChat reports through onUsage after the last chunk; omitted → none (callers estimate). */
+  streamUsage?: LlmUsage;
+}
+
+export interface FakeLlm extends LlmClient {
   calls: (readonly ChatMessage[])[];
-} {
-  const calls: (readonly ChatMessage[])[] = [];
+  jsonCalls: { messages: readonly ChatMessage[]; maxTokens: number }[];
+}
+
+export const FAKE_JSON_USAGE: LlmUsage = { promptTokens: 100, completionTokens: 50 };
+
+/** Fake LLM: streams the given chunks (or chunks computed from the messages); completeJson answers via `options.json`. */
+export function fakeLlm(
+  reply: readonly string[] | ((messages: readonly ChatMessage[]) => readonly string[]) = ['ok'],
+  options: FakeLlmOptions = {},
+): FakeLlm {
+  const calls: FakeLlm['calls'] = [];
+  const jsonCalls: FakeLlm['jsonCalls'] = [];
   return {
     calls,
-    async *streamChat(messages) {
+    jsonCalls,
+    async *streamChat(messages, { onUsage }) {
       calls.push(messages);
       const chunks = typeof reply === 'function' ? reply(messages) : reply;
       for (const chunk of chunks) yield chunk;
+      if (options.streamUsage) onUsage?.(options.streamUsage);
+    },
+    async completeJson(messages, { maxTokens }) {
+      jsonCalls.push({ messages, maxTokens });
+      if (!options.json) throw new Error('fakeLlm: no JSON responder configured');
+      const answer = await options.json(messages);
+      return typeof answer === 'string' ? { content: answer, usage: FAKE_JSON_USAGE } : answer;
     },
   };
 }
@@ -84,6 +121,37 @@ export function fakeTts(
   };
 }
 
+export interface FakeRegenerator extends ItemRegenerator {
+  calls: { userId: string; itemId: string }[];
+}
+
+/** Fake "内容有误" regenerator: records calls; `fail` makes it reject. */
+export function fakeRegenerator(fail = false): FakeRegenerator {
+  const calls: FakeRegenerator['calls'] = [];
+  return {
+    calls,
+    async regenerate(userId, itemId) {
+      calls.push({ userId, itemId });
+      if (fail) throw new Error('regeneration failed');
+    },
+  };
+}
+
+export interface FakeAlerter extends Alerter {
+  alerts: { kind: string; message: string }[];
+}
+
+/** Fake alerter: records alerts so tests can assert on them (and that no user text leaks into them). */
+export function fakeAlerter(): FakeAlerter {
+  const alerts: FakeAlerter['alerts'] = [];
+  return {
+    alerts,
+    async alert(kind, message) {
+      alerts.push({ kind, message });
+    },
+  };
+}
+
 export async function buildTestApp(db: Database, overrides: Partial<AppDeps> = {}): Promise<FastifyInstance> {
   const app = await buildApp({
     config: testConfig(),
@@ -92,6 +160,8 @@ export async function buildTestApp(db: Database, overrides: Partial<AppDeps> = {
     wechat: fakeWechat(),
     llm: fakeLlm(),
     tts: fakeTts(),
+    regenerator: fakeRegenerator(),
+    alerter: fakeAlerter(),
     ...overrides,
   });
   await app.ready();

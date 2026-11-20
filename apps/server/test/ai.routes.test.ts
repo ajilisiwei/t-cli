@@ -5,10 +5,11 @@ import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { buildSourceMessage, getCheckPrompt, getTranslatePrompt } from '@t-cli/core/prompts';
 import { insertEntries, listEntriesAfter } from '../src/db/entriesRepo.ts';
-import { aiUsage } from '../src/db/schema.ts';
+import { aiUsage, users } from '../src/db/schema.ts';
 import { AppError } from '../src/http/errors.ts';
 import { createLlmClient } from '../src/modules/ai/llm.ts';
-import { consumeDailyQuota, localDay } from '../src/modules/ai/quota.ts';
+import { consumeDailyQuota, isMissingAccount, localDay, recordTokens } from '../src/modules/ai/quota.ts';
+import { estimatePromptTokens } from '../src/modules/ai/usage.ts';
 import type { LlmClient } from '../src/ports.ts';
 import { buildAiPrompt } from '../src/modules/ai/prompt.ts';
 import {
@@ -32,6 +33,10 @@ const URL_PATH = '/v1/ai/translate';
 // getTranslatePrompt is untyped JS; its 4th parameter is the detected source language.
 const translatePrompt = getTranslatePrompt as (lang: string, simple: boolean, word: boolean, src: 'zh' | 'en' | 'other' | null) => string;
 
+const noJson = async (): Promise<never> => {
+  throw new Error('not used by the AI proxy');
+};
+
 /** An LLM that fails before producing anything. */
 function failingLlm(error: unknown): LlmClient {
   return {
@@ -39,6 +44,7 @@ function failingLlm(error: unknown): LlmClient {
     async *streamChat() {
       throw error;
     },
+    completeJson: noJson,
   };
 }
 
@@ -49,6 +55,7 @@ function failingMidStreamLlm(chunks: readonly string[], error: unknown): LlmClie
       for (const chunk of chunks) yield chunk;
       throw error;
     },
+    completeJson: noJson,
   };
 }
 
@@ -398,9 +405,99 @@ describe('AI proxy routes', { skip: skipWithoutDb }, () => {
     }
     const res = await translate(app, account, { text: 'one more', task: 'translate' });
     assert.equal(res.statusCode, 429);
-    assert.deepEqual(res.json().error, { code: 'QUOTA_EXCEEDED', message: 'daily AI quota exhausted', details: { limit: 3 } });
+    assert.deepEqual(res.json().error, {
+      code: 'QUOTA_EXCEEDED',
+      message: 'daily AI quota exhausted',
+      details: { limit: 3, kind: 'requests' },
+    });
     assert.equal(llm.calls.length, 3);
     assert.deepEqual(await usageRows(account.userId), [{ day: '2026-11-17', requests: 3 }]);
+  });
+
+  const tokenRows = async (userId: string) =>
+    (await t.db.select().from(aiUsage).where(eq(aiUsage.userId, userId)))
+      .map(({ day, requests, tokens, pipelineTokens }) => ({ day, requests, tokens, pipelineTokens }))
+      .sort((a, b) => a.day.localeCompare(b.day));
+  /** Tokens are booked right after the response ended, so poll briefly for them. */
+  const tokensBooked = async (userId: string, expected: number): Promise<void> => {
+    for (let i = 0; i < 50; i += 1) {
+      if ((await tokenRows(userId)).reduce((sum, row) => sum + row.tokens, 0) >= expected) return;
+      await sleep(10);
+    }
+  };
+
+  test("each request's tokens go to the day's budget: as reported, else estimated as code points / 2", async (ctx) => {
+    const reported = fakeLlm(['The ', 'answer'], { streamUsage: { promptTokens: 120, completionTokens: 30 } });
+    const first = await setup(ctx, { llm: reported });
+    assert.equal((await translate(first.app, first.account, { text: 'hello', task: 'translate' })).statusCode, 200);
+    await tokensBooked(first.account.userId, 150);
+    assert.deepEqual(await tokenRows(first.account.userId), [{ day: '2026-11-17', requests: 1, tokens: 150, pipelineTokens: 0 }]);
+
+    const silent = fakeLlm(['ab', '好']);
+    const second = await setup(ctx, { llm: silent });
+    assert.equal((await translate(second.app, second.account, { text: '你好', task: 'translate' })).statusCode, 200);
+    const { messages } = buildAiPrompt({ text: '你好', task: 'translate', mode: 'simple', lang: 'zh' });
+    const expected = estimatePromptTokens(messages) + Math.ceil(3 / 2);
+    await tokensBooked(second.account.userId, expected);
+    assert.deepEqual(await tokenRows(second.account.userId), [{ day: '2026-11-17', requests: 1, tokens: expected, pipelineTokens: 0 }]);
+  });
+
+  test('token budget reached → 429 QUOTA_EXCEEDED kind tokens, before any upstream call; the refused request is not counted', async (ctx) => {
+    const llm = fakeLlm(['ok'], { streamUsage: { promptTokens: 50, completionTokens: 10 } });
+    const { app, account } = await setup(ctx, { llm, config: { AI_TOKENS_PER_DAY: '100' } });
+    assert.equal((await translate(app, account, { text: 'one', task: 'translate' })).statusCode, 200);
+    await tokensBooked(account.userId, 60);
+    assert.equal((await translate(app, account, { text: 'two', task: 'translate' })).statusCode, 200, '60 < 100: still allowed');
+    await tokensBooked(account.userId, 120);
+    const res = await translate(app, account, { text: 'three', task: 'translate' });
+    assert.equal(res.statusCode, 429);
+    assert.deepEqual(res.json().error, {
+      code: 'QUOTA_EXCEEDED',
+      message: 'daily AI token budget exhausted',
+      details: { limit: 100, kind: 'tokens' },
+    });
+    assert.equal(llm.calls.length, 2);
+    assert.deepEqual(await tokenRows(account.userId), [{ day: '2026-11-17', requests: 2, tokens: 120, pipelineTokens: 0 }]);
+
+    // Another local day (New York is still on the 16th) has its own budget.
+    assert.equal((await translate(app, account, { text: 'four', task: 'translate', utcOffsetMinutes: -300 })).statusCode, 200);
+  });
+
+  test('consumeDailyQuota names the exhausted limit; pipeline tokens do not count against the interactive budget', async () => {
+    const { userId } = await createAccount(t.db);
+    const day = '2026-11-17';
+    await recordTokens(t.db, { userId, day, tokens: 5000, kind: 'pipeline' });
+    assert.deepEqual(await consumeDailyQuota(t.db, { userId, day, limit: 2, tokenLimit: 100 }), { allowed: true, used: 1 });
+    await recordTokens(t.db, { userId, day, tokens: 100, kind: 'interactive' });
+    assert.deepEqual(await consumeDailyQuota(t.db, { userId, day, limit: 2, tokenLimit: 100 }), { allowed: false, used: null, kind: 'tokens' });
+    assert.deepEqual(await consumeDailyQuota(t.db, { userId, day, limit: 1, tokenLimit: 100 }), { allowed: false, used: null, kind: 'requests' });
+    assert.deepEqual(await tokenRows(userId), [{ day, requests: 1, tokens: 100, pipelineTokens: 5000 }]);
+  });
+
+  test("a deleted account's still-valid token → 401 UNAUTHORIZED before any quota charge or upstream call", async (ctx) => {
+    const llm = fakeLlm();
+    const { app, account } = await setup(ctx, { llm });
+    await t.db.delete(users).where(eq(users.id, account.userId)); // POST /v1/me/delete: hard delete, cascade
+    const res = await translate(app, account, { text: 'hello', task: 'translate' });
+    assert.equal(res.statusCode, 401);
+    assert.equal(res.json().error.code, 'UNAUTHORIZED');
+    assert.equal(llm.calls.length, 0);
+    assert.deepEqual(await tokenRows(account.userId), []);
+
+    const soft = await createAccount(t.db, { kind: 'mp' });
+    await t.db.update(users).set({ deletedAt: new Date() }).where(eq(users.id, soft.userId));
+    assert.equal((await translate(app, soft, { text: 'hello', task: 'translate' })).statusCode, 401);
+    assert.equal(llm.calls.length, 0);
+  });
+
+  test('usage writes for a vanished account: the quota upsert is recognizable as such, token recording is a no-op', async () => {
+    const { userId } = await createAccount(t.db);
+    await t.db.delete(users).where(eq(users.id, userId));
+    await assert.rejects(consumeDailyQuota(t.db, { userId, day: '2026-11-17', limit: 5 }), (error: unknown) => isMissingAccount(error));
+    await recordTokens(t.db, { userId, day: '2026-11-17', tokens: 500, kind: 'interactive' });
+    await recordTokens(t.db, { userId, day: '2026-11-17', tokens: 500, kind: 'pipeline' });
+    assert.deepEqual(await tokenRows(userId), []);
+    assert.equal(isMissingAccount(new Error('other')), false);
   });
 
   test('a concurrent burst never exceeds the daily quota', async (ctx) => {

@@ -1,0 +1,57 @@
+/* The export file, ready to send: a quiet surface like the composer. */
+.file {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 32rpx;
+  padding: 20rpx 20rpx 20rpx 28rpx;
+  background-color: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 20rpx;
+}
+
+.file-info {
+  flex: 1;
+  min-width: 0;
+  margin-right: 16rpx;
+}
+
+.file-name {
+  display: block;
+  font-size: 28rpx;
+  word-break: break-all;
+}
+
+.file-size {
+  display: block;
+  color: var(--muted);
+  font-size: 24rpx;
+}
+
+.file-send {
+  flex-shrink: 0;
+  padding: 12rpx 28rpx;
+  border-radius: 32rpx;
+  background-color: var(--accent);
+  color: var(--accent-ink);
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.facts {
+  margin-top: 8rpx;
+}
+
+.fact {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 28rpx;
+  line-height: 1.7;
+}
+
+/* Destructive, but not loud: danger text on the ground with a hairline. */
+.button-danger {
+  background-color: transparent;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}

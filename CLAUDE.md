@@ -17,6 +17,7 @@ All commands run from the repository root (npm workspaces).
 - **Server dev login**: `WECHAT_DEV_LOGIN=1` makes `POST /v1/auth/wechat` accept `dev:<name>` codes without calling WeChat (mini-program simulator); the server refuses to start with it when `NODE_ENV=production`.
 - **Server typecheck**: `npm run typecheck -w @t-cli/server` (Node 24 runs the TypeScript sources directly; erasable syntax only, relative imports end in `.ts`).
 - **Server deploy**: see `apps/server/deploy/README.md`; API contract in `docs/api-v1.md`.
+- **Run the AI pipeline now**: `npm run admin -w @t-cli/server -- run-pipeline [userId]` (needs `DATABASE_URL` and `DEEPSEEK_API_KEY`). In production: `docker exec tcli-api node --disable-warning=ExperimentalWarning scripts/admin.ts run-pipeline [userId]`.
 - **Mini-program**: `npm run typecheck -w @t-cli/miniprogram`; unit tests run with `npm test`. Pure logic in `apps/miniprogram/miniprogram/lib` (no `wx`, no value imports between modules, so Node can load it). `vendor/core/` is a generated copy of core modules: after changing one, run `npm run sync:core -w @t-cli/miniprogram`. DevTools, configuration and upload: `apps/miniprogram/README.md`.
 
 ## Architecture & Structure
@@ -25,7 +26,7 @@ A minimalist, stateless CLI translation tool using DeepSeek API, rendered as an 
 
 ```
 apps/cli/        t-cli-translator — the Ink TUI (published as the `t-cli` binary)
-apps/server/     @t-cli/server — sync service: accounts, record sync, AI proxy (Fastify + Drizzle + PostgreSQL)
+apps/server/     @t-cli/server — sync service: accounts, record sync, AI proxy, nightly AI pipeline, review/FSRS, library, stats (Fastify + Drizzle + PostgreSQL)
 apps/miniprogram/ @t-cli/miniprogram — WeChat mini-program (native + TypeScript + Skyline); see its README
 packages/core/   @t-cli/core — logic shared by every client and the server
 scripts/         repo tooling (release-local.mjs)
@@ -39,6 +40,7 @@ scripts/         repo tooling (release-local.mjs)
   - `ulid.js`: Offline ULID generation (optionally deterministic via fixed entropy) for idempotent sync writes.
   - `spelling.js`: `extractHeadTerm()` / `detectSpellingCorrection()` — deterministic misspelling detection for English word lookups (head word before the IPA vs. the input). Feeds the CLI's "拼写更正" notice and `Entry.correctedInput`; review material must use `correctedInput` when set.
   - `ssml.js`: `escapeSsmlText()` — escapes text for msedge-tts's SSML template (used by the CLI's `/say` and the server's `POST /v1/tts`).
+- **Server** (`apps/server/src/`; contract `docs/api-v1.md`): `modules/auth` (WeChat login, invites, CLI device flow, settings), `sync` (entry push/pull, `entries/day`), `ai` (streaming proxy, request + token quotas), `tts`, `pipeline` (nightly 05:00 job: extract items → content and cards → daily material, weekly report on Sundays; regenerator for 内容有误; alert mail), `review` (FSRS via ts-fsrs, state = replay of review_logs; queue, ratings, undo, report), `library` (materials, items + pg_trgm search, stats, export), `account` (delete, reminders), `notify` (WeChat subscribe-message reminders). `lib/scheduler.ts` runs jobs once per run key under a PostgreSQL advisory lock. `http/auth.ts`'s `requireAuth` also checks that the device is active and the account exists on every request. Every query filters on the caller's `user_id`; logs and alerts never contain user text.
 - **CLI** (`apps/cli/`):
   - `bin/t-cli.js`: Entry point — loads dotenv and invokes the REPL.
   - `src/repl.js`: Ink `App` component. Renders the message log, streaming output, status line, and text input. Handles command routing (`/check`, `/lang`, `/mode`, `/history`, `/notes`, `/say`, `/clear`, `/login`, `/sync`, etc.) and orchestration of API calls. Uses `React.createElement` (no JSX, no build step).
@@ -50,7 +52,11 @@ scripts/         repo tooling (release-local.mjs)
   - `src/notes.js`: Reads/writes AI-generated learning notes in `~/.config/t-cli/notes/YYYY-MM-DD.md`. Powers the `/notes` command. Returns write errors instead of printing them.
   - `src/utils/localDate.js`: `localDateString()` / `localDateDaysAgo()` — the one place that computes the local `YYYY-MM-DD` used by history/notes file names, `/history today`, `/notes today` and the `/quiz` cutoff.
   - `src/utils/inputHistory.js`: Pure helpers behind the REPL's arrow-key input history (`pushHistory`, `navigateHistory`).
-  - `src/sync/`: Record sync with the server (contract: `docs/api-v1.md`). `settings.js` (server URL from `TCLI_SERVER_URL` or `serverUrl` in config.json; unset → sync off), `authStore.js` (`auth.json`, 0600, atomic), `client.js` (fetch + envelope parsing, single-flight token refresh, timeouts, no redirects), `deviceFlow.js` (pure `/login` reducer), `login.js` (one poll step, QR as a string), `push.js` (batched push, acked-id removal, rejected → `outbox.rejected.jsonl`), `syncer.js` (background single-flight + backoff), `status.js` (pure text), `useSync.js` (the React glue: login state machine via `useReducer` + one timer effect per poll; `/login`, `/logout`, `/sync` handlers).
+  - `src/utils/review.js`: The pure `/review` session machine (`reviewReducer`: flip, rate, settled, undo, finish; `checkUndo` with the 5-minute window), rating/interval labels (`formatInterval`: 600 → "10 分钟"), card-face text and the end summary.
+  - `src/utils/materials.js`: Terminal text for the cloud DailyMaterial (`/notes`) and WeeklyReport (`/weekly`), read defensively field by field; `weekStartOf()`.
+  - `src/utils/historyMerge.js`: `/history <date>` with phone records: local file blocks (verbatim) and mini-program entries merged by time, phone ones marked "(phone)".
+  - `src/sync/`: Record sync with the server (contract: `docs/api-v1.md`). `settings.js` (server URL from `TCLI_SERVER_URL` or `serverUrl` in config.json; unset → sync off), `authStore.js` (`auth.json`, 0600, atomic), `client.js` (fetch + envelope parsing, single-flight token refresh, timeouts, no redirects), `deviceFlow.js` (pure `/login` reducer), `login.js` (one poll step, QR as a string), `push.js` (batched push, acked-id removal, rejected → `outbox.rejected.jsonl`), `syncer.js` (background single-flight + backoff), `status.js` (pure text), `useSync.js` (the React glue: login state machine via `useReducer` + one timer effect per poll; `/login`, `/logout`, `/sync` handlers; exposes `client`, `server`, `loggedIn`).
+    Learning (M3–M5): `learning.js` (shape-checked calls for the review queue/logs/undo, materials, `GET /v1/entries/day`, `GET /v1/me`, `POST /v1/me/settings`; `submitReviewLogs` never throws, it classifies each log accepted/rejected/failed), `learningCommands.js` (`/weekly`, the cloud side of `/notes`, the phone records of `/history`; logged out / offline / 404 → the local behaviour), `settingsSync.js` + `useSettingsSync.js` (`/lang` ↔ `explanationLang`: a change is written to `pendingSettings` in sync-state.json before it is posted, so offline the local value wins; at startup and after login a pending change is pushed, otherwise an explicit server value is applied), `useReview.js` (the `/review` glue: session in a ref, keys routed from the App's `useInput` while the text box is unfocused, each rating posted at once with a client ULID, failed posts retried at the end and kept in memory for the next `/review`).
 
 ## Constraints for Code Changes (READ before modifying the TUI)
 
@@ -66,7 +72,7 @@ This app is an **Ink (React for terminals) TUI that owns `stdin` in raw mode**. 
 
 ## Testing Notes
 
-- Unit tests cover pure logic (`detect`, `speakable`, `prompts`, `entry`, `ulid`, history parsing), the outbox I/O (`entryLog`, isolated via a temp `XDG_CONFIG_HOME`) and the sync client/push/login against a local fake HTTP server (`apps/cli/test/sync*.test.js`). `apps/server/test/cliSync.e2e.test.ts` runs the CLI's login/push code against the real server app (needs `TEST_DATABASE_URL`). Prompt-behavior changes should also be verified against the live API with adversarial inputs (instruction-like text must be translated, not executed).
+- Unit tests cover pure logic (`detect`, `speakable`, `prompts`, `entry`, `ulid`, history parsing), the outbox I/O (`entryLog`, isolated via a temp `XDG_CONFIG_HOME`) and the sync client/push/login against a local fake HTTP server (`apps/cli/test/sync*.test.js`). The learning endpoints and command glue are tested the same way (`learning.test.js`); `useReview.test.js` mounts the `/review` hook headlessly with Ink (discarding stdout) and feeds keys through `handleKey`. `apps/server/test/cliSync.e2e.test.ts` runs the CLI's login/push code against the real server app (needs `TEST_DATABASE_URL`). Prompt-behavior changes should also be verified against the live API with adversarial inputs (instruction-like text must be translated, not executed).
 - Never point tests or scripts at the real `~/.config/t-cli/` for writes — set `XDG_CONFIG_HOME` to a temp dir.
 
 ## Environment Variables
@@ -79,9 +85,11 @@ This app is an **Ink (React for terminals) TUI that owns `stdin` in raw mode**. 
 - Input text directly for auto-detected translation (ZH ↔ EN).
 - Use `/check <text>` for English grammar checking and polishing.
 - Toggle between `simple` and `detail` modes via `/mode <s|d>`.
-- Switch explanation language via `/lang <en|zh>`.
-- Use `/history [today|YYYY-MM-DD]` to browse raw translation/check records.
-- Use `/notes [today|YYYY-MM-DD]` to generate (or view) an AI-curated English learning note for that day. Use `/notes regen today` to force regeneration.
+- Switch explanation language via `/lang <en|zh>` (logged in: also saved to the account; the account's value is applied at startup).
+- Use `/history [today|YYYY-MM-DD]` to browse raw translation/check records; when logged in, that day's mini-program records are merged in by time, marked "(phone)".
+- Use `/notes [today|YYYY-MM-DD]` to read that day's daily material from your account (logged in), or else to generate (or view) a local AI-curated note. Use `/notes regen today` to force a local regeneration. `/notes` lists both.
+- Use `/review` (logged in) to review due cards: Enter/space flips, `1`–`4` rate (忘记/困难/记得/简单, each with its next interval), `u` undoes the last rating (5 minutes), `q` ends with a summary.
+- Use `/weekly [YYYY-MM-DD]` (logged in) for the latest weekly report, or the one for that date's week.
 - Single-word input (English token, or Chinese term of 1-4 chars) is treated as a word lookup: the English result includes its American IPA transcription.
 - Use `/say` to read the last translation aloud; `/say stop` cancels playback.
 - Use `/login` to link the CLI to an account (6-digit code + QR, approved in the mini-program; `/login cancel` aborts), `/logout` to unlink, `/sync status` to inspect sync and `/sync now` to push immediately.

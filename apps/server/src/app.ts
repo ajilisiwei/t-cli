@@ -2,8 +2,11 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { sql } from 'drizzle-orm';
 import type { AppDeps } from './deps.ts';
 import { ok, fail, registerErrorHandler } from './http/errors.ts';
+import { registerAccountRoutes } from './modules/account/routes.ts';
 import { registerAiRoutes } from './modules/ai/routes.ts';
 import { registerAuthRoutes } from './modules/auth/routes.ts';
+import { registerLibraryRoutes } from './modules/library/routes.ts';
+import { registerReviewRoutes } from './modules/review/routes.ts';
 import { registerSyncRoutes } from './modules/sync/routes.ts';
 import { registerTtsRoutes } from './modules/tts/routes.ts';
 
@@ -41,6 +44,9 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await registerSyncRoutes(app, deps);
   await registerAiRoutes(app, deps);
   await registerTtsRoutes(app, deps);
+  await registerReviewRoutes(app, deps);
+  await registerLibraryRoutes(app, deps);
+  await registerAccountRoutes(app, deps);
 
   return app;
 }

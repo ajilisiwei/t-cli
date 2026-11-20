@@ -43,6 +43,9 @@ export function controllableLlm(): ControllableLlm {
     push: (value) => enqueue({ kind: 'chunk', value }),
     fail: (error) => enqueue({ kind: 'error', error }),
     finish: () => enqueue({ kind: 'end' }),
+    async completeJson() {
+      throw new Error('controllableLlm only streams');
+    },
     async *streamChat(messages, { signal }) {
       calls.push(messages);
       signals.push(signal);

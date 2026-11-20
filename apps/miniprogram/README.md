@@ -1,10 +1,13 @@
 # t-cli mini-program
 
-The phone side of t-cli (milestone M2): translate and grammar check, plus the
-account pages. WeChat native + TypeScript + Skyline, the same stack as
+The phone side of t-cli: translate and grammar check (M2), review with FSRS,
+daily materials and the word library (M3–M4), stats, weekly reports and
+account data (M5). WeChat native + TypeScript + Skyline, the same stack as
 heji-ledger's mini-program. The API contract is `docs/api-v1.md`.
 
-Tabs: **翻译** (default), **纠错**, **我的** (记录, 解释语言, 设备, 授权 CLI 登录).
+Tabs: **翻译** (default), **纠错**, **复习** (今日进度, 开始复习, 每日材料, 词库, 周报; the tab
+badge is the number of cards due), **我的** (记录, 学习统计, 周报, 词库, settings — 解释语言,
+单词自动朗读, 复习翻面自动朗读, 复习提醒 —, 账号与数据 (导出 / 注销), 设备, 授权 CLI 登录).
 
 ## Structure
 
@@ -29,8 +32,16 @@ apps/miniprogram/
       history.ts             history paging, row and time formatting
       env.ts                 API base URL and dev login by envVersion
       tts-cache.ts           audio file naming and eviction
-    services/                wx-bound glue: request transport, session, stream, TTS, voice, theme
-    pages/                   translate, check, me, history, devices, authorize, invite
+      review-*.ts            复习: session state machine, rating outbox, client ULIDs, interval
+                             labels, card-face rendering, swipe, home ring/badge, material view,
+                             response validation (review-types.ts: shared types)
+      library.ts item.ts     词库 query/filters and rows; 学习单元 view per item type
+      stats.ts weekly.ts     学习统计 heatmap / streak / retention bars; 周报 view and week paging
+      account.ts             settings options (reminder hours), export filename, subscribe outcomes
+    services/                wx-bound glue: request transport, session, stream, TTS, voice, theme,
+                             settings, review (queue, ratings outbox, badge, reminders), library, account
+    pages/                   translate, check, me, history, devices, authorize, invite,
+                             review (tab), review-session, materials, library, item, stats, weekly, account
     components/nav-bar/      custom navigation bar (Skyline pages have no native one)
     vendor/core/detect.js    GENERATED copy of packages/core/src/detect.js
 ```

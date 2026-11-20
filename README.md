@@ -14,6 +14,7 @@ A minimalist, stateless CLI tool powered by the DeepSeek API for interactive Eng
 9. **Stateless Requests**: No contextual memory between prompts, drastically reducing API token consumption.
 10. **Input History (`↑`/`↓`)**: Recall previously entered text and commands with the arrow keys, readline-style. Pressing `↓` past the newest entry restores your unsubmitted draft.
 11. **Record Sync (`/login`, `/sync`, `/logout`)**: Optionally push every translation / grammar check to your own t-cli sync server (see [Record Sync](#record-sync)).
+12. **Review and Learning Material (`/review`, `/notes`, `/weekly`)**: When logged in, review the cards your account generates from your records, read the nightly daily material and the weekly report, and see your phone's records in `/history` (see [Learning](#learning)).
 
 ## Installation
 
@@ -115,4 +116,19 @@ or as `"serverUrl": "https://your-sync-server"` in `~/.config/t-cli/config.json`
 | `/sync now` | Push immediately (skips any backoff wait). |
 
 Credentials live in `~/.config/t-cli/auth.json` (mode `0600`, honours `XDG_CONFIG_HOME`); tokens are only ever sent to the server they were issued by.
+
+## Learning
+
+These commands use your account on the sync server (`/login` first). The server turns your records into learning items and review cards every night, and writes a daily material for the previous day and, on Sundays, a weekly report.
+
+| Command | What it does |
+| --- | --- |
+| `/review` | Reviews the cards due now. The card front is shown; `Enter` or `space` flips it; `1` 忘记 · `2` 困难 · `3` 记得 · `4` 简单 rate it (the status line shows each option's next interval, e.g. `10 分钟`, `3 天`, `2 个月`); `u` undoes the last rating (within 5 minutes); `q` ends. The end summary shows cards reviewed, the share remembered (rated 2–4) and the time. While reviewing, keys go to the card, not to the input box. |
+| `/notes [today\|YYYY-MM-DD]` | Shows that day's daily material from your account (words, phrases, grammar, a short story, mistakes). With no cloud material for the day, offline or logged out, it falls back to the local AI note (generated from that day's local history). `/notes regen <date>` always regenerates the local note; `/notes` lists both. |
+| `/weekly [YYYY-MM-DD]` | Shows the latest weekly report, or the report of the week containing that date. |
+| `/history <date>` | Also shows that day's mini-program records, merged by time and marked `(phone)`. |
+| `/lang <en\|zh>` | Also saves the explanation language to your account. At startup the account's value is applied; a change made offline stays local and is sent on the next start. |
+
+Each rating is sent as soon as you make it. Ratings that cannot be sent (offline) are retried when the review ends; any still unsent are kept in memory and retried at the next `/review` while t-cli stays open.
+
 # t-cli

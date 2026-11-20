@@ -1,0 +1,53 @@
+<view class="page theme-{{theme}}">
+  <nav-bar title="账号与数据" back />
+  <scroll-view class="body" scroll-y type="list" show-scrollbar="{{false}}">
+    <view class="content">
+      <view wx:if="{{since}}" class="row">
+        <text class="row-label">注册时间</text>
+        <text class="row-value">{{since}}</text>
+      </view>
+
+      <text class="section-title">导出记录</text>
+      <text class="notice">把全部查询记录（按日期）和词库里的学习单元导出成一个 Markdown 文件。可以发送到「文件传输助手」，在电脑上打开或放进 Obsidian。每小时最多导出 3 次。</text>
+      <view wx:if="{{fileName}}" class="file">
+        <view class="file-info">
+          <text class="file-name">{{fileName}}</text>
+          <text class="file-size">{{fileSize}} · 已保存在手机上</text>
+        </view>
+        <view class="file-send" bindtap="onShare" aria-role="button" aria-label="把 {{fileName}} 发送到聊天">
+          <text>发送到聊天</text>
+        </view>
+      </view>
+      <!-- Once a file exists, sending it is the main action and exporting again the quiet one. -->
+      <view
+        class="button {{fileName ? 'button-quiet' : ''}} {{exporting ? 'button-disabled' : ''}}"
+        bindtap="onExport"
+        aria-role="button"
+        aria-disabled="{{exporting}}"
+      >
+        <text>{{exporting ? '正在生成…' : (fileName ? '重新导出' : '导出记录')}}</text>
+      </view>
+      <text wx:if="{{exportError}}" class="error">{{exportError}}</text>
+
+      <text class="section-title">注销账号</text>
+      <text class="notice">注销会永久删除：</text>
+      <view class="facts">
+        <text class="fact">· 手机和 CLI 的全部查询记录</text>
+        <text class="fact">· 词库里的学习单元、复习卡片和复习进度</text>
+        <text class="fact">· 每日材料和周报</text>
+        <text class="fact">· 设置和复习提醒</text>
+        <text class="fact">· 所有已登录的设备，电脑上的 t-cli 也会退出登录</text>
+      </view>
+      <text class="notice">删除后无法恢复，之后再用需要新的邀请码。电脑上 t-cli 自己保存的历史文件不受影响。建议先导出记录。</text>
+      <view
+        class="button button-danger {{deleting ? 'button-disabled' : ''}}"
+        bindtap="onDelete"
+        aria-role="button"
+        aria-disabled="{{deleting}}"
+      >
+        <text>{{deleting ? '正在注销…' : '注销账号'}}</text>
+      </view>
+      <text wx:if="{{deleteError}}" class="error">{{deleteError}}</text>
+    </view>
+  </scroll-view>
+</view>

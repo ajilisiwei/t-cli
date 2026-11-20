@@ -38,6 +38,8 @@ interface CheckData extends CheckView {
   theme: Theme
   input: string
   focus: boolean
+  /** The input has focus: the composer border turns indigo. */
+  focused: boolean
   /** The mic is shown only when the WechatSI plugin is declared and authorized. */
   voiceEnabled: boolean
   recording: boolean
@@ -69,6 +71,7 @@ const initialData: CheckData = {
   theme: currentTheme(),
   input: '',
   focus: false,
+  focused: false,
   voiceEnabled: false,
   recording: false,
   notEnglish: false,
@@ -112,6 +115,16 @@ Page({
 
   onSubmit(event: WechatMiniprogram.TextareaConfirm) {
     this.check(event.detail.value)
+  },
+  /** The send button: same as the keyboard's send key. */
+  onSend() {
+    this.check(this.data.input)
+  },
+  onFocus() {
+    this.setData({ focused: true })
+  },
+  onBlur() {
+    this.setData({ focused: false })
   },
 
   onClear() {
