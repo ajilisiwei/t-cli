@@ -2,7 +2,7 @@
   <nav-bar title="纠错" />
   <scroll-view class="body" scroll-y type="list" show-scrollbar="{{false}}">
     <view class="content">
-      <view class="composer">
+      <view class="composer {{focused ? 'composer-focused' : ''}}">
         <textarea
           class="composer-input serif"
           value="{{input}}"
@@ -12,35 +12,41 @@
           confirm-type="send"
           show-confirm-bar="{{false}}"
           adjust-position
-          placeholder="输入英文句子，按发送纠错"
+          placeholder="输入英文句子"
           placeholder-class="placeholder"
           bindinput="onInput"
           bindconfirm="onSubmit"
+          bindfocus="onFocus"
+          bindblur="onBlur"
         />
-        <view class="composer-tools">
-          <view
-            wx:if="{{voiceEnabled}}"
-            class="tool {{recording ? 'tool-active' : ''}}"
-            bindtouchstart="onMicStart"
-            bindtouchend="onMicEnd"
-            bindtouchcancel="onMicEnd"
-            aria-role="button"
-            aria-label="按住说英文"
-          >
-            <view class="mic">
-              <view class="mic-capsule {{recording ? 'mic-on' : ''}}" />
-              <view class="mic-arc {{recording ? 'mic-on' : ''}}" />
-              <view class="mic-stem {{recording ? 'mic-stem-on' : ''}}" />
+        <view class="composer-bar">
+          <text wx:if="{{!input}}" class="composer-hint">标出改动，给出更地道的说法</text>
+          <view class="composer-actions">
+            <view wx:if="{{input}}" class="tool" bindtap="onClear" aria-role="button" aria-label="清空">
+              <text>✕</text>
             </view>
-          </view>
-          <view wx:if="{{input}}" class="tool" bindtap="onClear" aria-role="button" aria-label="清空">
-            <text>✕</text>
+            <view
+              wx:if="{{voiceEnabled}}"
+              class="tool {{recording ? 'tool-active' : ''}}"
+              bindtouchstart="onMicStart"
+              bindtouchend="onMicEnd"
+              bindtouchcancel="onMicEnd"
+              aria-role="button"
+              aria-label="按住说英文"
+            >
+              <view class="mic">
+                <view class="mic-capsule {{recording ? 'mic-on' : ''}}" />
+                <view class="mic-arc {{recording ? 'mic-on' : ''}}" />
+                <view class="mic-stem {{recording ? 'mic-stem-on' : ''}}" />
+              </view>
+            </view>
+            <view class="send {{input ? '' : 'send-disabled'}}" bindtap="onSend" aria-role="button" aria-label="纠错">
+              <text>纠错</text>
+            </view>
           </view>
         </view>
         <text wx:if="{{recording}}" class="hint">正在听英文，松开即纠错</text>
       </view>
-
-      <view class="rule" />
 
       <view wx:if="{{notEnglish}}" class="result">
         <text class="notice">纠错只支持英文</text>

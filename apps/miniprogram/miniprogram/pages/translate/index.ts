@@ -35,6 +35,8 @@ interface TranslateData extends ResultView {
   theme: Theme
   input: string
   focus: boolean
+  /** The input has focus: the composer border turns indigo. */
+  focused: boolean
   /** The mic is shown only when the WechatSI plugin is declared and authorized. */
   voiceEnabled: boolean
   recording: boolean
@@ -55,6 +57,7 @@ const initialData: TranslateData = {
   theme: currentTheme(),
   input: '',
   focus: true,
+  focused: false,
   voiceEnabled: false,
   recording: false,
   status: 'idle',
@@ -100,6 +103,16 @@ Page({
   /** The keyboard's send key (`confirm-type="send"`). */
   onSubmit(event: WechatMiniprogram.TextareaConfirm) {
     this.translate(event.detail.value)
+  },
+  /** The send button: same as the keyboard's send key. */
+  onSend() {
+    this.translate(this.data.input)
+  },
+  onFocus() {
+    this.setData({ focused: true })
+  },
+  onBlur() {
+    this.setData({ focused: false })
   },
 
   onClear() {
