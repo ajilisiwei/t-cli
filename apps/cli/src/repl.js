@@ -16,6 +16,10 @@ import { pushHistory, navigateHistory } from './utils/inputHistory.js';
 import { localDateString } from './utils/localDate.js';
 import { getQuizEntries, parseQuizResponse } from './utils/quiz.js';
 import { useSync } from './sync/useSync.js';
+import { useReview } from './sync/useReview.js';
+import { useSettingsSync } from './sync/useSettingsSync.js';
+import { createLearningCommands } from './sync/learningCommands.js';
+import { mergeDayHistory } from './utils/historyMerge.js';
 import * as tts from './tts.js';
 
 const h = React.createElement;
@@ -50,8 +54,10 @@ function buildWelcomeMessages(lang, isSimpleMode) {
     makeMessage('/check <text>  Grammar check and polishing', { color: 'green' }),
     makeMessage('/lang <en|zh>  Switch explanation language', { color: 'green' }),
     makeMessage('/mode <s|d>    Toggle output detail mode', { color: 'green' }),
-    makeMessage('/history        Browse daily history', { color: 'green' }),
-    makeMessage('/notes          Generate or view AI notes', { color: 'green' }),
+    makeMessage('/history        Browse daily history (logged in: plus phone records)', { color: 'green' }),
+    makeMessage('/notes          Daily material from your account, or a local AI note', { color: 'green' }),
+    makeMessage('/review         Review your due cards (Enter/space flip, 1-4 rate, u undo, q quit)', { color: 'green' }),
+    makeMessage('/weekly [date]  Weekly report (latest, or the week of a date)', { color: 'green' }),
     makeMessage('/say            Read the last result aloud (/say stop to cancel)', { color: 'green' }),
     makeMessage('/clear          Clear screen', { color: 'green' }),
     makeMessage('/quiz [days]    Active recall quiz from recent history', { color: 'green' }),
@@ -107,6 +113,41 @@ function App() {
   };
 
   const sync = useSync({ notify: appendNotice });
+  const review = useReview({ client: sync.client, server: sync.server, notify: appendNotice });
+
+  const langRef = useRef(currentLang);
+  langRef.current = currentLang;
+  const settingsSync = useSettingsSync({
+    client: sync.client,
+    loggedIn: sync.loggedIn,
+    getLang: () => langRef.current,
+    applyLang: (lang) => {
+      setCurrentLang(lang);
+      saveConfig({ lang });
+      appendNotice(`Explanation language set to ${lang === 'zh' ? 'Chinese (中文)' : 'English'} from your account settings.`, { dim: true });
+    }
+  });
+
+  // Spinner + blocked input while a request runs (cloud material, queue, ...).
+  const withLoading = async (label, task) => {
+    loadingRef.current = true;
+    setIsLoading(true);
+    setLoadingLabel(label);
+    try {
+      return await task();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // /weekly, the cloud side of /notes and the phone records of /history.
+  const learning = createLearningCommands({
+    client: sync.client,
+    server: sync.server,
+    say: appendMessage,
+    withLoading,
+    today: todayString
+  });
 
   const clearOutput = () => {
     setMessages(buildWelcomeMessages(currentLang, isSimpleMode));
@@ -214,7 +255,7 @@ function App() {
     });
   };
 
-  const runHistoryCommand = (fullInput) => {
+  const runHistoryCommand = async (fullInput) => {
     const arg = parseCommandArg(fullInput, '/history');
 
     if (!arg) {
@@ -244,6 +285,11 @@ function App() {
     }
 
     const content = readHistory(date);
+    const phone = await learning.loadPhoneRecords(date);
+    if (phone.length > 0) {
+      appendMessage(mergeDayHistory({ date, localContent: content, remoteEntries: phone }).text);
+      return;
+    }
     if (!content) {
       appendMessage(`No history found for ${date}.`, { color: 'yellow' });
       return;
@@ -256,6 +302,7 @@ function App() {
     const arg = parseCommandArg(fullInput, '/notes');
 
     if (!arg) {
+      await learning.listDailyMaterials();
       const entries = listGeneratedNotes();
       if (entries.length === 0) {
         appendMessage('No AI notes yet.', { color: 'yellow' });
@@ -288,6 +335,10 @@ function App() {
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateArg)) {
       appendMessage('Tip: Use /notes, /notes today, /notes <YYYY-MM-DD>, or /notes regen today.', { color: 'yellow' });
+      return;
+    }
+
+    if (!forceRegen && await learning.showDailyMaterial(dateArg)) {
       return;
     }
 
@@ -331,6 +382,14 @@ function App() {
         }
       }
     });
+  };
+
+  const runReviewCommand = async (fullInput) => {
+    if (parseCommandArg(fullInput, '/review')) {
+      appendMessage('Tip: Use /review. Keys: Enter/space flip, 1-4 rate, u undo, q quit.', { color: 'yellow' });
+      return;
+    }
+    await withLoading('Loading review queue...', () => review.start());
   };
 
   const runQuizCommand = async (fullInput) => {
@@ -467,6 +526,7 @@ function App() {
       if (targetLang === 'en' || targetLang === 'zh') {
         setCurrentLang(targetLang);
         saveConfig({ lang: targetLang });
+        settingsSync.pushLang(targetLang);
         appendMessage(
           targetLang === 'en'
             ? 'Explanation language set to: English.'
@@ -501,7 +561,17 @@ function App() {
     }
 
     if (lowerInput === '/history' || lowerInput.startsWith('/history ')) {
-      runHistoryCommand(inputText);
+      await runHistoryCommand(inputText);
+      return;
+    }
+
+    if (lowerInput === '/review' || lowerInput.startsWith('/review ')) {
+      await runReviewCommand(inputText);
+      return;
+    }
+
+    if (lowerInput === '/weekly' || lowerInput.startsWith('/weekly ')) {
+      await learning.runWeekly(parseCommandArg(inputText, '/weekly'));
       return;
     }
 
@@ -534,6 +604,7 @@ function App() {
   };
 
   const onSubmitInput = (value) => {
+    if (review.active) return;
     if (quizState && quizState.awaitingAnswer) {
       setInputHistory((prev) => pushHistory(prev, value));
       setInput('');
@@ -554,7 +625,9 @@ function App() {
     setInput(value);
   };
 
-  useInput((_char, key) => {
+  useInput((char, key) => {
+    // While reviewing, keys drive the card (the text box is unfocused).
+    if (review.handleKey(char, key)) return;
     if (loadingRef.current) return;
     if (!key.upArrow && !key.downArrow) return;
     if (key.upArrow && historyIndexRef.current === null) {
@@ -594,7 +667,9 @@ function App() {
     h(
       Box,
       { marginBottom: 1 },
-      isLoading
+      review.active
+        ? h(Text, { color: 'cyan' }, review.busy ? h(Spinner, { type: 'dots' }) : '›', ` ${review.statusLine}`)
+        : isLoading
         ? h(Text, { color: 'cyan' }, h(Spinner, { type: 'dots' }), ` ${loadingLabel}`)
         : isSpeaking
           ? h(Text, { color: 'magenta' }, '🔊 Speaking... (/say stop to cancel)')
@@ -609,8 +684,10 @@ function App() {
         value: input,
         onChange: onChangeInput,
         onSubmit: onSubmitInput,
-        focus: !isLoading,
-        placeholder: isLoading ? 'Please wait...' : 'Type text or command...'
+        focus: !isLoading && !review.active,
+        placeholder: review.active
+          ? 'Reviewing: keys go to the card (q to quit)'
+          : isLoading ? 'Please wait...' : 'Type text or command...'
       })
     )
   );
