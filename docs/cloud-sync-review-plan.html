@@ -1854,7 +1854,7 @@ wx.login 换取 openid" data-shape="rounded">
         <tr><th>阶段</th><th>交付</th><th>验收方式</th></tr>
         <tr><td>M0 结构化采集 <span class="tag done">已完成</span></td><td>改为 monorepo，抽出 <code>packages/core</code>；CLI 每条记录同时写 JSONL；历史 Markdown 回填脚本；纠错 prompt 改为修改句放第一行</td><td>CLI 行为不变（现有测试全过）；回填条数与 <code>meta.json</code> 一致</td></tr>
         <tr><td>M1 服务端基础 <span class="tag todo">代码完成，待部署</span></td><td>账号：微信登录、邀请码、CLI 设备授权、令牌轮换。接口：同步 API、流式 AI 代理、按账号限流。基础设施：在已有 PostgreSQL 上建 <code>tcli</code> 库和专用角色、并入每晚备份、nginx 加站点、部署到 ECS。</td><td>断网写 10 条，联网后自动补传无重复；并发推送不漏拉；越权测试全部返回 404；实测首字延迟</td></tr>
-        <tr><td>M2 小程序：翻译与纠错 <span class="tag todo">代码完成，待真机验证</span></td><td>极简翻译页（中文 → 英文，外语 → 中文）、纠错 tab 与差异高亮、朗读、语音输入、记录、设置；方向规则扩展到其他外语（<code>packages/core</code>）；上传体验版</td><td>连续 7 天在手机上用它替代其它翻译工具</td></tr>
+        <tr><td>M2 小程序：翻译与纠错 <span class="tag todo">代码完成，待真机验证</span></td><td>极简翻译页（中文 → 英文，外语 → 中文）、纠错 tab 与差异高亮、朗读、语音输入（暂缓：账号添加不了同声传译插件，先用键盘自带的语音输入）、记录、设置；方向规则扩展到其他外语（<code>packages/core</code>）；上传体验版</td><td>连续 7 天在手机上用它替代其它翻译工具</td></tr>
         <tr><td>M3 AI 管线</td><td>学习单元抽取、每日材料、复习卡；CLI 的 <code>/notes</code> 可读云端材料</td><td>用 7 天真实数据生成；人工抽查 30 张卡，错误率 &lt; 5%</td></tr>
         <tr><td>M4 小程序：复习</td><td>复习 tab（含每日材料和词库）、FSRS、“我的”页的回顾统计</td><td>连续复习 7 天</td></tr>
         <tr><td>M5 延伸</td><td>CLI <code>/review</code>、周报、账号导出与注销（开放给别人前必须完成）、订阅消息提醒、H5（可选）</td><td>—</td></tr>

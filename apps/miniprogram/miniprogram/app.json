@@ -30,12 +30,6 @@
   "usingComponents": {
     "nav-bar": "/components/nav-bar/index"
   },
-  "plugins": {
-    "WechatSI": {
-      "version": "0.3.6",
-      "provider": "wx069ba97219f66d99"
-    }
-  },
   "darkmode": true,
   "themeLocation": "theme.json",
   "renderer": "skyline",

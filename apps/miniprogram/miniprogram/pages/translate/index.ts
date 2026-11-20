@@ -16,7 +16,7 @@ import { explanationLang } from '../../services/settings'
 import { speakEntry } from '../../services/speech'
 import { currentTheme, watchTheme, type Theme } from '../../services/theme'
 import { toast } from '../../services/ui'
-import { startVoice, stopVoice } from '../../services/voice'
+import { startVoice, stopVoice, voiceAvailable } from '../../services/voice'
 
 const MAX_INPUT_CODE_POINTS = 2000
 
@@ -35,6 +35,8 @@ interface TranslateData extends ResultView {
   theme: Theme
   input: string
   focus: boolean
+  /** The mic is shown only when the WechatSI plugin is declared and authorized. */
+  voiceEnabled: boolean
   recording: boolean
 }
 
@@ -53,6 +55,7 @@ const initialData: TranslateData = {
   theme: currentTheme(),
   input: '',
   focus: true,
+  voiceEnabled: false,
   recording: false,
   status: 'idle',
   text: '',
@@ -74,7 +77,7 @@ Page({
   onLoad() {
     this.runner = createResultRunner((view) => this.setData(resultView(view)))
     this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme }))
-    this.setData({ theme: currentTheme() })
+    this.setData({ theme: currentTheme(), voiceEnabled: voiceAvailable() })
   },
 
   onShow() {

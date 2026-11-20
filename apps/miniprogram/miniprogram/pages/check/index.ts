@@ -15,7 +15,7 @@ import { explanationLang } from '../../services/settings'
 import { speakEntry } from '../../services/speech'
 import { currentTheme, watchTheme, type Theme } from '../../services/theme'
 import { toast } from '../../services/ui'
-import { startVoice, stopVoice } from '../../services/voice'
+import { startVoice, stopVoice, voiceAvailable } from '../../services/voice'
 import { detectSourceLang } from '../../vendor/core/detect'
 
 const MAX_INPUT_CODE_POINTS = 2000
@@ -38,6 +38,8 @@ interface CheckData extends CheckView {
   theme: Theme
   input: string
   focus: boolean
+  /** The mic is shown only when the WechatSI plugin is declared and authorized. */
+  voiceEnabled: boolean
   recording: boolean
   /** The submitted text is not English: offer 去翻译 instead. */
   notEnglish: boolean
@@ -67,6 +69,7 @@ const initialData: CheckData = {
   theme: currentTheme(),
   input: '',
   focus: false,
+  voiceEnabled: false,
   recording: false,
   notEnglish: false,
   status: 'idle',
@@ -90,7 +93,7 @@ Page({
   onLoad() {
     this.runner = createResultRunner((view) => this.setData(checkView(view, this.submitted)))
     this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme }))
-    this.setData({ theme: currentTheme() })
+    this.setData({ theme: currentTheme(), voiceEnabled: voiceAvailable() })
   },
 
   onShow() {

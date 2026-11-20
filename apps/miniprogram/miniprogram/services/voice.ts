@@ -1,8 +1,15 @@
 /**
  * Voice input through the WeChat 同声传译 (WechatSI) plugin: hold the mic,
- * speak, release. The plugin must be declared in app.json and added in the
- * mini-program admin console (设置 → 第三方设置 → 插件管理); without it
- * `requirePlugin` throws and voice input reports itself unavailable.
+ * speak, release.
+ *
+ * Currently OFF: the admin console cannot find the plugin for this account
+ * (search by AppID wx069ba97219f66d99 returns nothing), and a plugin declared
+ * in app.json but not authorized stops the whole app. So app.json declares no
+ * plugin, `requirePlugin` throws, `voiceAvailable()` is false and the pages
+ * hide the mic; the keyboard's own voice input still works. To turn it back
+ * on, add the plugin in the admin console and declare it in app.json again
+ * (`"plugins": { "WechatSI": { "version": "<listed version>", "provider":
+ * "wx069ba97219f66d99" } }`).
  */
 
 export type VoiceLang = 'zh_CN' | 'en_US'

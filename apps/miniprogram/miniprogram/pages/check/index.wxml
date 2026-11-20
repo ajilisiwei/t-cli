@@ -19,6 +19,7 @@
         />
         <view class="composer-tools">
           <view
+            wx:if="{{voiceEnabled}}"
             class="tool {{recording ? 'tool-active' : ''}}"
             bindtouchstart="onMicStart"
             bindtouchend="onMicEnd"
