@@ -1,0 +1,17 @@
+# Build context is the repo root (see apps/server/Dockerfile). Keep it small
+# and keep local secrets and data out of any image.
+**/node_modules
+.git
+.github
+.claude
+.env
+.env.*
+**/*.tgz
+docs
+apps/cli/src
+apps/cli/bin
+apps/cli/test
+apps/cli/scripts
+apps/server/test
+packages/*/test
+*.md

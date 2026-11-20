@@ -1,0 +1,22 @@
+{
+  "name": "@t-cli/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared prompts, language detection and record schema for t-cli clients and server.",
+  "type": "module",
+  "exports": {
+    "./prompts": "./src/prompts.js",
+    "./detect": "./src/detect.js",
+    "./speakable": "./src/speakable.js",
+    "./entry": "./src/entry.js",
+    "./ulid": "./src/ulid.js",
+    "./spelling": "./src/spelling.js"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "license": "ISC"
+}
