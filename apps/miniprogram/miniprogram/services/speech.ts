@@ -1,8 +1,8 @@
 /**
- * 朗读: `POST /v1/tts` by entry id → an mp3 under `wx.env.USER_DATA_PATH` →
- * one shared InnerAudioContext. A new playback replaces the current one.
- * The server picks the text to read (docs/api-v1.md "Speech"), so the client
- * only ever sends the id of the user's own record.
+ * 朗读: `POST /v1/tts` by entry or item id → an mp3 under
+ * `wx.env.USER_DATA_PATH` → one shared InnerAudioContext. A new playback
+ * replaces the current one. The server picks the text to read (docs/api-v1.md
+ * "Speech"), so the client only ever sends the id of the user's own record.
  */
 import { ApiError, parseEnvelope } from '../lib/api'
 import { filesToEvict, ttsFileName, type CachedFile } from '../lib/tts-cache'
@@ -32,7 +32,10 @@ const decodeText = (data: unknown): unknown => {
   return decoder.decode(data) + decoder.flush()
 }
 
-const fetchAudio = (accessToken: string, entryId: string): Promise<ArrayBuffer> =>
+/** What `POST /v1/tts` reads: a record, or a learning unit (headword / phrase / corrected sentence). */
+type TtsSource = { readonly entryId: string } | { readonly itemId: string }
+
+const fetchAudio = (accessToken: string, source: TtsSource): Promise<ArrayBuffer> =>
   new Promise((resolve, reject) => {
     wx.request({
       url: `${api.baseUrl}/v1/tts`,
@@ -42,7 +45,7 @@ const fetchAudio = (accessToken: string, entryId: string): Promise<ArrayBuffer> 
         'content-type': 'application/json',
         authorization: `Bearer ${accessToken}`,
       },
-      data: JSON.stringify({ entryId }),
+      data: JSON.stringify(source),
       responseType: 'arraybuffer',
       timeout: TTS_TIMEOUT_MS,
       success: (response) => {
@@ -119,13 +122,22 @@ const play = (path: string): Promise<void> =>
     context.play()
   })
 
-/** Plays the entry's audio, fetching it once. Resolves when playback ends or is replaced. */
-export async function speakEntry(entryId: string): Promise<void> {
-  const path = `${wx.env.USER_DATA_PATH}/${ttsFileName(entryId)}`
+const speak = async (source: TtsSource, cacheKey: string): Promise<void> => {
+  const path = `${wx.env.USER_DATA_PATH}/${ttsFileName(cacheKey)}`
   if (!fileExists(path)) {
-    const audio = await api.authorized((token) => fetchAudio(token, entryId))
+    const audio = await api.authorized((token) => fetchAudio(token, source))
     await writeFile(path, audio)
     evictOldAudio()
   }
   await play(path)
+}
+
+/** Plays the entry's audio, fetching it once. Resolves when playback ends or is replaced. */
+export function speakEntry(entryId: string): Promise<void> {
+  return speak({ entryId }, entryId)
+}
+
+/** Plays a learning unit's audio (学习单元 ▶), fetching it once. */
+export function speakItem(itemId: string): Promise<void> {
+  return speak({ itemId }, `item-${itemId}`)
 }

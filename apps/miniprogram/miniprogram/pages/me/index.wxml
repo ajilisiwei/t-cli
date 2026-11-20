@@ -6,7 +6,20 @@
         <text class="row-label">记录</text>
         <text class="row-value">CLI 和手机的查询 ›</text>
       </view>
+      <view class="row" bindtap="onStats" aria-role="button">
+        <text class="row-label">学习统计</text>
+        <text class="row-value">日历、连续天数、保持率 ›</text>
+      </view>
+      <view class="row" bindtap="onWeekly" aria-role="button">
+        <text class="row-label">周报</text>
+        <text class="row-value">›</text>
+      </view>
+      <view class="row" bindtap="onLibrary" aria-role="button">
+        <text class="row-label">词库</text>
+        <text class="row-value">›</text>
+      </view>
 
+      <text class="section-title">设置</text>
       <view class="row">
         <text class="row-label">解释语言</text>
         <view class="segmented">
@@ -14,10 +27,53 @@
           <view class="segment {{lang === 'en' ? 'segment-on' : ''}}" data-lang="en" bindtap="onLang" aria-role="button"><text>English</text></view>
         </view>
       </view>
+      <view
+        class="row"
+        data-key="autoSpeakWord"
+        bindtap="onToggle"
+        aria-role="switch"
+        aria-checked="{{autoSpeakWord}}"
+        aria-label="查单词后自动朗读"
+      >
+        <text class="row-label">查单词后自动朗读</text>
+        <view class="switch {{autoSpeakWord ? 'switch-on' : ''}}"><view class="knob {{autoSpeakWord ? 'knob-on' : ''}}"></view></view>
+      </view>
+      <view
+        class="row"
+        data-key="autoSpeakOnFlip"
+        bindtap="onToggle"
+        aria-role="switch"
+        aria-checked="{{autoSpeakOnFlip}}"
+        aria-label="复习翻面后自动朗读"
+      >
+        <text class="row-label">复习翻面后自动朗读</text>
+        <view class="switch {{autoSpeakOnFlip ? 'switch-on' : ''}}"><view class="knob {{autoSpeakOnFlip ? 'knob-on' : ''}}"></view></view>
+      </view>
 
+      <block wx:if="{{reminderAvailable}}">
+        <picker mode="selector" range="{{reminderOptions}}" value="{{reminderIndex}}" bindchange="onReminderHour">
+          <view class="row" aria-role="button" aria-label="复习提醒：{{reminderLabel}}">
+            <text class="row-label">复习提醒</text>
+            <text class="row-value">{{reminderLabel}} ›</text>
+          </view>
+        </picker>
+        <block wx:if="{{reminderOn}}">
+          <view class="row" bindtap="onGrant" aria-role="button" aria-label="接收下一次提醒，{{grantText}}">
+            <text class="row-label">接收下一次提醒</text>
+            <text class="row-value {{grantText === '点此允许' ? 'row-accent' : ''}}">{{granting ? '…' : grantText}}</text>
+          </view>
+          <text class="setting-note">有到期的卡片时才提醒。微信每次允许只能发一条提醒，收到后回来再点一次「接收下一次提醒」；在弹窗里勾选「总是保持以上选择」，以后点一下即可。</text>
+        </block>
+      </block>
+
+      <text class="section-title">账号</text>
       <view class="row" bindtap="onDevices" aria-role="button">
         <text class="row-label">设备</text>
         <text class="row-value">查看和撤销 ›</text>
+      </view>
+      <view class="row" bindtap="onAccount" aria-role="button">
+        <text class="row-label">账号与数据</text>
+        <text class="row-value">导出、注销 ›</text>
       </view>
 
       <text class="section-title">授权 CLI 登录</text>

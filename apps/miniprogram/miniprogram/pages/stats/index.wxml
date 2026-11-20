@@ -1,3 +1,83 @@
 <view class="page theme-{{theme}}">
   <nav-bar title="学习统计" back />
+  <scroll-view class="body" scroll-y type="list" show-scrollbar="{{false}}">
+    <view class="content">
+      <text wx:if="{{loading && !loaded}}" class="empty">加载中…</text>
+      <view wx:if="{{errorText && !loaded}}" class="failed">
+        <text class="error">{{errorText}}</text>
+        <view class="button button-quiet" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+      </view>
+
+      <block wx:if="{{loaded}}">
+        <view class="streak" aria-label="连续 {{streakDays}} 天">
+          <text class="streak-label">连续</text>
+          <text class="streak-number serif">{{streakDays}}</text>
+          <text class="streak-label">天</text>
+        </view>
+        <text class="streak-note">{{streakDays > 0 ? activeText : '今天查一个词或复习一张卡，就开始计算连续天数'}}</text>
+
+        <text class="section-title">日历</text>
+        <view class="heatmap" aria-label="近 17 周每天的查询和复习，{{activeText}}">
+          <view class="months">
+            <text wx:for="{{months}}" wx:key="key" class="month" style="left: {{item.left}}rpx;">{{item.text}}</text>
+          </view>
+          <view class="grid">
+            <view class="weekdays">
+              <text wx:for="{{weekdays}}" wx:key="key" class="weekday">{{item.label}}</text>
+            </view>
+            <view wx:for="{{columns}}" wx:for-item="column" wx:for-index="col" wx:key="key" class="heat-col">
+              <view
+                wx:for="{{column.cells}}"
+                wx:for-item="cell"
+                wx:for-index="row"
+                wx:key="date"
+                class="heat-cell heat-{{cell.level}} {{cell.future ? 'heat-future' : ''}}"
+                data-col="{{col}}"
+                data-row="{{row}}"
+                bindtap="onDay"
+                aria-role="{{cell.future ? 'none' : 'button'}}"
+                aria-label="{{cell.label}}"
+              ></view>
+            </view>
+          </view>
+        </view>
+        <view class="heat-foot">
+          <text class="heat-selected">{{selected}}</text>
+          <view class="legend" aria-hidden="true">
+            <text class="legend-text">少</text>
+            <view class="legend-cell heat-0"></view>
+            <view class="legend-cell heat-1"></view>
+            <view class="legend-cell heat-2"></view>
+            <view class="legend-cell heat-3"></view>
+            <view class="legend-cell heat-4"></view>
+            <text class="legend-text">多</text>
+          </view>
+        </view>
+
+        <text class="section-title">保持率 · 近 12 周</text>
+        <text class="retention-summary">{{retentionText}}</text>
+        <view class="bars">
+          <view class="target" aria-hidden="true"></view>
+          <text class="target-label" aria-hidden="true">90%</text>
+          <view wx:for="{{bars}}" wx:key="weekStart" class="bar-slot" aria-label="{{item.label}}">
+            <view class="bar-track">
+              <text class="bar-percent">{{item.percent}}</text>
+              <view wx:if="{{item.rate !== null}}" class="bar-fill" style="height: {{item.height * 1.5}}rpx;"></view>
+              <view wx:else class="bar-none"></view>
+            </view>
+            <text class="bar-tick">{{item.tick}}</text>
+          </view>
+        </view>
+        <text class="caption">横线是目标 90%。复习学过的卡片时，选「困难」「记得」「简单」都算记住。</text>
+
+        <text class="section-title">累计</text>
+        <view class="totals">
+          <view wx:for="{{totals}}" wx:key="label" class="total" aria-label="{{item.label}} {{item.value}}">
+            <text class="total-value serif">{{item.value}}</text>
+            <text class="total-label">{{item.label}}</text>
+          </view>
+        </view>
+      </block>
+    </view>
+  </scroll-view>
 </view>

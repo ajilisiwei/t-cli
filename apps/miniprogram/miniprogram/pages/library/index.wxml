@@ -1,3 +1,84 @@
 <view class="page theme-{{theme}}">
   <nav-bar title="词库" back />
+  <view class="filters">
+    <view class="search {{searchFocused ? 'search-focused' : ''}}">
+      <input
+        class="search-input"
+        type="text"
+        confirm-type="search"
+        maxlength="64"
+        placeholder="搜索单词、句型、语法"
+        placeholder-class="placeholder"
+        value="{{query}}"
+        bindinput="onQueryInput"
+        bindconfirm="onQueryConfirm"
+        bindfocus="onSearchFocus"
+        bindblur="onSearchBlur"
+      />
+      <view wx:if="{{query}}" class="tool" bindtap="onClearQuery" aria-role="button" aria-label="清空搜索">
+        <text>✕</text>
+      </view>
+    </view>
+    <view class="chips">
+      <view
+        wx:for="{{typeChips}}"
+        wx:key="value"
+        class="chip {{item.value === typeValue ? 'chip-on' : ''}}"
+        data-value="{{item.value}}"
+        bindtap="onTypeChip"
+        aria-role="button"
+        aria-label="类型 {{item.label}}{{item.value === typeValue ? '，已选' : ''}}"
+      >
+        <text>{{item.label}}</text>
+      </view>
+    </view>
+    <view class="chips">
+      <view
+        wx:for="{{levelChips}}"
+        wx:key="value"
+        class="chip {{item.value === levelValue ? 'chip-on' : ''}}"
+        data-value="{{item.value}}"
+        bindtap="onLevelChip"
+        aria-role="button"
+        aria-label="熟练度 {{item.label}}{{item.value === levelValue ? '，已选' : ''}}"
+      >
+        <text>{{item.label}}</text>
+      </view>
+    </view>
+  </view>
+
+  <scroll-view
+    class="body"
+    scroll-y
+    type="list"
+    show-scrollbar="{{false}}"
+    lower-threshold="240"
+    bindscrolltolower="onLoadMore"
+    refresher-enabled
+    refresher-triggered="{{refreshing}}"
+    bindrefresherrefresh="onRefresh"
+  >
+    <view class="content">
+      <view
+        wx:for="{{rows}}"
+        wx:key="id"
+        class="unit"
+        data-id="{{item.id}}"
+        bindtap="onOpen"
+        aria-role="button"
+        aria-label="{{item.display}}，{{item.meta}}，{{item.levelLabel}}"
+      >
+        <view class="unit-main">
+          <text class="unit-display serif">{{item.display}}</text>
+          <text class="unit-meta">{{item.meta}}</text>
+        </view>
+        <text class="level level-{{item.level}}">{{item.levelLabel}}</text>
+      </view>
+
+      <text wx:if="{{loaded && rows.length === 0 && !errorText && !loading}}" class="empty">{{emptyText}}</text>
+      <text wx:if="{{errorText}}" class="error">{{errorText}}</text>
+      <text wx:if="{{loading && !refreshing}}" class="empty">加载中…</text>
+      <text wx:elif="{{loaded && rows.length > 0 && !hasMore}}" class="empty">共 {{rows.length}} 个</text>
+    </view>
+  </scroll-view>
 </view>
