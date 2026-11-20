@@ -3,7 +3,7 @@ import { buildApp } from '../../src/app.ts';
 import { loadConfig, type Config } from '../../src/config.ts';
 import type { Database } from '../../src/db/client.ts';
 import type { AppDeps } from '../../src/deps.ts';
-import type { ChatMessage, LlmClient, WechatClient } from '../../src/ports.ts';
+import type { ChatMessage, LlmClient, TtsClient, WechatClient } from '../../src/ports.ts';
 import { AppError } from '../../src/http/errors.ts';
 
 export const TEST_JWT_SECRET = 'test-only-jwt-secret-0123456789abcdef0123456789';
@@ -63,6 +63,27 @@ export function fakeLlm(reply: readonly string[] | ((messages: readonly ChatMess
   };
 }
 
+export interface FakeTts extends TtsClient {
+  calls: { text: string; voice: string; signal: AbortSignal }[];
+}
+
+/** The bytes the default fake TTS "synthesizes", so tests can see what was read and with which voice. */
+export const fakeAudio = (text: string, voice: string): Buffer => Buffer.from(`fake-mp3|${voice}|${text}`, 'utf8');
+
+/** Fake TTS: records every call and answers with `synthesize` (default: fakeAudio). */
+export function fakeTts(
+  synthesize: (text: string, voice: string, signal: AbortSignal) => Promise<Uint8Array> = async (text, voice) => fakeAudio(text, voice),
+): FakeTts {
+  const calls: FakeTts['calls'] = [];
+  return {
+    calls,
+    async synthesize(text, voice, { signal }) {
+      calls.push({ text, voice, signal });
+      return synthesize(text, voice, signal);
+    },
+  };
+}
+
 export async function buildTestApp(db: Database, overrides: Partial<AppDeps> = {}): Promise<FastifyInstance> {
   const app = await buildApp({
     config: testConfig(),
@@ -70,6 +91,7 @@ export async function buildTestApp(db: Database, overrides: Partial<AppDeps> = {
     clock: fixedClock(),
     wechat: fakeWechat(),
     llm: fakeLlm(),
+    tts: fakeTts(),
     ...overrides,
   });
   await app.ready();

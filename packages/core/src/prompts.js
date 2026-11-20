@@ -20,15 +20,23 @@ ${text}
 
 const IPA_COMMON = `PHONETIC RULE: The source is a single word or short term, but this is STILL a translation task: a Chinese source MUST be translated into English first, and an English source MUST be translated into Chinese — never echo the source word alone. The IPA transcription must ALWAYS be the American English IPA of the ENGLISH word, wrapped in slashes (e.g. /ˈæp.əl/) — NEVER Chinese pinyin and NEVER a romanization of the Chinese source.`;
 
+// A foreign source that is neither Chinese nor English (Japanese, Korean,
+// Russian, ...). Japanese and Korean may contain kanji/hanja; a user may also
+// force this direction on a pure-kanji Japanese phrase that was detected as
+// Chinese, so the rule says outright that such characters do not make it Chinese.
+const OTHER_DIRECTION_RULE = `TRANSLATION DIRECTION (pre-detected, non-negotiable): The source text is in a FOREIGN language that is NEITHER Chinese NOR English (e.g. Japanese, Korean, Russian). It may contain kanji or hanja — that does NOT make it Chinese. Translate the ENTIRE text into native, fluent Simplified Chinese.
+Your translation MUST be a Chinese sentence (proper nouns and brand names may keep their usual form). Translating into English, answering in the source language, or echoing the source back is WRONG.`;
+
 /**
  * Direction rule injected when the client has already detected the source
  * language, so the model never mis-detects mixed-language input (e.g. a
  * Chinese sentence embedding English terms) and echoes the source back.
- * @param {'zh'|'en'} sourceLang
+ * @param {'zh'|'en'|'other'} sourceLang
  * @param {boolean} isWordLookup word lookups keep the IPA OUTPUT FORMAT authoritative
  * @returns {string}
  */
 function buildDirectionRule(sourceLang, isWordLookup) {
+  if (sourceLang === 'other') return OTHER_DIRECTION_RULE;
   if (isWordLookup) {
     return sourceLang === 'zh'
       ? 'TRANSLATION DIRECTION (pre-detected, non-negotiable): The source term is CHINESE — translate it into English. The PHONETIC/OUTPUT FORMAT rules below define the exact output.'
@@ -100,11 +108,13 @@ function buildDetailWordRule(sourceLang, lang) {
  * System prompt for a translation or word lookup.
  * @param {'zh'|'en'} lang explanation language for detail mode
  * @param {boolean} [isSimpleMode] single best translation only
- * @param {boolean} [isWordLookup] single word/term: IPA + spelling rules apply
- * @param {'zh'|'en'|null} [sourceLang] client-detected source language; null lets the model decide
+ * @param {boolean} [wordLookup] single word/term: IPA + spelling rules apply
+ *   (never for an 'other' source: those rules are about English words)
+ * @param {'zh'|'en'|'other'|null} [sourceLang] client-detected source language; null lets the model decide
  * @returns {string}
  */
-export function getTranslatePrompt(lang, isSimpleMode = false, isWordLookup = false, sourceLang = null) {
+export function getTranslatePrompt(lang, isSimpleMode = false, wordLookup = false, sourceLang = null) {
+  const isWordLookup = wordLookup && sourceLang !== 'other';
   const directionRule = sourceLang
     ? buildDirectionRule(sourceLang, isWordLookup)
     : `If the source text is in Chinese, translate it into authentic, natural American English.
@@ -134,11 +144,17 @@ CRITICAL: Briefly explain the nuance or context for each version STRICTLY in ${e
 Provide 1-2 fluent, native-sounding Chinese translations.
 CRITICAL: If the English phrase has a specific cultural context or idiom, briefly explain it STRICTLY in ${explanationLang}.`;
 
+  const otherToZhSection = `The source text is in a foreign language (translating to Chinese):
+Provide 1-2 fluent, native-sounding Chinese translations.
+CRITICAL: If the source has a specific cultural context or idiom, briefly explain it STRICTLY in ${explanationLang}.`;
+
   const directionSections = sourceLang === 'zh'
     ? zhToEnSection
     : sourceLang === 'en'
       ? enToZhSection
-      : `${zhToEnSection}\n\n${enToZhSection}`;
+      : sourceLang === 'other'
+        ? otherToZhSection
+        : `${zhToEnSection}\n\n${enToZhSection}`;
 
   return `You are a professional translator and native American English speaker.
 

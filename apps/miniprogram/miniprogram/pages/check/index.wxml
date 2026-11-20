@@ -1,0 +1,72 @@
+<view class="page theme-{{theme}}">
+  <nav-bar title="纠错" />
+  <scroll-view class="body" scroll-y type="list" show-scrollbar="{{false}}">
+    <view class="content">
+      <view class="composer">
+        <textarea
+          class="composer-input serif"
+          value="{{input}}"
+          focus="{{focus}}"
+          auto-height
+          maxlength="2000"
+          confirm-type="send"
+          show-confirm-bar="{{false}}"
+          adjust-position
+          placeholder="输入英文句子，按发送纠错"
+          placeholder-class="placeholder"
+          bindinput="onInput"
+          bindconfirm="onSubmit"
+        />
+        <view class="composer-tools">
+          <view
+            wx:if="{{voiceEnabled}}"
+            class="tool {{recording ? 'tool-active' : ''}}"
+            bindtouchstart="onMicStart"
+            bindtouchend="onMicEnd"
+            bindtouchcancel="onMicEnd"
+            aria-role="button"
+            aria-label="按住说英文"
+          >
+            <view class="mic">
+              <view class="mic-capsule {{recording ? 'mic-on' : ''}}" />
+              <view class="mic-arc {{recording ? 'mic-on' : ''}}" />
+              <view class="mic-stem {{recording ? 'mic-stem-on' : ''}}" />
+            </view>
+          </view>
+          <view wx:if="{{input}}" class="tool" bindtap="onClear" aria-role="button" aria-label="清空">
+            <text>✕</text>
+          </view>
+        </view>
+        <text wx:if="{{recording}}" class="hint">正在听英文，松开即纠错</text>
+      </view>
+
+      <view class="rule" />
+
+      <view wx:if="{{notEnglish}}" class="result">
+        <text class="notice">纠错只支持英文</text>
+        <view class="button button-quiet" bindtap="onGoTranslate"><text>去翻译</text></view>
+      </view>
+
+      <view wx:elif="{{status !== 'idle'}}" class="result">
+        <!-- One line on purpose: whitespace inside <text> is rendered. -->
+        <text wx:if="{{corrected}}" class="output output-en serif" user-select><text wx:for="{{segments}}" wx:key="index" class="diff-{{item.op}}">{{item.text}}</text></text>
+        <text wx:elif="{{pending}}" class="output output-en serif">{{pending}}</text>
+        <text wx:if="{{unchanged}}" class="direction">没有需要修改的地方</text>
+
+        <text wx:if="{{explanation}}" class="explanation" user-select>{{explanation}}</text>
+
+        <text wx:if="{{status === 'waiting'}}" class="muted">检查中…</text>
+        <text wx:if="{{status === 'stopped'}}" class="muted">已停止</text>
+        <text wx:if="{{errorText}}" class="error">{{errorText}}</text>
+
+        <view class="actions">
+          <view wx:if="{{busy}}" class="action" bindtap="onStop"><text>停止</text></view>
+          <block wx:else>
+            <view class="action {{corrected ? '' : 'action-disabled'}}" bindtap="onCopyCorrected"><text>复制修改后句子</text></view>
+            <view class="action {{canSpeak ? '' : 'action-disabled'}}" bindtap="onSpeak"><text>朗读</text></view>
+          </block>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+</view>

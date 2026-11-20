@@ -1,0 +1,20 @@
+<view class="page theme-{{theme}}">
+  <nav-bar title="设备" back />
+  <scroll-view class="body" scroll-y type="list" show-scrollbar="{{false}}">
+    <view class="content">
+      <view wx:for="{{devices}}" wx:key="id" class="row">
+        <view class="device">
+          <text class="row-label">{{item.name}}</text>
+          <text class="device-meta">{{item.kindLabel}}{{item.lastSeen ? ' · ' + item.lastSeen : ''}}</text>
+        </view>
+        <text wx:if="{{item.current}}" class="row-value">本机</text>
+        <view wx:else class="revoke" data-id="{{item.id}}" bindtap="onRevoke" aria-role="button" aria-label="撤销 {{item.name}}">
+          <text>撤销</text>
+        </view>
+      </view>
+
+      <text wx:if="{{loading && devices.length === 0}}" class="empty">加载中…</text>
+      <text wx:if="{{errorText}}" class="error">{{errorText}}</text>
+    </view>
+  </scroll-view>
+</view>

@@ -22,6 +22,11 @@ const ConfigSchema = z.object({
 
   WECHAT_APPID: z.string().min(1).optional(),
   WECHAT_SECRET: z.string().min(1).optional(),
+  /**
+   * Development only: never call WeChat; the login code `dev:<name>` becomes
+   * the openid `dev_<name>`. Refused when NODE_ENV=production (see below).
+   */
+  WECHAT_DEV_LOGIN: z.stringbool().default(false),
 
   DEEPSEEK_API_KEY: z.string().min(1).optional(),
   DEEPSEEK_MODEL: z.string().min(1).default('deepseek-v4-flash'),
@@ -30,6 +35,20 @@ const ConfigSchema = z.object({
   AI_REQUESTS_PER_MINUTE: z.coerce.number().int().positive().default(20),
   AI_REQUESTS_PER_DAY: z.coerce.number().int().positive().default(200),
   AI_INPUT_MAX_CHARS: z.coerce.number().int().positive().default(2000),
+
+  /** false → POST /v1/tts answers 503 TTS_UNAVAILABLE without calling out. */
+  TTS_ENABLED: z.stringbool().default(true),
+  TTS_REQUESTS_PER_MINUTE: z.coerce.number().int().positive().default(30),
+  /** Upper bound for one synthesis (connect + audio). */
+  TTS_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60_000).default(15_000),
+  /**
+   * In-memory audio cache budget in bytes (0 disables it). The production
+   * container has mem_limit 256m, so keep this a small slice of it.
+   */
+  TTS_CACHE_MAX_BYTES: z.coerce.number().int().min(0).max(128 * 1024 * 1024).default(16 * 1024 * 1024),
+}).refine((config) => !(config.WECHAT_DEV_LOGIN && config.NODE_ENV === 'production'), {
+  path: ['WECHAT_DEV_LOGIN'],
+  message: 'WECHAT_DEV_LOGIN must not be enabled in production',
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

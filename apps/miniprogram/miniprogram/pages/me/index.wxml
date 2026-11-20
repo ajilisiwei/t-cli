@@ -1,0 +1,36 @@
+<view class="page theme-{{theme}}">
+  <nav-bar title="我的" />
+  <scroll-view class="body" scroll-y type="list" show-scrollbar="{{false}}">
+    <view class="content">
+      <view class="row" bindtap="onHistory" aria-role="button">
+        <text class="row-label">记录</text>
+        <text class="row-value">CLI 和手机的查询 ›</text>
+      </view>
+
+      <view class="row">
+        <text class="row-label">解释语言</text>
+        <view class="segmented">
+          <view class="segment {{lang === 'zh' ? 'segment-on' : ''}}" data-lang="zh" bindtap="onLang" aria-role="button"><text>中文</text></view>
+          <view class="segment {{lang === 'en' ? 'segment-on' : ''}}" data-lang="en" bindtap="onLang" aria-role="button"><text>English</text></view>
+        </view>
+      </view>
+
+      <view class="row" bindtap="onDevices" aria-role="button">
+        <text class="row-label">设备</text>
+        <text class="row-value">查看和撤销 ›</text>
+      </view>
+
+      <text class="section-title">授权 CLI 登录</text>
+      <view class="row" bindtap="onScan" aria-role="button">
+        <text class="row-label">扫描终端里的二维码</text>
+        <text class="row-value">›</text>
+      </view>
+      <view class="row" bindtap="onTypeCode" aria-role="button">
+        <text class="row-label">输入 6 位授权码</text>
+        <text class="row-value">›</text>
+      </view>
+
+      <text wx:if="{{serverLabel}}" class="section-title">开发版 · {{serverLabel}}</text>
+    </view>
+  </scroll-view>
+</view>

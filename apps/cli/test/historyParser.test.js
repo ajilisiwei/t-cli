@@ -13,9 +13,12 @@ import {
   isBeforeLiveCutoff,
   planBackfill,
   compareWithMeta,
+  detectDateBasis,
+  formatHistoryHeader,
 } from '../src/utils/historyParser.js';
 
-// Mirrors history.js saveHistory output byte for byte.
+// Mirrors saveHistory output byte for byte, with the legacy header of files
+// named by UTC date (current files use formatHistoryHeader, see below).
 const header = (date) => `# t-cli Learning History — ${date}\n\n---\n`;
 const block = (time, type, input, response) =>
   ['', `## [${time}] ${type}`, '', `**Input:** ${input}`, '', response.trim(), '', '---', ''].join('\n');
@@ -70,6 +73,19 @@ test('detail output containing --- and ## lines is not split', () => {
   assert.equal(second.entry.srcLang, 'zh');
 });
 
+test('a kana or Cyrillic source maps to srcLang other; pure-Han text stays zh', () => {
+  const cases = [
+    ['会議室を予約しました', '我预约了会议室。', 'other'],
+    ['привет', '你好', 'other'],
+    ['日本語', 'Japanese', 'zh'],
+  ];
+  for (const [input, output, srcLang] of cases) {
+    const { entry } = parseOne(historyFile('2026-11-16', block('12:00', 'Translation', input, output)));
+    assert.equal(entry.srcLang, srcLang, input);
+    assert.equal(entry.correctedInput, null, input);
+  }
+});
+
 test('only the trailing separator is stripped (input and output "---")', () => {
   const { record } = parseOne(historyFile('2026-11-16', block('17:00', 'Translation', '---', '---')));
   assert.equal(record.input, '---');
@@ -116,7 +132,7 @@ test('reconstructCreatedAt: boundaries around local 08:00 in UTC+8', () => {
   assert.equal(iso('2026-11-16', '07:59'), '2026-11-16T23:59:00.000Z'); // local 11-17 07:59
   assert.equal(iso('2026-11-16', '08:00'), '2026-11-16T00:00:00.000Z'); // local 11-16 08:00
   assert.equal(iso('2026-11-16', '23:59'), '2026-11-16T15:59:00.000Z'); // local 11-16 23:59
-  assert.equal(reconstructCreatedAt('2026-11-16', '07:30').utcDateMatched, true);
+  assert.equal(reconstructCreatedAt('2026-11-16', '07:30').dateMatched, true);
 });
 
 test('reconstructCreatedAt: negative offsets use the previous local day', () => {
@@ -134,6 +150,82 @@ test('reconstructCreatedAt rejects impossible dates and times', () => {
   assert.throws(() => reconstructCreatedAt('2026-02-31', '10:00'), TypeError);
   assert.throws(() => reconstructCreatedAt('2026-11-16', '24:00'), TypeError);
   assert.throws(() => reconstructCreatedAt('2026-11-16', '9:00'), TypeError);
+  assert.throws(() => reconstructCreatedAt('2026-11-16', '10:00', 'gmt'), TypeError);
+});
+
+// Golden values produced by the parser before files were named by local date.
+// Existing (UTC-named) files must keep yielding exactly these IDs and instants,
+// or a backfill re-run would import them a second time.
+test('legacy UTC-named file: IDs and timestamps are unchanged', () => {
+  const content = historyFile('2026-11-16',
+    block('09:13', 'Translation', 'meticulous', 'meticulous /məˈtɪkjələs/ 一丝不苟的'),
+    block('23:59', 'Grammar Check', 'He go home.', 'He goes home.'),
+    block('00:00', 'Translation', '早上好', 'Good morning'),
+    block('07:59', 'Translation', 'later', 'later'),
+    block('07:59', 'Translation', 'later', 'later'));
+  const { records } = parseHistoryFile(content, '2026-11-16');
+  assert.ok(records.every((r) => r.dateBasis === 'utc'));
+  const entries = records.map((r) => {
+    const mapped = recordToEntry(r);
+    assert.ok(mapped.ok);
+    return [mapped.entry.id, mapped.entry.createdAt];
+  });
+  assert.deepEqual(entries, [
+    ['01M7GYM8B0XDP2SBGQEMKPHGEA', '2026-11-16T09:13:00+08:00'],
+    ['01M7JHAJD09HPXDDJCBWDS1G3F', '2026-11-16T23:59:00+08:00'],
+    ['01M7JHCD004KNTNC0HJACZGH61', '2026-11-17T00:00:00+08:00'],
+    ['01M7KCSFD03VM0F7RPJ6GHWB35', '2026-11-17T07:59:00+08:00'],
+    ['01M7KCSFD04GXB2VEKEGDGYB58', '2026-11-17T07:59:00+08:00'],
+  ]);
+});
+
+const localHistoryFile = (date, ...blocks) => formatHistoryHeader(date) + blocks.join('');
+
+test('detectDateBasis: the "(local date)" header marks a local-date file', () => {
+  assert.equal(detectDateBasis(historyFile('2026-11-18', block('07:30', 'Translation', 'a', 'b'))), 'utc');
+  assert.equal(detectDateBasis(localHistoryFile('2026-11-18', block('07:30', 'Translation', 'a', 'b'))), 'local');
+  assert.equal(detectDateBasis(formatHistoryHeader('2026-11-18')), 'local', 'header only, no entries yet');
+  assert.equal(detectDateBasis(localHistoryFile('2026-11-18').replace(/\n/g, '\r\n')), 'local', 'CRLF');
+  assert.equal(detectDateBasis(''), 'utc');
+});
+
+test('detectDateBasis: a marker-like line inside an entry does not count', () => {
+  const content = historyFile('2026-11-18',
+    block('07:30', 'Translation', 'quote', '# t-cli Learning History — 2026-11-18 (local date)'));
+  assert.equal(detectDateBasis(content), 'utc');
+});
+
+test('local-date file: [07:30] in 2026-11-18.md is local 2026-11-18 07:30', () => {
+  const content = localHistoryFile('2026-11-18', block('07:30', 'Translation', 'early', '早'));
+  const { record, entry } = parseOne(content, '2026-11-18');
+  assert.equal(record.dateBasis, 'local');
+  assert.equal(entry.createdAt, '2026-11-18T07:30:00+08:00');
+  // Read as a legacy UTC-named file, the same text would land a day later.
+  const legacy = recordToEntry({ ...record, dateBasis: 'utc' });
+  assert.ok(legacy.ok);
+  assert.equal(legacy.entry.createdAt, '2026-11-19T07:30:00+08:00');
+});
+
+test('reconstructCreatedAt (local): just after and just before local midnight', () => {
+  const iso = (time) => reconstructCreatedAt('2026-11-18', time, 'local').createdAt.toISOString();
+  assert.equal(iso('00:00'), '2026-11-17T16:00:00.000Z'); // local 11-18 00:00
+  assert.equal(iso('00:01'), '2026-11-17T16:01:00.000Z');
+  assert.equal(iso('23:59'), '2026-11-18T15:59:00.000Z'); // local 11-18 23:59
+  assert.equal(reconstructCreatedAt('2026-11-18', '07:30', 'local').dateMatched, true);
+});
+
+test('reconstructCreatedAt (local): negative offsets keep the file date', () => {
+  const original = process.env.TZ;
+  process.env.TZ = 'America/New_York';
+  try {
+    // Local 2026-11-17 23:59 EST is 2026-11-18 04:59 UTC.
+    assert.equal(reconstructCreatedAt('2026-11-17', '23:59', 'local').createdAt.toISOString(), '2026-11-18T04:59:00.000Z');
+    assert.equal(reconstructCreatedAt('2026-11-17', '00:00', 'local').createdAt.toISOString(), '2026-11-17T05:00:00.000Z');
+    // 02:30 on 2026-03-08 does not exist (DST jump): flagged as a fallback.
+    assert.equal(reconstructCreatedAt('2026-03-08', '02:30', 'local').dateMatched, false);
+  } finally {
+    process.env.TZ = original;
+  }
 });
 
 test('deterministic IDs: re-parsing yields identical IDs, ULID time = createdAt', () => {

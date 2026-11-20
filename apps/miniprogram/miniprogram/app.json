@@ -1,0 +1,49 @@
+{
+  "entryPagePath": "pages/translate/index",
+  "pages": [
+    "pages/translate/index",
+    "pages/check/index",
+    "pages/me/index",
+    "pages/history/index",
+    "pages/devices/index",
+    "pages/authorize/index",
+    "pages/invite/index"
+  ],
+  "window": {
+    "navigationStyle": "custom",
+    "backgroundColor": "@bgColor",
+    "backgroundTextStyle": "@bgTextStyle",
+    "navigationBarBackgroundColor": "@bgColor",
+    "navigationBarTextStyle": "@navTextStyle"
+  },
+  "tabBar": {
+    "color": "@tabColor",
+    "selectedColor": "@tabSelectedColor",
+    "backgroundColor": "@tabBgColor",
+    "borderStyle": "@tabBorderStyle",
+    "list": [
+      { "pagePath": "pages/translate/index", "text": "翻译" },
+      { "pagePath": "pages/check/index", "text": "纠错" },
+      { "pagePath": "pages/me/index", "text": "我的" }
+    ]
+  },
+  "usingComponents": {
+    "nav-bar": "/components/nav-bar/index"
+  },
+  "darkmode": true,
+  "themeLocation": "theme.json",
+  "renderer": "skyline",
+  "componentFramework": "glass-easel",
+  "rendererOptions": {
+    "skyline": {
+      "defaultDisplayBlock": true,
+      "defaultContentBox": true,
+      "disableABTest": true,
+      "sdkVersionBegin": "3.0.1",
+      "sdkVersionEnd": "15.255.255"
+    }
+  },
+  "lazyCodeLoading": "requiredComponents",
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

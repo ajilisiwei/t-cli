@@ -1,0 +1,7 @@
+# Machine-specific development settings (see miniprogram/config.local.example.ts).
+miniprogram/config.local.ts
+# Per-developer WeChat DevTools settings.
+project.private.config.json
+# Upload keys and preview output never belong in the repository.
+*.key
+preview.png

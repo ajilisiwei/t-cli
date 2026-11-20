@@ -1,0 +1,47 @@
+{
+  "appid": "wxadc6ad8824563aa0",
+  "projectname": "t-cli",
+  "description": "t-cli mini-program (随手译记).",
+  "compileType": "miniprogram",
+  "miniprogramRoot": "miniprogram/",
+  "srcMiniprogramRoot": "miniprogram/",
+  "libVersion": "3.8.0",
+  "setting": {
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "uglifyFileName": false,
+    "useCompilerPlugins": [
+      "typescript"
+    ],
+    "skylineRenderEnable": true,
+    "urlCheck": false,
+    "uploadWithSourceMap": true,
+    "ignoreUploadUnusedFiles": true,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "disableUseStrict": false,
+    "condition": false,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
+  },
+  "packOptions": {
+    "ignore": [
+      {
+        "value": "config.local.example.ts",
+        "type": "file"
+      }
+    ],
+    "include": []
+  },
+  "editorSetting": {
+    "tabIndent": "insertSpaces",
+    "tabSize": 2
+  }
+}

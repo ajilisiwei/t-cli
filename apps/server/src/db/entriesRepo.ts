@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, inArray, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, isNull, lt } from 'drizzle-orm';
 import type { Entry } from '@t-cli/core/entry';
 import { AppError } from '../http/errors.ts';
 import type { Executor } from './client.ts';
@@ -122,4 +122,30 @@ export async function listEntriesAfter(
     nextAfter: page.length > 0 ? page[page.length - 1]!.seq : after,
     hasMore: rows.length > limit,
   };
+}
+
+/**
+ * Browse an account's entries newest first (`seq < before`, or from the
+ * newest when `before` is absent). `nextBefore` is the cursor for the next
+ * page, null once there is nothing older.
+ */
+export async function listEntriesBefore(
+  db: Executor,
+  userId: string,
+  { before, limit }: { before?: number | undefined; limit: number },
+): Promise<{ entries: SyncedEntry[]; nextBefore: number | null; hasMore: boolean }> {
+  const scope = before === undefined ? eq(entries.userId, userId) : and(eq(entries.userId, userId), lt(entries.seq, before));
+  const rows = await db.select().from(entries).where(scope).orderBy(desc(entries.seq)).limit(limit + 1);
+  const page = rows.slice(0, limit).map(fromRow);
+  const hasMore = rows.length > limit;
+  return { entries: page, nextBefore: hasMore ? page[page.length - 1]!.seq : null, hasMore };
+}
+
+/** One of the account's entries by id; null when it does not exist or belongs to another account. */
+export async function getEntry(db: Executor, userId: string, id: string): Promise<SyncedEntry | null> {
+  const [row] = await db
+    .select()
+    .from(entries)
+    .where(and(eq(entries.userId, userId), eq(entries.id, id)));
+  return row ? fromRow(row) : null;
 }

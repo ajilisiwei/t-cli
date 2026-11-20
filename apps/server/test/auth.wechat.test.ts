@@ -1,7 +1,7 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { AppError } from '../src/http/errors.ts';
-import { createWechatClient } from '../src/modules/auth/wechat.ts';
+import { createDevWechatClient, createWechatClient, selectWechatClient } from '../src/modules/auth/wechat.ts';
 import { testConfig } from './helpers/app.ts';
 
 const APPID = 'wx-test-appid';
@@ -101,5 +101,37 @@ describe('auth: WeChat code2Session client', () => {
     const started = Date.now();
     await expectAppError(createWechatClient(configured, { fetch: impl, timeoutMs: 30 }).code2Session('the-login-code'), 503, 'WECHAT_UNAVAILABLE');
     assert.ok(Date.now() - started < 2000);
+  });
+});
+
+describe('auth: development WeChat login (WECHAT_DEV_LOGIN)', () => {
+  test('dev:<name> maps to the openid dev_<name>', async () => {
+    const client = createDevWechatClient();
+    assert.deepEqual(await client.code2Session('dev:alice'), { openid: 'dev_alice' });
+    assert.deepEqual(await client.code2Session('dev:qa_user-2'), { openid: 'dev_qa_user-2' });
+    assert.deepEqual(await client.code2Session(`dev:${'a'.repeat(32)}`), { openid: `dev_${'a'.repeat(32)}` });
+  });
+
+  test('any other code is WECHAT_CODE_INVALID', async () => {
+    const client = createDevWechatClient();
+    for (const code of ['dev:', 'dev:Alice', 'dev:a b', `dev:${'a'.repeat(33)}`, 'alice', 'xdev:alice', 'dev:alice\n', ' dev:alice', '0a1b2c-real-wx-code']) {
+      await expectAppError(client.code2Session(code), 401, 'WECHAT_CODE_INVALID');
+    }
+  });
+
+  test('selectWechatClient: the flag picks the fake, which needs no WeChat credentials', async () => {
+    const { impl, calls } = fakeFetch(() => json({ openid: 'real' }));
+    const dev = selectWechatClient(testConfig({ WECHAT_DEV_LOGIN: '1' }), { fetch: impl });
+    assert.deepEqual(await dev.code2Session('dev:bob'), { openid: 'dev_bob' });
+    assert.equal(calls.length, 0, 'the fake never calls WeChat');
+
+    const real = selectWechatClient(configured, { fetch: impl });
+    assert.deepEqual(await real.code2Session('the-login-code'), { openid: 'real' });
+    assert.equal(calls.length, 1);
+  });
+
+  test('selectWechatClient refuses a production config even if it bypassed loadConfig', () => {
+    const forged = { ...testConfig(), NODE_ENV: 'production' as const, WECHAT_DEV_LOGIN: true };
+    assert.throws(() => selectWechatClient(forged), /WECHAT_DEV_LOGIN must not be enabled in production/);
   });
 });

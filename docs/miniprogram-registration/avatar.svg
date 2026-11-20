@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- 随手译记 — mini-program avatar.
+       Indigo ground and paper-white glyph = the app's own accent and background
+       (apps/miniprogram/miniprogram/app.wxss). The bar after 译 is a terminal
+       cursor: the tool started as the t-cli command line.
+       Everything stays inside the inscribed circle (r = 512) because WeChat
+       shows the avatar both as a rounded square and as a circle. -->
+  <rect width="1024" height="1024" fill="#2f3e7a"/>
+  <text x="478" y="668" text-anchor="middle"
+        font-family="Songti SC, STSong, serif" font-weight="700" font-size="520"
+        fill="#f7f5f0">译</text>
+  <rect x="744" y="702" width="104" height="50" rx="5" fill="#f7f5f0"/>
+</svg>

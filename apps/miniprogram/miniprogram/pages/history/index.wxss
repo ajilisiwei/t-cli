@@ -1,0 +1,34 @@
+.entry {
+  padding: 28rpx 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.entry-meta {
+  display: block;
+  color: var(--muted);
+  font-size: 24rpx;
+}
+
+.entry-input {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 32rpx;
+  word-break: break-word;
+}
+
+.entry-output {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--ink-soft);
+  font-size: 30rpx;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.clamp {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+}

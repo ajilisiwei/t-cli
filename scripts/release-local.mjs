@@ -101,7 +101,9 @@ function main() {
       process.stdout.write(`${tarball}\n`);
       return;
     }
-    execFileSync('npm', ['install', '-g', '--prefix', options.prefix, tarball], { stdio: 'inherit' });
+    // --ignore-scripts: no bundled dependency needs one, and msedge-tts ships a
+    // `preinstall: npx only-allow pnpm` that fails under npm.
+    execFileSync('npm', ['install', '-g', '--ignore-scripts', '--prefix', options.prefix, tarball], { stdio: 'inherit' });
     process.stdout.write(`Installed ${cliPkg.name}@${cliPkg.version} into ${options.prefix}\n`);
   } finally {
     if (!options.packOnly) fs.rmSync(workDir, { recursive: true, force: true });

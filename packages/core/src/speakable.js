@@ -1,3 +1,5 @@
+import { detectSourceLang } from './detect.js';
+
 /**
  * Extract the text worth reading aloud from a raw API response.
  * Simple mode responses are a single translation, so the whole text is used.
@@ -24,6 +26,25 @@ export function extractSpeakable(rawResponse, isSimpleMode) {
     if (cleaned) return cleaned;
   }
   return '';
+}
+
+/**
+ * The text to read aloud for a stored Entry (docs/api-v1.md, `POST /v1/tts`):
+ * - check → the corrected text (detail mode: its first line);
+ * - translate from 'zh' → the English output, as the CLI's `/say` reads it;
+ * - translate from 'en' → the English source: `correctedInput ?? input`;
+ * - translate from 'other' → the Chinese output.
+ * An entry without srcLang (older records) is classified from its input.
+ * Returns '' when there is nothing to read.
+ * @param {Pick<import('./entry.js').Entry, 'task'|'mode'|'input'|'output'|'srcLang'> & { correctedInput?: string|null }} entry
+ * @returns {string}
+ */
+export function speakableForEntry(entry) {
+  const isSimpleMode = entry.mode === 'simple';
+  if (entry.task === 'check') return extractSpeakable(entry.output, isSimpleMode);
+  const srcLang = entry.srcLang ?? detectSourceLang(entry.input);
+  if (srcLang === 'en') return (entry.correctedInput ?? entry.input ?? '').trim();
+  return extractSpeakable(entry.output, isSimpleMode);
 }
 
 // An IPA transcription is a standalone /.../ token: it opens at the start of

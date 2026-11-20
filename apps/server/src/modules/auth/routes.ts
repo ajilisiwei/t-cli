@@ -7,16 +7,23 @@ import { AppError, notFound, ok, unauthorized } from '../../http/errors.ts';
 import { createRateLimiter, type RateLimiter } from '../../lib/rateLimit.ts';
 import type { WechatClient } from '../../ports.ts';
 import { DEFAULT_MP_DEVICE_NAME, getAccount, isActiveAccount, loginWithWechat } from './accounts.ts';
-import { decideDeviceAuthorization, pollDeviceAuthorization, startDeviceAuthorization, type DevicePollError } from './deviceFlow.ts';
+import {
+  decideDeviceAuthorization,
+  lookupDeviceAuthorization,
+  pollDeviceAuthorization,
+  startDeviceAuthorization,
+  type DevicePollError,
+} from './deviceFlow.ts';
 import { listDevices, revokeDevice } from './devices.ts';
 import { rotateRefreshToken } from './refresh.ts';
+import { mergeSettings, SettingsPatch } from './settings.ts';
 import { toTokenPair } from './tokenPair.ts';
 import { normalizeInviteCode } from './tokens.ts';
 import { WechatLoginError } from './wechat.ts';
 
 /** Per client IP, per endpoint, for the unauthenticated auth endpoints. */
 export const AUTH_IP_LIMIT_PER_MINUTE = 30;
-/** Per account: bounds guessing of 6-digit user codes. */
+/** Per account, shared by device lookup and approve: bounds guessing of 6-digit user codes. */
 export const DEVICE_APPROVE_LIMIT_PER_MINUTE = 10;
 const MINUTE_MS = 60_000;
 
@@ -28,6 +35,7 @@ const WechatLoginBody = z.object({
 });
 const RefreshBody = z.object({ refreshToken: z.string().min(1).max(1024) });
 const DeviceStartBody = z.object({ deviceName: z.string().trim().min(1).max(64) });
+const DeviceLookupBody = z.object({ userCode: z.string().trim().max(16) });
 const DeviceApproveBody = z.object({ userCode: z.string().trim().max(16), approve: z.boolean() });
 const DeviceTokenBody = z.object({ deviceCode: z.string().min(1).max(1024) });
 const DeviceParams = z.object({ id: z.string().min(1).max(64) });
@@ -93,9 +101,11 @@ async function exchangeWechatCode(wechat: WechatClient, code: string, request: F
  *   POST   /v1/auth/refresh         refresh-token rotation
  *   POST   /v1/auth/logout          revoke the calling device
  *   POST   /v1/auth/device/start    CLI device authorization: start
+ *   POST   /v1/auth/device/lookup   ... show the pending device to a logged-in client
  *   POST   /v1/auth/device/approve  ... approve from a logged-in client
  *   POST   /v1/auth/device/token    ... CLI polls for its tokens
  *   GET    /v1/me
+ *   POST   /v1/me/settings          merge a partial Settings
  *   GET    /v1/devices
  *   DELETE /v1/devices/:id
  *
@@ -111,7 +121,8 @@ export async function registerAuthRoutes(app: FastifyInstance, deps: AppDeps): P
     refresh: perIp(),
     deviceStart: perIp(),
     deviceToken: perIp(),
-    deviceApprove: createRateLimiter({ limit: DEVICE_APPROVE_LIMIT_PER_MINUTE, windowMs: MINUTE_MS }),
+    // One budget for lookup and approve: both test a guessed user code.
+    deviceUserCode: createRateLimiter({ limit: DEVICE_APPROVE_LIMIT_PER_MINUTE, windowMs: MINUTE_MS }),
   };
 
   app.post(
@@ -185,12 +196,31 @@ export async function registerAuthRoutes(app: FastifyInstance, deps: AppDeps): P
   );
 
   app.post(
+    '/v1/auth/device/lookup',
+    { preHandler: authenticate },
+    guarded(async (request, reply) => {
+      const { userId } = authOf(request);
+      const now = clock();
+      enforceLimit(limits.deviceUserCode, userId, now, reply);
+      const { userCode } = DeviceLookupBody.parse(request.body);
+      if (!(await isActiveAccount(db, userId))) throw unauthorized('account not found');
+      const pending = await lookupDeviceAuthorization(db, { userCode, now });
+      if (!pending) {
+        request.log.info({ userId, outcome: 'NOT_FOUND' }, 'device authorization lookup refused');
+        throw notFound('device authorization request');
+      }
+      request.log.info({ userId }, 'device authorization looked up');
+      return ok(pending);
+    }),
+  );
+
+  app.post(
     '/v1/auth/device/approve',
     { preHandler: authenticate },
     guarded(async (request, reply) => {
       const { userId } = authOf(request);
       const now = clock();
-      enforceLimit(limits.deviceApprove, userId, now, reply);
+      enforceLimit(limits.deviceUserCode, userId, now, reply);
       const body = DeviceApproveBody.parse(request.body);
       if (!(await isActiveAccount(db, userId))) throw unauthorized('account not found');
       const decided = await decideDeviceAuthorization(db, { userCode: body.userCode, userId, approve: body.approve, now });
@@ -227,6 +257,19 @@ export async function registerAuthRoutes(app: FastifyInstance, deps: AppDeps): P
       const account = await getAccount(db, authOf(request).userId);
       if (!account) throw unauthorized('account not found');
       return ok(account);
+    }),
+  );
+
+  app.post(
+    '/v1/me/settings',
+    { preHandler: authenticate },
+    guarded(async (request) => {
+      const { userId } = authOf(request);
+      const patch = SettingsPatch.parse(request.body);
+      const settings = await mergeSettings(db, userId, patch);
+      if (!settings) throw unauthorized('account not found');
+      request.log.info({ userId, keys: Object.keys(patch) }, 'settings updated');
+      return ok({ settings });
     }),
   );
 

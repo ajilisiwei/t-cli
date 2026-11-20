@@ -86,6 +86,24 @@ test('import is idempotent: a second run writes 0 entries', (t) => {
   assert.deepEqual(readOutboxLines(env.outbox).map((e) => e.id), written.map((e) => e.id));
 });
 
+test('local-date files sit next to legacy UTC-named ones; legacy records are unchanged', (t) => {
+  const env = setup(t);
+  // Written by the current saveHistory: named by local date, marked header.
+  fs.writeFileSync(path.join(env.historyDir, '2026-11-18.md'),
+    `# t-cli Learning History — 2026-11-18 (local date)\n\n---\n${block('07:30', 'Translation', 'dawn', '黎明')}`, 'utf8');
+  const result = run(env);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(summaryValue(result.stdout, 'timestamp fallbacks'), 0);
+  assert.match(result.stdout, /file date basis:\s+utc 4, local 1/);
+  assert.deepEqual(readOutboxLines(env.outbox).map((e) => [e.input, e.createdAt]), [
+    ['meticulous', '2026-11-15T21:00:00+08:00'],
+    ['He go home.', '2026-11-15T21:05:00+08:00'],
+    ['later', '2026-11-16T09:13:00+08:00'],
+    ['早上好', '2026-11-17T07:30:00+08:00'],
+    ['dawn', '2026-11-18T07:30:00+08:00'],
+  ]);
+});
+
 test('entries from the liveSince minute onwards are skipped', (t) => {
   const env = setup(t);
   fs.writeFileSync(path.join(env.configDir, 'sync-state.json'), JSON.stringify({ liveSince: '2026-11-15T21:05:30+08:00' }), 'utf8');

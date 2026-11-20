@@ -12,7 +12,7 @@ export const ENTRY_SOURCES = Object.freeze(['cli', 'mp']);
 export const ENTRY_TASKS = Object.freeze(['translate', 'check']);
 export const ENTRY_KINDS = Object.freeze(['word', 'sentence', 'paragraph']);
 export const ENTRY_MODES = Object.freeze(['simple', 'detail']);
-export const ENTRY_SRC_LANGS = Object.freeze(['zh', 'en']);
+export const ENTRY_SRC_LANGS = Object.freeze(['zh', 'en', 'other']);
 
 /** Inputs longer than this (in code points) are paragraphs, not sentences. */
 export const SENTENCE_MAX_CHARS = 120;
@@ -25,6 +25,7 @@ const ISO_WITH_OFFSET_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\
  * @typedef {'translate'|'check'} EntryTask
  * @typedef {'word'|'sentence'|'paragraph'} EntryKind
  * @typedef {'simple'|'detail'} EntryMode
+ * @typedef {'zh'|'en'|'other'} EntrySrcLang  see detectSourceLang (detect.js)
  *
  * @typedef {Object} Entry
  * @property {number} v              schema version (ENTRY_SCHEMA_VERSION)
@@ -34,7 +35,7 @@ const ISO_WITH_OFFSET_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\
  * @property {EntryKind} kind
  * @property {string} input          user text, trimmed
  * @property {string} output         raw model response, trimmed
- * @property {'zh'|'en'|null} srcLang detected source language; null if unknown
+ * @property {EntrySrcLang|null} srcLang detected source language; null if unknown
  * @property {EntryMode} mode
  * @property {string} createdAt      ISO 8601 with local offset, second precision
  * @property {string|null} correctedInput  intended spelling when an English word
@@ -85,7 +86,7 @@ export function toLocalIsoString(date) {
  * @param {string} fields.input
  * @param {string} fields.output
  * @param {EntryMode} fields.mode
- * @param {'zh'|'en'|null} [fields.srcLang]
+ * @param {EntrySrcLang|null} [fields.srcLang]
  * @param {Date} [fields.createdAt]   defaults to now; truncated to seconds
  * @param {EntryKind} [fields.kind]   defaults to classifyKind(input)
  * @param {Uint8Array} [fields.entropy] fixed ULID entropy for deterministic IDs
@@ -142,7 +143,7 @@ export function validateEntry(value) {
   if (!ENTRY_MODES.includes(/** @type {string} */ (e.mode))) errors.push(`mode must be one of ${ENTRY_MODES.join('/')}`);
   if (typeof e.input !== 'string' || e.input.trim() === '') errors.push('input must be a non-empty string');
   if (typeof e.output !== 'string') errors.push('output must be a string');
-  if (e.srcLang !== null && !ENTRY_SRC_LANGS.includes(/** @type {string} */ (e.srcLang))) errors.push('srcLang must be zh, en or null');
+  if (e.srcLang !== null && !ENTRY_SRC_LANGS.includes(/** @type {string} */ (e.srcLang))) errors.push('srcLang must be zh, en, other or null');
   if (typeof e.createdAt !== 'string' || !ISO_WITH_OFFSET_RE.test(e.createdAt) || Number.isNaN(Date.parse(e.createdAt))) {
     errors.push('createdAt must be ISO 8601 with offset, second precision');
   }
@@ -163,7 +164,7 @@ export function validateEntry(value) {
       kind: /** @type {EntryKind} */ (e.kind),
       input: /** @type {string} */ (e.input),
       output: /** @type {string} */ (e.output),
-      srcLang: /** @type {'zh'|'en'|null} */ (e.srcLang),
+      srcLang: /** @type {EntrySrcLang|null} */ (e.srcLang),
       mode: /** @type {EntryMode} */ (e.mode),
       createdAt: /** @type {string} */ (e.createdAt),
       correctedInput: /** @type {string|null} */ (correctedInput),

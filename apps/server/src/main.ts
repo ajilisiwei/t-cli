@@ -2,7 +2,8 @@ import { buildApp } from './app.ts';
 import { loadConfig } from './config.ts';
 import { createDb, runMigrations } from './db/client.ts';
 import { createLlmClient } from './modules/ai/llm.ts';
-import { createWechatClient } from './modules/auth/wechat.ts';
+import { selectWechatClient } from './modules/auth/wechat.ts';
+import { createEdgeTtsClient } from './modules/tts/edgeTts.ts';
 
 const config = loadConfig();
 const { db, sql } = createDb(config.DATABASE_URL, { max: config.DATABASE_POOL_MAX });
@@ -15,9 +16,13 @@ const app = await buildApp({
   config,
   db,
   clock: () => new Date(),
-  wechat: createWechatClient(config),
+  wechat: selectWechatClient(config),
   llm: createLlmClient(config),
+  tts: createEdgeTtsClient(),
 });
+if (config.WECHAT_DEV_LOGIN) {
+  app.log.warn({ nodeEnv: config.NODE_ENV }, 'WECHAT_DEV_LOGIN is on: WeChat login is faked (dev:<name> codes); development only');
+}
 
 let closing = false;
 async function shutdown(signal: string): Promise<void> {

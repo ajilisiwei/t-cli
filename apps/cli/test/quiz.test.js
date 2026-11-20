@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { toQuizEntries, parseQuizResponse } from '../src/utils/quiz.js';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { toQuizEntries, parseQuizResponse, getQuizEntries } from '../src/utils/quiz.js';
 
 process.env.TZ = 'Asia/Shanghai';
 
@@ -64,6 +67,33 @@ test('toQuizEntries: a misspelled lookup is quizzed by its corrected spelling', 
 test('toQuizEntries: a "---" inside a response does not split the entry', () => {
   const leverage = toQuizEntries('2026-11-16', FILE).find((e) => e.source === 'leverage');
   assert.equal(leverage.target, 'leverage /ˈlev.ɚ.ɪdʒ/\n\n---\n\n杠杆；利用');
+});
+
+test('getQuizEntries: the cutoff is a local date, also just after local midnight', async (t) => {
+  // Throwaway config dir: history.js resolves it on every call.
+  const previous = { xdg: process.env.XDG_CONFIG_HOME, appdata: process.env.APPDATA };
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 't-cli-quiz-'));
+  process.env.XDG_CONFIG_HOME = dir;
+  process.env.APPDATA = dir;
+  t.after(() => {
+    for (const [key, value] of [['XDG_CONFIG_HOME', previous.xdg], ['APPDATA', previous.appdata]]) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+  const historyDir = path.join(dir, 't-cli', 'history');
+  fs.mkdirSync(historyDir, { recursive: true });
+  for (const date of ['2026-11-16', '2026-11-17', '2026-11-18']) {
+    const content = `# t-cli Learning History — ${date} (local date)\n\n---\n\n## [10:00] Translation\n\n**Input:** word ${date}\n\n词\n\n---\n`;
+    fs.writeFileSync(path.join(historyDir, `${date}.md`), content, 'utf8');
+  }
+  // Local 2026-11-18 00:30; the UTC rule put "1 day back" on 2026-11-16.
+  const now = new Date('2026-11-17T16:30:00.000Z');
+  const dates = (await getQuizEntries(1, now)).map((e) => e.date).sort();
+  assert.deepEqual(dates, ['2026-11-17', '2026-11-18']);
+  assert.deepEqual((await getQuizEntries(0, now)).map((e) => e.date), ['2026-11-18']);
+  await assert.rejects(getQuizEntries(1.5, now), /non-negative integer/);
 });
 
 test('parseQuizResponse: tolerates prose around the JSON object', () => {

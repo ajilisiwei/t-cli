@@ -27,3 +27,12 @@ export interface LlmClient {
   /** Yields content deltas in order. Aborts the upstream request when `signal` fires. */
   streamChat(messages: readonly ChatMessage[], options: { signal: AbortSignal }): AsyncIterable<string>;
 }
+
+/** Text to speech (modules/tts/edgeTts.ts, Microsoft Edge Read Aloud). */
+export interface TtsClient {
+  /**
+   * Synthesize `text` with the named voice and resolve with the complete mp3.
+   * Rejects when synthesis fails or `signal` fires (the caller's timeout).
+   */
+  synthesize(text: string, voice: string, options: { signal: AbortSignal }): Promise<Uint8Array>;
+}

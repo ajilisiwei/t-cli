@@ -99,7 +99,7 @@ function mapEntries(records) {
     failures: results.flatMap(({ record, result }) => (result.ok
       ? []
       : [{ fileDate: record.fileDate, index: record.index, time: record.time, error: result.error }])),
-    timestampFallbacks: results.filter(({ result }) => result.ok && !result.utcDateMatched).length,
+    timestampFallbacks: results.filter(({ result }) => result.ok && !result.dateMatched).length,
   };
 }
 
@@ -167,6 +167,7 @@ function printSummary({ options, scan, mapped, liveSince, outbox, plan, write })
   line('mode (inferred)', formatCounts(countBy(mapped.entries, (e) => e.mode)));
   line('kind', formatCounts(countBy(mapped.entries, (e) => e.kind)));
   line('srcLang', formatCounts(countBy(mapped.entries, (e) => String(e.srcLang))));
+  line('file date basis', formatCounts(countBy(scan.records, (r) => r.dateBasis)));
   if (plan.toWrite.length > 0) {
     line('range to write', `${plan.toWrite[0].createdAt} .. ${plan.toWrite[plan.toWrite.length - 1].createdAt}`);
   }
