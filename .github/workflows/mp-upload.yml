@@ -6,7 +6,8 @@ name: Mini-program upload
 #
 # Configure once (Settings → Secrets and variables → Actions):
 #   secret    WX_UPLOAD_PRIVATE_KEY  the 小程序代码上传 key (full PEM text). Never commit it.
-#   variable  WX_APPID               the mini-program AppID (not a secret).
+#   variable  WX_APPID               optional override; the AppID is read from
+#                                    apps/miniprogram/project.config.json.
 # In the admin console (开发 → 开发管理 → 开发设置 → 小程序代码上传) turn the
 # key's IP whitelist off: GitHub-hosted runners have no fixed address.
 

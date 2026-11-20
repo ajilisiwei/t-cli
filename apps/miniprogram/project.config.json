@@ -1,7 +1,7 @@
 {
-  "appid": "touristappid",
+  "appid": "wxadc6ad8824563aa0",
   "projectname": "t-cli",
-  "description": "t-cli mini-program. Replace appid with the real AppID before using plugins, previewing on a device or uploading.",
+  "description": "t-cli mini-program (随手译记).",
   "compileType": "miniprogram",
   "miniprogramRoot": "miniprogram/",
   "srcMiniprogramRoot": "miniprogram/",

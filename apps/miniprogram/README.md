@@ -10,7 +10,7 @@ Tabs: **翻译** (default), **纠错**, **我的** (记录, 解释语言, 设备
 
 ```
 apps/miniprogram/
-  project.config.json        DevTools / miniprogram-ci project (appid placeholder: touristappid)
+  project.config.json        DevTools / miniprogram-ci project (AppID wxadc6ad8824563aa0)
   tsconfig.json              type check of miniprogram/ (mini-program typings, no Node types)
   test/                      node --test unit tests for miniprogram/lib (+ test/tsconfig.json)
   scripts/sync-core.mjs      copies packages/core modules into miniprogram/vendor/core
@@ -113,9 +113,9 @@ The API host is chosen at runtime from
 
 | What | Where |
 | --- | --- |
-| **AppID** | Replace `touristappid` in `project.config.json` with the real AppID (DevTools also offers to). The tourist AppID cannot use plugins, real-device preview or upload. For CI, set the repository variable `WX_APPID`. |
-| **WechatSI plugin** (同声传译, voice input) | Admin console → 设置 → 第三方设置 → 插件管理 → add 微信同声传译 (`wx069ba97219f66d99`). `app.json` declares version `0.3.6`. Without it voice input reports 语音输入不可用; with `touristappid` DevTools may refuse to load the plugin — remove the `plugins` block locally if so. |
-| **Request domain whitelist** | Admin console → 开发 → 开发管理 → 开发设置 → 服务器域名: add `https://tcli.guangqingai.top` as a request domain (`wx.request` is used for JSON, the NDJSON stream and the TTS audio). The reverse proxy must not buffer `/v1/ai/translate` (see the contract). |
+| **AppID** | Done: `project.config.json` carries the real AppID `wxadc6ad8824563aa0` (随手译记). `scripts/upload.mjs` reads it from there; the repository variable `WX_APPID` is only an optional override. |
+| **WechatSI plugin** (同声传译, voice input) | Admin console → 设置 → 第三方设置 → 插件管理 → add 微信同声传译 (`wx069ba97219f66d99`). `app.json` declares version `0.3.6`. Without it voice input reports 语音输入不可用. Plugin traffic does not need entries in the server domain lists. |
+| **Request domain whitelist** | Admin console → 开发 → 开发管理 → 开发设置 → 服务器域名: request `https://tcli.guangqingai.top`; DNS 预解析 `tcli.guangqingai.top` and 预连接 `https://tcli.guangqingai.top` (optional, shave the first request's DNS/TLS time). All other lists stay empty: only `wx.request` is used (JSON, the NDJSON stream and the TTS audio), no socket/upload/download/UDP/TCP. The reverse proxy must not buffer `/v1/ai/translate` (see the contract). For local development, DevTools → 详情 → 本地设置 → 不校验合法域名. |
 | **Privacy guide** | Admin console → 设置 → 服务内容声明 → 用户隐私保护指引: declare microphone (voice input) and clipboard (copy) use. WeChat shows its own consent prompt before the first recording. |
 | **Upload key** | Admin console → 开发 → 开发管理 → 开发设置 → 小程序代码上传: download the key, store its full text as the repository secret `WX_UPLOAD_PRIVATE_KEY`, and disable the key's IP whitelist (GitHub runners have no fixed IP). Never commit the key. |
 
