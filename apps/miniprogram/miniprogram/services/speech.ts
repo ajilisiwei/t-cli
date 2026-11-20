@@ -141,3 +141,90 @@ export function speakEntry(entryId: string): Promise<void> {
 export function speakItem(itemId: string): Promise<void> {
   return speak({ itemId }, `item-${itemId}`)
 }
+
+// ---- Review sources: cards, material items, the daily story ----
+// Kept apart from the entry code above (no shared lines changed), so parallel
+// additions to this file merge cleanly. docs/api-v1.md, "Speech (extended)".
+
+/** What `POST /v1/tts` reads besides an entry: the account's own card, item or story. */
+export type ReviewSpeechSource =
+  | { readonly cardId: string }
+  | { readonly itemId: string }
+  | { readonly material: { readonly kind: 'daily'; readonly date: string; readonly section: 'story' } }
+
+const fetchSourceAudio = (accessToken: string, source: ReviewSpeechSource): Promise<ArrayBuffer> =>
+  new Promise((resolve, reject) => {
+    wx.request({
+      url: `${api.baseUrl}/v1/tts`,
+      method: 'POST',
+      header: {
+        accept: 'audio/mpeg',
+        'content-type': 'application/json',
+        authorization: `Bearer ${accessToken}`,
+      },
+      data: JSON.stringify(source),
+      responseType: 'arraybuffer',
+      timeout: TTS_TIMEOUT_MS,
+      success: (response) => {
+        const data: unknown = response.data
+        if (response.statusCode === 200 && data instanceof ArrayBuffer && data.byteLength > 0) {
+          resolve(data)
+          return
+        }
+        try {
+          parseEnvelope(response.statusCode, decodeText(data))
+          reject(new ApiError({ kind: 'protocol', code: 'BAD_RESPONSE', message: 'empty audio' }))
+        } catch (error: unknown) {
+          reject(error)
+        }
+      },
+      fail: (error) => reject(transportError(error.errMsg)),
+    })
+  })
+
+const sourceDownloads = new Map<string, Promise<string>>()
+
+/**
+ * The local mp3 for `source`, fetched once (concurrent callers share the
+ * download). `cacheKey` names the file: an id plus a fingerprint of the text,
+ * because a reported card or item is rewritten under the same id.
+ */
+const sourceAudioFile = (source: ReviewSpeechSource, cacheKey: string): Promise<string> => {
+  const path = `${wx.env.USER_DATA_PATH}/${ttsFileName(cacheKey)}`
+  if (fileExists(path)) return Promise.resolve(path)
+  const running = sourceDownloads.get(path)
+  if (running !== undefined) return running
+  const download = api
+    .authorized((token) => fetchSourceAudio(token, source))
+    .then((audio) => writeFile(path, audio))
+    .then(() => {
+      evictOldAudio()
+      return path
+    })
+    .finally(() => sourceDownloads.delete(path))
+  sourceDownloads.set(path, download)
+  return download
+}
+
+/** Bumped by every request and stop: a download finishing late never plays over a newer one. */
+let sourcePlays = 0
+
+/** Plays `source`, fetching it once. Resolves when playback ends, is replaced or was superseded. */
+export async function speakSource(source: ReviewSpeechSource, cacheKey: string): Promise<void> {
+  sourcePlays += 1
+  const mine = sourcePlays
+  const path = await sourceAudioFile(source, cacheKey)
+  if (mine !== sourcePlays) return
+  await play(path)
+}
+
+/** Fetches the audio ahead of time (a review card's, while its front shows). */
+export async function prefetchSource(source: ReviewSpeechSource, cacheKey: string): Promise<void> {
+  await sourceAudioFile(source, cacheKey)
+}
+
+/** Stops playback and cancels review audio still downloading. */
+export function stopSourceSpeech(): void {
+  sourcePlays += 1
+  stopSpeaking()
+}

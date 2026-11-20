@@ -1,1 +1,228 @@
-/* Shared styles live in app.wxss; page-only styles go here. */
+/* 复习 home: one ring, one button. Shared tokens and rows live in app.wxss. */
+.today {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-top: 8rpx;
+}
+
+.today-date {
+  color: var(--muted);
+  font-size: 26rpx;
+}
+
+.today-streak {
+  color: var(--ink-soft);
+  font-size: 26rpx;
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40rpx 0 56rpx;
+}
+
+/*
+ * Progress ring: a hairline track plus two half-clipped arcs (top + right
+ * borders coloured). JS sets each arc's rotation (lib/review-home.ts).
+ */
+.ring {
+  position: relative;
+  width: 320rpx;
+  height: 320rpx;
+}
+
+.ring-track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 320rpx;
+  height: 320rpx;
+  box-sizing: border-box;
+  border: 8rpx solid var(--rule);
+  border-radius: 160rpx;
+}
+
+.ring-half {
+  position: absolute;
+  top: 0;
+  width: 160rpx;
+  height: 320rpx;
+  overflow: hidden;
+}
+
+.ring-right {
+  left: 160rpx;
+}
+
+.ring-left {
+  left: 0;
+}
+
+.ring-arc {
+  position: absolute;
+  top: 0;
+  width: 320rpx;
+  height: 320rpx;
+  box-sizing: border-box;
+  border: 8rpx solid transparent;
+  border-top-color: var(--accent);
+  border-right-color: var(--accent);
+  border-radius: 160rpx;
+}
+
+.ring-arc-right {
+  left: -160rpx;
+}
+
+.ring-arc-left {
+  left: 0;
+}
+
+.ring-center {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 320rpx;
+  height: 320rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.ring-caption {
+  color: var(--muted);
+  font-size: 24rpx;
+}
+
+.ring-done {
+  margin-top: 4rpx;
+  color: var(--ink);
+  font-size: 88rpx;
+  line-height: 1.1;
+}
+
+.ring-total {
+  color: var(--muted);
+  font-size: 26rpx;
+}
+
+.hero-meta {
+  display: block;
+  margin-top: 36rpx;
+  color: var(--ink-soft);
+  font-size: 28rpx;
+  text-align: center;
+}
+
+.start {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 96rpx;
+  margin-top: 40rpx;
+  border-radius: 48rpx;
+  background-color: var(--accent);
+  color: var(--accent-ink);
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.calm {
+  padding: 96rpx 24rpx 80rpx;
+  text-align: center;
+}
+
+.calm-title {
+  display: block;
+  color: var(--ink);
+  font-size: 34rpx;
+}
+
+.calm-note {
+  display: block;
+  margin-top: 20rpx;
+  color: var(--muted);
+  font-size: 26rpx;
+  line-height: 1.7;
+}
+
+.load-error {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 0;
+}
+
+.load-error-text {
+  margin-top: 0;
+}
+
+.retry {
+  padding: 8rpx 0 8rpx 32rpx;
+  color: var(--accent);
+  font-size: 28rpx;
+}
+
+/* The latest 每日材料: the one panel on the page. */
+.material {
+  padding: 28rpx 32rpx;
+  background-color: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 24rpx;
+}
+
+.material-head {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.material-title {
+  color: var(--ink);
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.material-chevron {
+  color: var(--muted);
+  font-size: 36rpx;
+  line-height: 1;
+}
+
+.material-counts {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--ink-soft);
+  font-size: 26rpx;
+}
+
+.material-story {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 8rpx;
+  color: var(--ink-soft);
+  font-size: 26rpx;
+}
+
+.material-play {
+  margin-left: 16rpx;
+  color: var(--accent);
+  font-size: 24rpx;
+}
+
+.material-note {
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.links {
+  margin-top: 32rpx;
+}
