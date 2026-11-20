@@ -9,3 +9,5 @@ node_modules/
 # keep them in ~/.wx-miniprogram/ (see apps/miniprogram/README.md).
 *.key
 *.pem
+.secret
+.secret.*
