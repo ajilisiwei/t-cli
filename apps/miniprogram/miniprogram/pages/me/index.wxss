@@ -1,1 +1,41 @@
-/* Shared styles live in app.wxss. */
+/* Shared styles live in app.wxss; the switch and the reminder note are page-only. */
+
+/* A drawn switch: follows the theme colours, unlike the native one. */
+.switch {
+  position: relative;
+  width: 84rpx;
+  height: 48rpx;
+  border-radius: 24rpx;
+  background-color: var(--rule);
+}
+
+.switch-on {
+  background-color: var(--accent);
+}
+
+.knob {
+  position: absolute;
+  top: 4rpx;
+  left: 4rpx;
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 20rpx;
+  background-color: var(--muted);
+}
+
+.knob-on {
+  left: 40rpx;
+  background-color: var(--accent-ink);
+}
+
+.row-accent {
+  color: var(--accent);
+}
+
+.setting-note {
+  display: block;
+  padding: 16rpx 0 8rpx;
+  color: var(--muted);
+  font-size: 24rpx;
+  line-height: 1.6;
+}
