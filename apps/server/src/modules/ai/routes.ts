@@ -5,12 +5,15 @@ import { z } from 'zod';
 import { insertEntries } from '../../db/entriesRepo.ts';
 import type { AppDeps } from '../../deps.ts';
 import { authOf, requireAuth } from '../../http/auth.ts';
-import { AppError } from '../../http/errors.ts';
+import { AppError, loggableError, unauthorized } from '../../http/errors.ts';
 import { createRateLimiter } from '../../lib/rateLimit.ts';
+import type { LlmUsage } from '../../ports.ts';
+import { isActiveAccount } from '../auth/accounts.ts';
 import { buildMpEntry } from './entry.ts';
 import { buildAiPrompt } from './prompt.ts';
-import { consumeDailyQuota, localDay } from './quota.ts';
+import { consumeDailyQuota, isMissingAccount, localDay, recordTokens, type QuotaResult } from './quota.ts';
 import { proxyStream, type DoneEntry, type StreamResult } from './stream.ts';
+import { estimatePromptTokens, totalTokens } from './usage.ts';
 
 /** Default client offset (Asia/Shanghai) when the client does not send one. */
 export const DEFAULT_UTC_OFFSET_MINUTES = 480;
@@ -41,9 +44,12 @@ export function translateBodySchema(maxChars: number) {
  *
  *   POST /v1/ai/translate  → application/x-ndjson stream of meta / delta / done / error lines
  *
- * Order of checks: auth → validation → per-minute limit → daily quota (counted
- * when the request starts) → upstream. Logs one line per request with sizes
- * and timings only — never the user's text or the model's output.
+ * Order of checks: auth → validation → per-minute limit → the account still
+ * exists (401 otherwise) → daily request quota and token budget (counted when
+ * the request starts) → upstream. After the
+ * request, its tokens (reported, or estimated as code points / 2) are added
+ * to the day's budget. Logs one line per request with sizes, timings and
+ * token counts only — never the user's text or the model's output.
  */
 export async function registerAiRoutes(app: FastifyInstance, deps: AppDeps): Promise<void> {
   const { config } = deps;
@@ -81,11 +87,33 @@ export async function registerAiRoutes(app: FastifyInstance, deps: AppDeps): Pro
       throw new AppError(503, 'AI_UNAVAILABLE', 'AI service is not configured');
     }
 
-    const limit = config.AI_REQUESTS_PER_DAY;
-    const quota = await consumeDailyQuota(deps.db, { userId, day: localDay(now, utcOffsetMinutes), limit });
+    // A deleted account's access token stays valid until it expires: refuse it
+    // before charging anything (the usage row's foreign key would fail anyway).
+    const accountGone = (): AppError => {
+      logOutcome('info', 'account_gone');
+      return unauthorized('account not found');
+    };
+    if (!(await isActiveAccount(deps.db, userId))) throw accountGone();
+
+    const day = localDay(now, utcOffsetMinutes);
+    let quota: QuotaResult;
+    try {
+      quota = await consumeDailyQuota(deps.db, {
+        userId,
+        day,
+        limit: config.AI_REQUESTS_PER_DAY,
+        tokenLimit: config.AI_TOKENS_PER_DAY,
+      });
+    } catch (error) {
+      // Deleted between the check above and the upsert.
+      if (isMissingAccount(error)) throw accountGone();
+      throw error;
+    }
     if (!quota.allowed) {
-      logOutcome('info', 'quota_exceeded');
-      throw new AppError(429, 'QUOTA_EXCEEDED', 'daily AI quota exhausted', { limit });
+      logOutcome('info', 'quota_exceeded', { quotaKind: quota.kind });
+      throw quota.kind === 'tokens'
+        ? new AppError(429, 'QUOTA_EXCEEDED', 'daily AI token budget exhausted', { limit: config.AI_TOKENS_PER_DAY, kind: 'tokens' })
+        : new AppError(429, 'QUOTA_EXCEEDED', 'daily AI quota exhausted', { limit: config.AI_REQUESTS_PER_DAY, kind: 'requests' });
     }
 
     const persist = async (output: string): Promise<DoneEntry> => {
@@ -95,17 +123,38 @@ export async function registerAiRoutes(app: FastifyInstance, deps: AppDeps): Pro
       return { id: entry.id, seq: lastSeq, kind: entry.kind, correctedInput: entry.correctedInput };
     };
 
+    let reported: LlmUsage | null = null;
+    const onUsage = (usage: LlmUsage): void => {
+      reported = usage;
+    };
+    /** Charge the day's token budget; never fails the (already answered) request. */
+    const chargeTokens = async (usage: LlmUsage, estimated: boolean): Promise<Record<string, unknown>> => {
+      try {
+        await recordTokens(deps.db, { userId, day, tokens: totalTokens(usage), kind: 'interactive' });
+      } catch (error) {
+        request.log.error({ userId, ...loggableError(error) }, 'recording AI token usage failed');
+      }
+      return { promptTokens: usage.promptTokens, completionTokens: usage.completionTokens, usageEstimated: estimated };
+    };
+
     let result: StreamResult;
     try {
-      result = await proxyStream({ reply, llm: deps.llm, messages, meta: { srcLang, kind }, persist, startedAt });
+      result = await proxyStream({ reply, llm: deps.llm, messages, meta: { srcLang, kind }, persist, startedAt, onUsage });
     } catch (error) {
+      // Failed before any output: only what the upstream reported was spent.
+      const usage: LlmUsage | null = reported;
+      const tokens = usage ? await chargeTokens(usage, false) : {};
       const errorCode = error instanceof AppError ? error.code : 'INTERNAL';
-      logOutcome('warn', 'upstream_error', { errorCode, outputChars: 0, firstDeltaMs: null, streamed: false });
+      logOutcome('warn', 'upstream_error', { errorCode, outputChars: 0, firstDeltaMs: null, streamed: false, ...tokens });
       throw error;
     }
 
-    const { outcome, outputChars, firstDeltaMs, errorCode, storeError } = result;
-    const timings = { outputChars, firstDeltaMs: firstDeltaMs === null ? null : Math.round(firstDeltaMs) };
+    const { outcome, outputChars, outputCodePoints, firstDeltaMs, errorCode, storeError } = result;
+    const usage: LlmUsage | null = reported;
+    const tokens = usage
+      ? await chargeTokens(usage, false)
+      : await chargeTokens({ promptTokens: estimatePromptTokens(messages), completionTokens: Math.ceil(outputCodePoints / 2) }, true);
+    const timings = { outputChars, firstDeltaMs: firstDeltaMs === null ? null : Math.round(firstDeltaMs), ...tokens };
     if (outcome === 'store_failed') {
       // Only the error's class and SQLSTATE: a database error's detail can quote row values.
       const err = storeError instanceof Error ? { name: storeError.name, code: (storeError as { code?: unknown }).code } : {};
