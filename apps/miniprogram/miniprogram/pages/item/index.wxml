@@ -5,7 +5,7 @@
       <text wx:if="{{loading && !loaded}}" class="empty">加载中…</text>
       <view wx:if="{{errorText && !loaded}}" class="failed">
         <text class="error">{{errorText}}</text>
-        <view class="button button-quiet" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+        <view class="btn btn-secondary btn-block" bindtap="onRetry" aria-role="button"><text>重试</text></view>
       </view>
 
       <text wx:if="{{loaded && notice}}" class="status">{{notice}}</text>
@@ -15,8 +15,8 @@
         <view class="headline">
           <text class="head serif" user-select>{{word.headword}}</text>
           <text wx:if="{{word.ipa}}" class="ipa serif">/{{word.ipa}}/</text>
-          <view class="speak" bindtap="onSpeak" aria-role="button" aria-label="朗读 {{word.headword}}">
-            <text>{{speaking ? '…' : '▶'}}</text>
+          <view class="icon-btn icon-btn-sm icon-btn-tonal speak {{speaking ? 'icon-btn-busy' : ''}}" bindtap="onSpeak" aria-role="button" aria-label="朗读 {{word.headword}}">
+            <t-icon name="speaker" tone="accent" size="30" />
           </view>
         </view>
         <text class="meta">{{meta}}</text>
@@ -57,8 +57,8 @@
       <view wx:if="{{phrase}}" class="hero">
         <view class="headline">
           <text class="phrase-text serif" user-select>{{phrase.phrase}}</text>
-          <view class="speak" bindtap="onSpeak" aria-role="button" aria-label="朗读 {{phrase.phrase}}">
-            <text>{{speaking ? '…' : '▶'}}</text>
+          <view class="icon-btn icon-btn-sm icon-btn-tonal speak {{speaking ? 'icon-btn-busy' : ''}}" bindtap="onSpeak" aria-role="button" aria-label="朗读 {{phrase.phrase}}">
+            <t-icon name="speaker" tone="accent" size="30" />
           </view>
         </view>
         <text wx:if="{{phrase.zh}}" class="gloss">{{phrase.zh}}</text>
@@ -91,14 +91,14 @@
         <text wx:if="{{grammar.rule}}" class="grammar-rule">{{grammar.rule}}</text>
         <view wx:if="{{grammar.wrong || grammar.right}}" class="contrast">
           <view wx:if="{{grammar.wrong}}" class="contrast-line" aria-label="错误：{{grammar.wrong}}">
-            <text class="mark mark-wrong">✗</text>
+            <view class="mark-icon"><t-icon name="close" tone="danger" size="28" /></view>
             <text class="wrong serif">{{grammar.wrong}}</text>
           </view>
           <view wx:if="{{grammar.right}}" class="contrast-line contrast-right" aria-label="正确：{{grammar.right}}">
-            <text class="mark mark-right">✓</text>
+            <view class="mark-icon"><t-icon name="check" tone="accent" size="30" /></view>
             <text class="right serif" user-select>{{grammar.right}}</text>
-            <view class="speak speak-middle" bindtap="onSpeak" aria-role="button" aria-label="朗读正确的句子">
-              <text>{{speaking ? '…' : '▶'}}</text>
+            <view class="icon-btn icon-btn-sm icon-btn-tonal speak {{speaking ? 'icon-btn-busy' : ''}}" bindtap="onSpeak" aria-role="button" aria-label="朗读正确的句子">
+              <t-icon name="speaker" tone="accent" size="30" />
             </view>
           </view>
         </view>
@@ -115,7 +115,10 @@
             aria-label="第 {{index + 1}} 题：{{item.wrong}}{{item.revealed ? '。答案：' + item.right : '。点一下看答案'}}"
           >
             <text class="exercise-wrong serif">{{index + 1}}. {{item.wrong}}</text>
-            <text wx:if="{{item.revealed}}" class="exercise-right serif">✓ {{item.right}}</text>
+            <view wx:if="{{item.revealed}}" class="mark-line exercise-right">
+              <view class="mark-icon"><t-icon name="check" tone="accent" size="30" /></view>
+              <text class="exercise-right-text serif">{{item.right}}</text>
+            </view>
             <text wx:else class="exercise-hint">看答案</text>
           </view>
         </block>

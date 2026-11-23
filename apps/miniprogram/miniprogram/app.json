@@ -49,7 +49,8 @@
     ]
   },
   "usingComponents": {
-    "nav-bar": "/components/nav-bar/index"
+    "nav-bar": "/components/nav-bar/index",
+    "t-icon": "/components/t-icon/index"
   },
   "darkmode": true,
   "themeLocation": "theme.json",

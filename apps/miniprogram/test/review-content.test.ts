@@ -37,7 +37,7 @@ const wireCard = {
   itemId: 'item-1',
   itemType: 'word',
   cardType: 'recognize',
-  front: { text: 'meticulous', ipa: 'məˈtɪkjələs' },
+  front: { text: 'meticulous', ipa: '/məˈtɪkjələs/' },
   back: {
     text: 'adj. 一丝不苟的；极其仔细的',
     example: { en: 'She keeps meticulous records.', zh: '她一丝不苟地记录。' },
@@ -103,7 +103,9 @@ test('cardView: recognize shows a serif headword, then the meanings', () => {
   assert.equal(view.label, '认词')
   assert.equal(view.front.serif, true)
   assert.equal(view.front.headword, true)
+  // The server sends IPA in slashes; the page adds its own, so the view has none.
   assert.equal(view.front.ipa, 'məˈtɪkjələs')
+  assert.equal(cardView(queueCard({ front: { text: 'x', ipa: 'bare' } }), diffWords).front.ipa, 'bare')
   assert.equal(view.back.serif, false)
   assert.equal(view.back.headword, false)
   assert.equal(view.back.exampleEn, 'She keeps meticulous records.')
@@ -197,7 +199,7 @@ const material = {
     {
       itemId: 'w1',
       headword: 'meticulous',
-      ipa: 'məˈtɪkjələs',
+      ipa: '/məˈtɪkjələs/',
       meanings: [{ pos: 'adj.', zh: '一丝不苟的' }, { pos: 'adj.' }],
       examples: [
         { en: 'She keeps meticulous records.', zh: '她一丝不苟地记录。', fromUser: false },
@@ -238,6 +240,7 @@ test('readDailyMaterial is lenient with entries and strict with the envelope', (
   assert.ok(read)
   assert.equal(read.words.length, 1, 'the word without a headword is skipped')
   assert.equal(read.words[0]?.meanings.length, 1)
+  assert.equal(read.words[0]?.ipa, 'məˈtɪkjələs', 'IPA without its slashes')
   assert.equal(read.words[0]?.examples[1]?.fromUser, true)
   assert.equal(read.phrases[0]?.register, 'casual')
   assert.equal(read.grammar[0]?.exercises.length, 1)

@@ -18,7 +18,8 @@ import {
   progressShare,
   reminderAccepted,
   reminderTemplateToAsk,
-  ringAngles,
+  ringDegrees,
+  ringStyle,
 } from '../miniprogram/lib/review-home.ts'
 import { readReminderTemplateId } from '../miniprogram/lib/review-validate.ts'
 import type { ReviewSummary } from '../miniprogram/lib/review-types.ts'
@@ -110,20 +111,30 @@ const summary = (overrides: Partial<ReviewSummary>): ReviewSummary => ({
   ...overrides,
 })
 
-test('progress ring: share and half-arc rotations', () => {
+test('progress ring: share, degrees and the conic gradient', () => {
   assert.equal(progressShare(18, 24), 18 / 42)
   assert.equal(progressShare(0, 0), 0)
   assert.equal(progressShare(5, 0), 1)
   assert.equal(progressShare(-3, 4), 0)
-  // Nothing done: both arcs rotated out of their half.
-  assert.deepEqual(ringAngles(0), { right: -135, left: 45 })
-  // A quarter: the right half shows 0°–90°, the left half nothing.
-  assert.deepEqual(ringAngles(0.25), { right: -45, left: 45 })
-  assert.deepEqual(ringAngles(0.5), { right: 45, left: 45 })
-  assert.deepEqual(ringAngles(0.75), { right: 45, left: 135 })
-  assert.deepEqual(ringAngles(1), { right: 45, left: 225 })
-  assert.deepEqual(ringAngles(7), ringAngles(1))
-  assert.deepEqual(ringAngles(Number.NaN), ringAngles(0))
+  assert.equal(ringDegrees(0), 0)
+  assert.equal(ringDegrees(2 / 15), 48)
+  assert.equal(ringDegrees(1 / 3), 120)
+  assert.equal(ringDegrees(1), 360)
+  assert.equal(ringDegrees(7), 360)
+  assert.equal(ringDegrees(Number.NaN), 0)
+
+  const partial = ringStyle(48, '#111111', '#eeeeee')
+  assert.equal(
+    partial.background,
+    'background-image: conic-gradient(#111111 0deg, #111111 48deg, #eeeeee 48deg, #eeeeee 360deg);',
+  )
+  assert.equal(partial.endCap, 'transform: rotate(48deg);')
+  assert.equal(partial.caps, true)
+  // Empty and full rings have no caps; out-of-range angles are clamped.
+  assert.equal(ringStyle(0, '#1', '#2').caps, false)
+  assert.equal(ringStyle(360, '#1', '#2').caps, false)
+  assert.equal(ringStyle(500, '#1', '#2').endCap, 'transform: rotate(360deg);')
+  assert.equal(ringStyle(Number.NaN, '#1', '#2').caps, false)
 })
 
 test('badge text', () => {
@@ -147,7 +158,7 @@ test('homeView: due, finished and idle', () => {
   const finished = homeView(summary({ doneToday: 30, streakDays: 1 }))
   assert.equal(finished.mode, 'finished')
   assert.equal(finished.total, 30)
-  assert.deepEqual(finished.ring, ringAngles(1))
+  assert.equal(finished.ringDegrees, 360)
   assert.equal(finished.meta, '')
 
   const idle = homeView(summary({}))

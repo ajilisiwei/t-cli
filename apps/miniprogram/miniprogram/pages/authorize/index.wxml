@@ -15,10 +15,10 @@
         bindinput="onInput"
         bindconfirm="onConfirm"
       />
-      <view class="button {{busy ? 'button-disabled' : ''}}" bindtap="onConfirm" aria-role="button">
+      <view class="btn btn-primary btn-block {{busy ? 'btn-disabled' : ''}}" bindtap="onConfirm" aria-role="button">
         <text>{{busy ? '请稍候…' : '继续'}}</text>
       </view>
-      <view class="button button-quiet" bindtap="onScan" aria-role="button"><text>扫码</text></view>
+      <view class="btn btn-secondary btn-block" bindtap="onScan" aria-role="button"><text>扫码</text></view>
 
       <text wx:if="{{resultText}}" class="notice">{{resultText}}</text>
       <text wx:if="{{errorText}}" class="error">{{errorText}}</text>

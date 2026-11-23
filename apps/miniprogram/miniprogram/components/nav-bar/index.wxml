@@ -1,7 +1,7 @@
 <view class="nav" style="padding-top: {{statusBarHeight}}px;">
   <view class="bar" style="height: {{barHeight}}px;">
     <view wx:if="{{back}}" class="back" bindtap="onBack" aria-role="button" aria-label="返回">
-      <text class="chevron">‹</text>
+      <t-icon name="chevron-left" tone="ink" size="44" />
     </view>
     <text class="title">{{title}}</text>
   </view>

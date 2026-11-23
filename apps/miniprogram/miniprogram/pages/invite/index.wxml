@@ -14,7 +14,7 @@
         bindinput="onInput"
         bindconfirm="onSubmit"
       />
-      <view class="button {{busy || !code ? 'button-disabled' : ''}}" bindtap="onSubmit" aria-role="button">
+      <view class="btn btn-primary btn-block {{busy || !code ? 'btn-disabled' : ''}}" bindtap="onSubmit" aria-role="button">
         <text>{{busy ? '请稍候…' : '开始使用'}}</text>
       </view>
       <text wx:if="{{errorText}}" class="error">{{errorText}}</text>

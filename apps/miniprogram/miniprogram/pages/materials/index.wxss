@@ -13,24 +13,6 @@
   height: 80rpx;
 }
 
-.date-step {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 80rpx;
-  height: 80rpx;
-}
-
-.step {
-  color: var(--accent);
-  font-size: 48rpx;
-  line-height: 1;
-}
-
-.step-off {
-  color: var(--rule);
-}
-
 .date-label {
   color: var(--ink);
   font-size: 30rpx;
@@ -112,10 +94,10 @@
   font-size: 28rpx;
 }
 
+/* Round 朗读 button; centred on the headword line (the row aligns baselines). */
 .play {
-  padding: 4rpx 16rpx;
-  color: var(--accent);
-  font-size: 26rpx;
+  align-self: center;
+  margin-left: 8rpx;
 }
 
 .meaning {
@@ -232,24 +214,7 @@
 }
 
 .pair {
-  display: flex;
-  flex-direction: row;
-  align-items: baseline;
   margin-top: 12rpx;
-}
-
-.pair-mark {
-  flex-shrink: 0;
-  width: 40rpx;
-  font-size: 26rpx;
-}
-
-.pair-wrong {
-  color: var(--danger);
-}
-
-.pair-right {
-  color: var(--accent);
 }
 
 .pair-text {
@@ -316,14 +281,8 @@
 .story-actions {
   display: flex;
   flex-direction: row;
-  margin-top: 16rpx;
-}
-
-.story-action {
-  margin-right: 40rpx;
-  padding: 8rpx 0;
-  color: var(--accent);
-  font-size: 28rpx;
+  gap: 16rpx;
+  margin-top: 20rpx;
 }
 
 .story-text {
@@ -371,7 +330,8 @@
 }
 
 .retry {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
   margin-top: 24rpx;
-  color: var(--accent);
-  font-size: 28rpx;
 }

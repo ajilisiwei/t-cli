@@ -25,16 +25,7 @@
 }
 
 .progress {
-  height: 4rpx;
   margin: 16rpx 40rpx 0;
-  border-radius: 2rpx;
-  background-color: var(--rule);
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 4rpx;
-  background-color: var(--accent);
 }
 
 /* The card fills the space between the progress line and the dock. */
@@ -134,16 +125,14 @@
 }
 
 .speak {
-  margin-left: 8rpx;
-  padding: 4rpx 16rpx;
-  color: var(--accent);
-  font-size: 22rpx;
+  margin-left: 16rpx;
 }
 
+/* The 朗读 pill when there is no IPA line to sit next to. */
 .speak-line {
+  display: flex;
+  flex-direction: row;
   margin-top: 28rpx;
-  color: var(--accent);
-  font-size: 28rpx;
 }
 
 .face-sub {
@@ -214,10 +203,7 @@
 }
 
 .undo-action {
-  padding: 12rpx 0 12rpx 32rpx;
-  color: var(--accent);
-  font-size: 28rpx;
-  font-weight: 600;
+  padding-left: 32rpx;
 }
 
 .gesture-hint {
@@ -270,18 +256,6 @@
   margin-top: 4rpx;
   color: var(--muted);
   font-size: 22rpx;
-}
-
-.reveal {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 104rpx;
-  border-radius: 52rpx;
-  background-color: var(--surface);
-  border: 1px solid var(--rule);
-  color: var(--accent);
-  font-size: 30rpx;
 }
 
 /* ---- end screen ---- */
@@ -348,16 +322,4 @@
   margin-top: 8rpx;
   color: var(--muted);
   font-size: 24rpx;
-}
-
-.finish {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 96rpx;
-  border-radius: 48rpx;
-  background-color: var(--accent);
-  color: var(--accent-ink);
-  font-size: 32rpx;
-  font-weight: 600;
 }

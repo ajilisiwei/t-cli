@@ -8,7 +8,8 @@
     "test": "node --test \"test/**/*.test.ts\"",
     "typecheck": "tsc -p tsconfig.json && tsc -p test/tsconfig.json",
     "sync:core": "node scripts/sync-core.mjs",
-    "upload": "node scripts/upload.mjs"
+    "upload": "node scripts/upload.mjs",
+    "icons": "node --disable-warning=ExperimentalWarning scripts/icons.mjs"
   },
   "license": "ISC",
   "devDependencies": {

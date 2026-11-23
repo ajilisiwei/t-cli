@@ -5,7 +5,7 @@
       <text wx:if="{{loading && !loaded}}" class="empty">加载中…</text>
       <view wx:if="{{errorText && !loaded}}" class="failed">
         <text class="error">{{errorText}}</text>
-        <view class="button button-quiet" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+        <view class="btn btn-secondary btn-block" bindtap="onRetry" aria-role="button"><text>重试</text></view>
       </view>
 
       <block wx:if="{{loaded}}">

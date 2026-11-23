@@ -6,10 +6,11 @@
 import { errorMessage } from '../../lib/api'
 import { fingerprint } from '../../lib/review-card'
 import { formatDateLabel, materialTitle } from '../../lib/review-format'
-import { homeView, type HomeView } from '../../lib/review-home'
+import { homeView, ringStyle, type HomeView, type RingStyle } from '../../lib/review-home'
 import { materialCounts } from '../../lib/review-material'
 import type { DailyMaterialResponse } from '../../lib/review-types'
 import { localDateKey } from '../../lib/history'
+import { PALETTES } from '../../lib/palette'
 import { askForReminderThen, fetchDailyMaterial, loadReminderConfig, loadSummary } from '../../services/review'
 import { redirectIfInviteRequired } from '../../services/session'
 import { reminderHour } from '../../services/settings'
@@ -32,6 +33,7 @@ interface ReviewHomeData {
   dateLabel: string
   loaded: boolean
   view: HomeView
+  ring: RingStyle
   errorText: string
   refreshing: boolean
   material: MaterialCard | null
@@ -49,11 +51,16 @@ const EMPTY_VIEW: HomeView = homeView({
   streakDays: 0,
 })
 
+/** The ring in the theme's colours (literal: they go into an inline gradient). */
+const ringFor = (view: HomeView, theme: Theme): RingStyle =>
+  ringStyle(view.ringDegrees, PALETTES[theme].accent, PALETTES[theme].rule)
+
 const initialData: ReviewHomeData = {
   theme: currentTheme(),
   dateLabel: '',
   loaded: false,
   view: EMPTY_VIEW,
+  ring: ringFor(EMPTY_VIEW, currentTheme()),
   errorText: '',
   refreshing: false,
   material: null,
@@ -79,8 +86,9 @@ Page({
   starting: false,
 
   onLoad() {
-    this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme }))
-    this.setData({ theme: currentTheme() })
+    this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme, ring: ringFor(this.data.view, theme) }))
+    const theme = currentTheme()
+    this.setData({ theme, ring: ringFor(this.data.view, theme) })
   },
 
   onShow() {
@@ -114,7 +122,8 @@ Page({
   async loadSummary(): Promise<void> {
     try {
       const summary = await loadSummary()
-      this.setData({ view: homeView(summary), loaded: true, errorText: '' })
+      const view = homeView(summary)
+      this.setData({ view, ring: ringFor(view, this.data.theme), loaded: true, errorText: '' })
     } catch (error: unknown) {
       if (redirectIfInviteRequired(error)) return
       this.setData({ errorText: errorMessage(error) })

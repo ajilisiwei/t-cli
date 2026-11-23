@@ -19,12 +19,6 @@
   padding: 0 16rpx;
 }
 
-.chevron {
-  color: var(--ink);
-  font-size: 56rpx;
-  line-height: 1;
-}
-
 .title {
   color: var(--ink);
   font-size: 34rpx;

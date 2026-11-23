@@ -8,7 +8,7 @@
           <text class="device-meta">{{item.kindLabel}}{{item.lastSeen ? ' · ' + item.lastSeen : ''}}</text>
         </view>
         <text wx:if="{{item.current}}" class="row-value">本机</text>
-        <view wx:else class="revoke" data-id="{{item.id}}" bindtap="onRevoke" aria-role="button" aria-label="撤销 {{item.name}}">
+        <view wx:else class="btn btn-danger btn-sm" data-id="{{item.id}}" bindtap="onRevoke" aria-role="button" aria-label="撤销 {{item.name}}">
           <text>撤销</text>
         </view>
       </view>

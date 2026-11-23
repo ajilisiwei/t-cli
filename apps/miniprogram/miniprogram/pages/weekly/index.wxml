@@ -8,7 +8,8 @@
       aria-label="上一周"
       aria-disabled="{{!hasPrevious}}"
     >
-      <text>‹ 上一周</text>
+      <t-icon name="chevron-left" tone="accent" size="32" />
+      <text>上一周</text>
     </view>
     <text class="range">{{range}}</text>
     <view
@@ -18,7 +19,8 @@
       aria-label="下一周"
       aria-disabled="{{!hasNext}}"
     >
-      <text>下一周 ›</text>
+      <text>下一周</text>
+      <t-icon name="chevron-right" tone="accent" size="32" />
     </view>
   </view>
 
@@ -27,7 +29,7 @@
       <text wx:if="{{loading && !loaded}}" class="empty">加载中…</text>
       <view wx:if="{{errorText}}" class="failed">
         <text class="error">{{errorText}}</text>
-        <view class="button button-quiet" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+        <view class="btn btn-secondary btn-block" bindtap="onRetry" aria-role="button"><text>重试</text></view>
       </view>
 
       <view wx:if="{{loaded && empty}}" class="nothing">

@@ -22,25 +22,21 @@
         <view class="composer-bar">
           <text wx:if="{{!input}}" class="composer-hint">标出改动，给出更地道的说法</text>
           <view class="composer-actions">
-            <view wx:if="{{input}}" class="tool" bindtap="onClear" aria-role="button" aria-label="清空">
-              <text>✕</text>
+            <view wx:if="{{input}}" class="icon-btn" bindtap="onClear" aria-role="button" aria-label="清空">
+              <t-icon name="close" tone="muted" size="32" />
             </view>
             <view
               wx:if="{{voiceEnabled}}"
-              class="tool {{recording ? 'tool-active' : ''}}"
+              class="icon-btn {{recording ? 'icon-btn-tonal' : ''}}"
               bindtouchstart="onMicStart"
               bindtouchend="onMicEnd"
               bindtouchcancel="onMicEnd"
               aria-role="button"
               aria-label="按住说英文"
             >
-              <view class="mic">
-                <view class="mic-capsule {{recording ? 'mic-on' : ''}}" />
-                <view class="mic-arc {{recording ? 'mic-on' : ''}}" />
-                <view class="mic-stem {{recording ? 'mic-stem-on' : ''}}" />
-              </view>
+              <t-icon name="mic" tone="{{recording ? 'accent' : 'muted'}}" size="36" />
             </view>
-            <view class="send {{input ? '' : 'send-disabled'}}" bindtap="onSend" aria-role="button" aria-label="纠错">
+            <view class="btn btn-primary btn-sm {{input ? '' : 'btn-disabled'}}" bindtap="onSend" aria-role="button" aria-label="纠错">
               <text>纠错</text>
             </view>
           </view>
@@ -50,7 +46,7 @@
 
       <view wx:if="{{notEnglish}}" class="result">
         <text class="notice">纠错只支持英文</text>
-        <view class="button button-quiet" bindtap="onGoTranslate"><text>去翻译</text></view>
+        <view class="btn btn-secondary btn-block" bindtap="onGoTranslate" aria-role="button"><text>去翻译</text></view>
       </view>
 
       <view wx:elif="{{status !== 'idle'}}" class="result">
@@ -66,10 +62,19 @@
         <text wx:if="{{errorText}}" class="error">{{errorText}}</text>
 
         <view class="actions">
-          <view wx:if="{{busy}}" class="action" bindtap="onStop"><text>停止</text></view>
+          <view wx:if="{{busy}}" class="btn btn-tonal btn-sm btn-icon-first" bindtap="onStop" aria-role="button">
+            <t-icon name="stop" tone="accent" size="32" />
+            <text>停止</text>
+          </view>
           <block wx:else>
-            <view class="action {{corrected ? '' : 'action-disabled'}}" bindtap="onCopyCorrected"><text>复制修改后句子</text></view>
-            <view class="action {{canSpeak ? '' : 'action-disabled'}}" bindtap="onSpeak"><text>朗读</text></view>
+            <view class="btn btn-tonal btn-sm btn-icon-first {{corrected ? '' : 'btn-disabled'}}" bindtap="onCopyCorrected" aria-role="button">
+              <t-icon name="copy" tone="accent" size="32" />
+              <text>复制修改后句子</text>
+            </view>
+            <view class="btn btn-tonal btn-sm btn-icon-first {{canSpeak ? '' : 'btn-disabled'}}" bindtap="onSpeak" aria-role="button">
+              <t-icon name="speaker" tone="accent" size="32" />
+              <text>朗读</text>
+            </view>
           </block>
         </view>
       </view>

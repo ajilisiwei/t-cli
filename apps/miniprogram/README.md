@@ -18,6 +18,7 @@ apps/miniprogram/
   test/                      node --test unit tests for miniprogram/lib (+ test/tsconfig.json)
   scripts/sync-core.mjs      copies packages/core modules into miniprogram/vendor/core
   scripts/upload.mjs         miniprogram-ci upload / preview (used by .github/workflows/mp-upload.yml)
+  scripts/icons.mjs          generates the SVG icon set (npm run icons)
   miniprogram/
     app.json app.ts app.wxss theme.json sitemap.json
     config.local.example.ts  template for the git-ignored config.local.ts (dev only)
@@ -38,11 +39,14 @@ apps/miniprogram/
       library.ts item.ts     词库 query/filters and rows; 学习单元 view per item type
       stats.ts weekly.ts     学习统计 heatmap / streak / retention bars; 周报 view and week paging
       account.ts             settings options (reminder hours), export filename, subscribe outcomes
+      palette.ts             theme colours for JS (icons, ring gradient), icon names and paths
     services/                wx-bound glue: request transport, session, stream, TTS, voice, theme,
                              settings, review (queue, ratings outbox, badge, reminders), library, account
     pages/                   translate, check, me, history, devices, authorize, invite,
                              review (tab), review-session, materials, library, item, stats, weekly, account
     components/nav-bar/      custom navigation bar (Skyline pages have no native one)
+    components/t-icon/       <t-icon name tone size>: one generated SVG in the current theme
+    assets/icons/            GENERATED: <theme>/<name>-<tone>.svg
     vendor/core/detect.js    GENERATED copy of packages/core/src/detect.js
 ```
 
@@ -78,6 +82,40 @@ Only `detect.js` is vendored (the 纠错 tab uses `detectSourceLang` to send
 non-English input to 翻译). The translate direction comes from the server's
 `meta` line, and TTS text selection happens on the server.
 
+## Design system
+
+Every screen is built from the same few pieces in `app.wxss`. Use them instead
+of page-local look-alikes; a page's own wxss only lays things out.
+
+| Piece | Classes | Use |
+| --- | --- | --- |
+| Colour | `--bg --surface --ink --ink-soft --muted --rule --accent --accent-soft --accent-ink --danger` | CSS variables on the page root (`theme-light` / `theme-dark`); `lib/palette.ts` mirrors them for JS |
+| Button | `.btn` + `.btn-primary` / `.btn-secondary` / `.btn-tonal` / `.btn-danger`, sizes `.btn-sm` / `.btn-lg`, `.btn-block`, `.btn-disabled` | Pill. One primary per screen; tonal for inline actions (朗读, 复制, 停止); an icon comes first, with `.btn-icon-first` on a small pill |
+| Icon button | `.icon-btn` (+ `.icon-btn-sm`, `.icon-btn-tonal`, `.icon-btn-busy`, `.icon-btn-off`) | A round target around one icon: the ▶ next to a word, clear, date steppers |
+| Icon | `<t-icon name tone size>` | `name`: speaker, stop, copy, close, check, chevron-left, chevron-right, mic. `tone`: ink, muted, accent, danger, accentInk (= `--accent-ink`, only on an accent fill). `size` in rpx |
+| Link | `.link` (+ `.link-strong`, `.link-danger`) | A quiet action inside a line (撤销) |
+| Row | `.row`, `.row-label`, `.row-value`, `.row-trail` | List rows; a trailing value plus `chevron-right` |
+| Marks | `.mark-line` + `.mark-icon` | ✓ / ✗ in front of a sentence (check accent, close danger) |
+| Progress | `.meter` + `.meter-fill` | A rounded bar; the 复习 ring is a conic gradient (`lib/review-home.ts`) |
+
+Rules that come from Skyline (they are why the pieces look the way they do):
+
+- **No text glyphs as icons.** ▶︎ ✓ › and friends render as coloured emoji on
+  iOS. Draw them with `<t-icon>`.
+- **A rounded box has one border colour.** Skyline ignores per-side
+  `border-*-color` when `border-radius` is set, so arcs made of borders break
+  (the old ring drew a straight line). Use `conic-gradient`, which Skyline
+  supports.
+- **No `currentColor`.** Hence one SVG file per tone and theme.
+- SVG files: no percentages, no `<style>` (Skyline's image limits).
+
+Adding an icon: add its shape to `scripts/icons.mjs` and its name to
+`ICON_NAMES` in `lib/palette.ts`, then `npm run icons -w @t-cli/miniprogram`.
+`test/icons.test.ts` fails while files are missing or stale, and when
+`palette.ts` and the variables in `app.wxss` disagree. Icons are referenced by
+computed paths; miniprogram-ci packs them anyway (its unused-file analysis
+drops only code, checked with `ignoreUploadUnusedFiles` on).
+
 ## Commands
 
 From the repository root:
@@ -87,6 +125,7 @@ npm install
 npm test                                   # every workspace, including these tests
 npm test -w @t-cli/miniprogram             # just the mini-program
 npm run typecheck -w @t-cli/miniprogram    # tsc for miniprogram/ and test/
+npm run icons -w @t-cli/miniprogram        # regenerate miniprogram/assets/icons
 ```
 
 ## Run in WeChat DevTools against a local server
