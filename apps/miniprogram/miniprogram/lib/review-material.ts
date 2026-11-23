@@ -39,7 +39,8 @@ const readWord = (value: unknown): MaterialWord | null => {
   return {
     itemId: text(value['itemId']),
     headword: text(value['headword']),
-    ipa: text(value['ipa']),
+    // Sent as "/…/"; the page draws the slashes itself.
+    ipa: text(value['ipa']).replace(/^\/+|\/+$/g, ''),
     meanings: list(value['meanings'], (entry) =>
       isRecord(entry) && text(entry['zh']) !== '' ? { pos: text(entry['pos']), zh: text(entry['zh']) } : null,
     ),

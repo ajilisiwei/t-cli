@@ -141,11 +141,14 @@ const isHeadword = (text: string): boolean => {
   )
 }
 
+/** The server sends IPA as "/…/"; the page draws the slashes itself. */
+const bareIpa = (ipa: string | undefined): string => (ipa ?? '').trim().replace(/^\/+|\/+$/g, '')
+
 const faceView = (face: CardFace, segments: readonly Segment[]): FaceView => ({
   segments,
   serif: !containsCjk(face.text),
   headword: isHeadword(face.text),
-  ipa: face.ipa ?? '',
+  ipa: bareIpa(face.ipa),
   sub: face.sub ?? '',
   subSerif: face.sub !== undefined && face.sub !== '' && !containsCjk(face.sub),
   exampleEn: face.example?.en ?? '',
