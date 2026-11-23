@@ -92,7 +92,7 @@ of page-local look-alikes; a page's own wxss only lays things out.
 | Colour | `--bg --surface --ink --ink-soft --muted --rule --accent --accent-soft --accent-ink --danger` | CSS variables on the page root (`theme-light` / `theme-dark`); `lib/palette.ts` mirrors them for JS |
 | Button | `.btn` + `.btn-primary` / `.btn-secondary` / `.btn-tonal` / `.btn-danger`, sizes `.btn-sm` / `.btn-lg`, `.btn-block`, `.btn-disabled` | Pill. One primary per screen; tonal for inline actions (朗读, 复制, 停止); an icon comes first, with `.btn-icon-first` on a small pill |
 | Icon button | `.icon-btn` (+ `.icon-btn-sm`, `.icon-btn-tonal`, `.icon-btn-busy`, `.icon-btn-off`) | A round target around one icon: the ▶ next to a word, clear, date steppers |
-| Icon | `<t-icon name tone size>` | `name`: speaker, stop, copy, close, check, chevron-left, chevron-right, mic. `tone`: ink, muted, accent, danger, accentInk. `size` in rpx |
+| Icon | `<t-icon name tone size>` | `name`: speaker, stop, copy, close, check, chevron-left, chevron-right, mic. `tone`: ink, muted, accent, danger, accentInk (= `--accent-ink`, only on an accent fill). `size` in rpx |
 | Link | `.link` (+ `.link-strong`, `.link-danger`) | A quiet action inside a line (撤销) |
 | Row | `.row`, `.row-label`, `.row-value`, `.row-trail` | List rows; a trailing value plus `chevron-right` |
 | Marks | `.mark-line` + `.mark-icon` | ✓ / ✗ in front of a sentence (check accent, close danger) |
