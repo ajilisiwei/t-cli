@@ -1,0 +1,5 @@
+/* The image keeps its size inside flex rows (no shrinking next to long text). */
+.icon {
+  display: block;
+  flex-shrink: 0;
+}

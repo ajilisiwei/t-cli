@@ -22,25 +22,21 @@
         <view class="composer-bar">
           <text wx:if="{{!input}}" class="composer-hint">中文译英文 · 外语译中文</text>
           <view class="composer-actions">
-            <view wx:if="{{input}}" class="tool" bindtap="onClear" aria-role="button" aria-label="清空">
-              <text>✕</text>
+            <view wx:if="{{input}}" class="icon-btn" bindtap="onClear" aria-role="button" aria-label="清空">
+              <t-icon name="close" tone="muted" size="32" />
             </view>
             <view
               wx:if="{{voiceEnabled}}"
-              class="tool {{recording ? 'tool-active' : ''}}"
+              class="icon-btn {{recording ? 'icon-btn-tonal' : ''}}"
               bindtouchstart="onMicStart"
               bindtouchend="onMicEnd"
               bindtouchcancel="onMicEnd"
               aria-role="button"
               aria-label="按住说话"
             >
-              <view class="mic">
-                <view class="mic-capsule {{recording ? 'mic-on' : ''}}" />
-                <view class="mic-arc {{recording ? 'mic-on' : ''}}" />
-                <view class="mic-stem {{recording ? 'mic-stem-on' : ''}}" />
-              </view>
+              <t-icon name="mic" tone="{{recording ? 'accent' : 'muted'}}" size="36" />
             </view>
-            <view class="send {{input ? '' : 'send-disabled'}}" bindtap="onSend" aria-role="button" aria-label="翻译">
+            <view class="btn btn-primary btn-sm {{input ? '' : 'btn-disabled'}}" bindtap="onSend" aria-role="button" aria-label="翻译">
               <text>翻译</text>
             </view>
           </view>
@@ -69,10 +65,19 @@
         <text wx:if="{{errorText}}" class="error">{{errorText}}</text>
 
         <view class="actions">
-          <view wx:if="{{busy}}" class="action" bindtap="onStop"><text>停止</text></view>
+          <view wx:if="{{busy}}" class="btn btn-tonal btn-sm btn-icon-first" bindtap="onStop" aria-role="button">
+            <t-icon name="stop" tone="accent" size="32" />
+            <text>停止</text>
+          </view>
           <block wx:else>
-            <view class="action {{canSpeak ? '' : 'action-disabled'}}" bindtap="onSpeak"><text>朗读</text></view>
-            <view class="action {{text ? '' : 'action-disabled'}}" bindtap="onCopy"><text>复制</text></view>
+            <view class="btn btn-tonal btn-sm btn-icon-first {{canSpeak ? '' : 'btn-disabled'}}" bindtap="onSpeak" aria-role="button">
+              <t-icon name="speaker" tone="accent" size="32" />
+              <text>朗读</text>
+            </view>
+            <view class="btn btn-tonal btn-sm btn-icon-first {{text ? '' : 'btn-disabled'}}" bindtap="onCopy" aria-role="button">
+              <t-icon name="copy" tone="accent" size="32" />
+              <text>复制</text>
+            </view>
           </block>
         </view>
       </view>

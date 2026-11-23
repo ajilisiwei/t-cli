@@ -25,18 +25,10 @@
   font-size: 24rpx;
 }
 
-/* ▶: a small round button next to what it reads. */
+/* The round 朗读 button (app.wxss .icon-btn), centred on the headword line. */
 .speak {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 60rpx;
-  height: 60rpx;
+  align-self: center;
   margin-left: 16rpx;
-  border-radius: 30rpx;
-  background-color: var(--accent-soft);
-  color: var(--accent);
-  font-size: 24rpx;
 }
 
 .meanings {
@@ -156,10 +148,6 @@
   margin-top: 12rpx;
 }
 
-.speak-middle {
-  align-self: center;
-}
-
 .wrong {
   flex: 1;
   color: var(--muted);
@@ -175,21 +163,6 @@
   line-height: 1.5;
 }
 
-.mark {
-  width: 40rpx;
-  flex-shrink: 0;
-  font-size: 30rpx;
-  line-height: 48rpx;
-}
-
-.mark-wrong {
-  color: var(--muted);
-}
-
-.mark-right {
-  color: var(--accent);
-}
-
 .exercise {
   padding: 24rpx 0;
   border-bottom: 1px solid var(--rule);
@@ -202,8 +175,11 @@
 }
 
 .exercise-right {
-  display: block;
   margin-top: 8rpx;
+}
+
+.exercise-right-text {
+  flex: 1;
   color: var(--accent);
   font-size: 32rpx;
   line-height: 1.5;

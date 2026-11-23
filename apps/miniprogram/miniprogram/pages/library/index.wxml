@@ -15,8 +15,8 @@
         bindfocus="onSearchFocus"
         bindblur="onSearchBlur"
       />
-      <view wx:if="{{query}}" class="tool" bindtap="onClearQuery" aria-role="button" aria-label="清空搜索">
-        <text>✕</text>
+      <view wx:if="{{query}}" class="icon-btn" bindtap="onClearQuery" aria-role="button" aria-label="清空搜索">
+        <t-icon name="close" tone="muted" size="32" />
       </view>
     </view>
     <view class="chips">

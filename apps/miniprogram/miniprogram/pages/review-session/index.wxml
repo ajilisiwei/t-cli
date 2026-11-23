@@ -6,7 +6,7 @@
       <text class="session-label">{{label}}</text>
       <text class="session-count">{{position}} / {{total}}</text>
     </view>
-    <view class="progress"><view class="progress-fill" style="width: {{progressPct}}%;" /></view>
+    <view class="meter progress"><view class="meter-fill" style="width: {{progressPct}}%;" /></view>
 
     <view class="card-area">
       <view
@@ -34,8 +34,8 @@
             <text class="face-text {{front.serif ? 'serif face-en' : ''}} {{front.headword ? 'face-head' : ''}}"><text wx:for="{{front.segments}}" wx:key="index" class="{{item.mark ? 'mark' : ''}}">{{item.text}}</text></text>
             <view wx:if="{{front.ipa}}" class="ipa-row">
               <text class="face-ipa">/{{front.ipa}}/</text>
-              <view wx:if="{{flipped && speakSlot === 'front'}}" class="speak" catchtap="onSpeak" aria-role="button" aria-label="朗读">
-                <text>▶︎</text>
+              <view wx:if="{{flipped && speakSlot === 'front'}}" class="icon-btn icon-btn-sm icon-btn-tonal speak" catchtap="onSpeak" aria-role="button" aria-label="朗读">
+                <t-icon name="speaker" tone="accent" size="30" />
               </view>
             </view>
             <text wx:if="{{front.sub}}" class="face-sub {{front.subSerif ? 'serif' : ''}}">{{front.sub}}</text>
@@ -49,8 +49,8 @@
             <text class="face-text {{back.serif ? 'serif face-en' : ''}} {{back.headword ? 'face-head' : ''}}"><text wx:for="{{back.segments}}" wx:key="index" class="{{item.mark ? 'mark' : ''}}">{{item.text}}</text></text>
             <view wx:if="{{back.ipa}}" class="ipa-row">
               <text class="face-ipa">/{{back.ipa}}/</text>
-              <view wx:if="{{speakSlot === 'back'}}" class="speak" catchtap="onSpeak" aria-role="button" aria-label="朗读">
-                <text>▶︎</text>
+              <view wx:if="{{speakSlot === 'back'}}" class="icon-btn icon-btn-sm icon-btn-tonal speak" catchtap="onSpeak" aria-role="button" aria-label="朗读">
+                <t-icon name="speaker" tone="accent" size="30" />
               </view>
             </view>
             <text wx:if="{{back.sub}}" class="face-sub {{back.subSerif ? 'serif' : ''}}">{{back.sub}}</text>
@@ -58,8 +58,11 @@
               <text class="example-en serif">{{back.exampleEn}}</text>
               <text wx:if="{{back.exampleZh}}" class="example-zh">{{back.exampleZh}}</text>
             </view>
-            <view wx:if="{{speakSlot === 'line'}}" class="speak-line" catchtap="onSpeak" aria-role="button">
-              <text>▶︎ 朗读</text>
+            <view wx:if="{{speakSlot === 'line'}}" class="speak-line">
+              <view class="btn btn-tonal btn-sm btn-icon-first" catchtap="onSpeak" aria-role="button" aria-label="朗读">
+                <t-icon name="speaker" tone="accent" size="32" />
+                <text>朗读</text>
+              </view>
             </view>
           </view>
         </scroll-view>
@@ -72,7 +75,7 @@
       <view class="undo-strip">
         <block wx:if="{{undoLabel}}">
           <text class="undo-label">{{undoLabel}}</text>
-          <view class="undo-action" bindtap="onUndo" aria-role="button"><text>{{undoing ? '撤销中…' : '撤销'}}</text></view>
+          <view class="link link-strong undo-action" bindtap="onUndo" aria-role="button"><text>{{undoing ? '撤销中…' : '撤销'}}</text></view>
         </block>
         <text wx:elif="{{showGestureHint}}" class="gesture-hint">左滑 忘记 · 右滑 记得</text>
       </view>
@@ -90,7 +93,7 @@
           <text class="grade-interval">{{item.interval}}</text>
         </view>
       </view>
-      <view wx:else class="reveal" bindtap="onReveal" aria-role="button"><text>显示答案</text></view>
+      <view wx:else class="btn btn-secondary btn-lg" bindtap="onReveal" aria-role="button"><text>显示答案</text></view>
     </view>
   </view>
 
@@ -113,10 +116,10 @@
       <view class="undo-strip">
         <block wx:if="{{undoLabel}}">
           <text class="undo-label">{{undoLabel}}</text>
-          <view class="undo-action" bindtap="onUndo" aria-role="button"><text>{{undoing ? '撤销中…' : '撤销'}}</text></view>
+          <view class="link link-strong undo-action" bindtap="onUndo" aria-role="button"><text>{{undoing ? '撤销中…' : '撤销'}}</text></view>
         </block>
       </view>
-      <view class="finish" bindtap="onFinish" aria-role="button"><text>完成</text></view>
+      <view class="btn btn-primary btn-lg" bindtap="onFinish" aria-role="button"><text>完成</text></view>
     </view>
   </view>
 
@@ -126,7 +129,7 @@
       <text class="end-sub">刚复习过的卡会按间隔再回来</text>
     </view>
     <view class="dock" style="padding-bottom: {{safeBottom + 16}}px;">
-      <view class="reveal" bindtap="onFinish" aria-role="button"><text>返回</text></view>
+      <view class="btn btn-secondary btn-lg" bindtap="onFinish" aria-role="button"><text>返回</text></view>
     </view>
   </view>
 
@@ -135,7 +138,7 @@
       <text class="end-sub">{{errorText}}</text>
     </view>
     <view class="dock" style="padding-bottom: {{safeBottom + 16}}px;">
-      <view class="reveal" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+      <view class="btn btn-secondary btn-lg" bindtap="onRetry" aria-role="button"><text>重试</text></view>
     </view>
   </view>
 

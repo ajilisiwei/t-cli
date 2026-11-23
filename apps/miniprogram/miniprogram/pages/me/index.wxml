@@ -4,19 +4,25 @@
     <view class="content">
       <view class="row" bindtap="onHistory" aria-role="button">
         <text class="row-label">记录</text>
-        <text class="row-value">CLI 和手机的查询 ›</text>
+        <view class="row-trail">
+          <text class="row-value">CLI 和手机的查询</text>
+          <t-icon name="chevron-right" tone="muted" size="32" />
+        </view>
       </view>
       <view class="row" bindtap="onStats" aria-role="button">
         <text class="row-label">学习统计</text>
-        <text class="row-value">日历、连续天数、保持率 ›</text>
+        <view class="row-trail">
+          <text class="row-value">日历、连续天数、保持率</text>
+          <t-icon name="chevron-right" tone="muted" size="32" />
+        </view>
       </view>
       <view class="row" bindtap="onWeekly" aria-role="button">
         <text class="row-label">周报</text>
-        <text class="row-value">›</text>
+        <t-icon name="chevron-right" tone="muted" size="32" />
       </view>
       <view class="row" bindtap="onLibrary" aria-role="button">
         <text class="row-label">词库</text>
-        <text class="row-value">›</text>
+        <t-icon name="chevron-right" tone="muted" size="32" />
       </view>
 
       <text class="section-title">设置</text>
@@ -54,7 +60,10 @@
         <picker mode="selector" range="{{reminderOptions}}" value="{{reminderIndex}}" bindchange="onReminderHour">
           <view class="row" aria-role="button" aria-label="复习提醒：{{reminderLabel}}">
             <text class="row-label">复习提醒</text>
-            <text class="row-value">{{reminderLabel}} ›</text>
+            <view class="row-trail">
+              <text class="row-value">{{reminderLabel}}</text>
+              <t-icon name="chevron-right" tone="muted" size="32" />
+            </view>
           </view>
         </picker>
         <block wx:if="{{reminderOn}}">
@@ -69,21 +78,27 @@
       <text class="section-title">账号</text>
       <view class="row" bindtap="onDevices" aria-role="button">
         <text class="row-label">设备</text>
-        <text class="row-value">查看和撤销 ›</text>
+        <view class="row-trail">
+          <text class="row-value">查看和撤销</text>
+          <t-icon name="chevron-right" tone="muted" size="32" />
+        </view>
       </view>
       <view class="row" bindtap="onAccount" aria-role="button">
         <text class="row-label">账号与数据</text>
-        <text class="row-value">导出、注销 ›</text>
+        <view class="row-trail">
+          <text class="row-value">导出、注销</text>
+          <t-icon name="chevron-right" tone="muted" size="32" />
+        </view>
       </view>
 
       <text class="section-title">授权 CLI 登录</text>
       <view class="row" bindtap="onScan" aria-role="button">
         <text class="row-label">扫描终端里的二维码</text>
-        <text class="row-value">›</text>
+        <t-icon name="chevron-right" tone="muted" size="32" />
       </view>
       <view class="row" bindtap="onTypeCode" aria-role="button">
         <text class="row-label">输入 6 位授权码</text>
-        <text class="row-value">›</text>
+        <t-icon name="chevron-right" tone="muted" size="32" />
       </view>
 
       <text wx:if="{{serverLabel}}" class="section-title">开发版 · {{serverLabel}}</text>

@@ -1,22 +1,8 @@
 /**
  * 复习 home: "one progress ring and one button". Turns the review summary
- * into what the page shows — the ring's two half-arc rotations, the counts
- * and the tab badge text.
+ * into what the page shows — the ring, the counts and the tab badge text.
  */
 import type { ReviewSummary } from './review-types'
-
-/**
- * The ring is two clipped half circles (no canvas, no conic gradient, so it
- * renders the same under Skyline and WebView). Each half holds an arc whose
- * top and right borders are coloured; rotating it by `angle - 135°` shows the
- * part of the circle from 0° up to `angle` inside that half.
- */
-export interface RingAngles {
-  /** Rotation in degrees of the arc clipped to the right half (0°–180°). */
-  readonly right: number
-  /** Rotation in degrees of the arc clipped to the left half (180°–360°). */
-  readonly left: number
-}
 
 /** Share done in [0, 1]: done / (done + due); 0 when there is nothing at all. */
 export function progressShare(done: number, due: number): number {
@@ -25,10 +11,36 @@ export function progressShare(done: number, due: number): number {
   return total === 0 ? 0 : safeDone / total
 }
 
-export function ringAngles(share: number): RingAngles {
+/** Degrees of the ring filled, 0–360 (one decimal), from a share in [0, 1]. */
+export function ringDegrees(share: number): number {
   const clamped = Number.isFinite(share) ? Math.min(1, Math.max(0, share)) : 0
-  const angle = clamped * 360
-  return { right: Math.min(angle, 180) - 135, left: Math.max(angle, 180) - 135 }
+  return Math.round(clamped * 3600) / 10
+}
+
+/** Inline styles of the progress ring; colours are literal (lib/palette.ts). */
+export interface RingStyle {
+  /** The ring itself: `fill` from 12 o'clock up to the angle, `track` after. */
+  readonly background: string
+  /** Turns the end cap's arm to the angle. */
+  readonly endCap: string
+  /** Round caps at both ends, only for a partial ring. */
+  readonly caps: boolean
+}
+
+/**
+ * The ring is a conic gradient with hard stops (the same angle twice), a
+ * disc in the page colour on top making it a ring, and two dots as round
+ * caps. Skyline supports conic gradients; it does not draw rounded boxes
+ * with different border colours per side, which an arc made of borders
+ * needs. CSS variables are not used inside the inline gradient on purpose.
+ */
+export function ringStyle(degrees: number, fill: string, track: string): RingStyle {
+  const angle = Number.isFinite(degrees) ? Math.min(360, Math.max(0, degrees)) : 0
+  return {
+    background: `background-image: conic-gradient(${fill} 0deg, ${fill} ${angle}deg, ${track} ${angle}deg, ${track} 360deg);`,
+    endCap: `transform: rotate(${angle}deg);`,
+    caps: angle > 0 && angle < 360,
+  }
 }
 
 /** Text for the 复习 tab badge; null removes it. WeChat shows at most 4 characters. */
@@ -44,7 +56,8 @@ export interface HomeView {
   readonly mode: HomeMode
   readonly done: number
   readonly total: number
-  readonly ring: RingAngles
+  /** Degrees of the ring filled (see ringStyle). */
+  readonly ringDegrees: number
   /** "新卡 12 · 复习 30 · 约 9 分钟" */
   readonly meta: string
   readonly streak: string
@@ -63,7 +76,7 @@ export function homeView(summary: ReviewSummary): HomeView {
     mode,
     done,
     total: done + due,
-    ring: ringAngles(progressShare(done, due)),
+    ringDegrees: ringDegrees(progressShare(done, due)),
     meta: parts.join(' · '),
     streak: summary.streakDays > 0 ? `连续 ${summary.streakDays} 天` : '',
   }

@@ -17,15 +17,10 @@
 
       <block wx:if="{{loaded}}">
         <view wx:if="{{view.mode !== 'idle'}}" class="hero">
-          <view class="ring" aria-role="img" aria-label="今日复习 {{view.done}} / {{view.total}} 张">
-            <view class="ring-track" />
-            <view class="ring-half ring-right">
-              <view class="ring-arc ring-arc-right" style="transform: rotate({{view.ring.right}}deg);" />
-            </view>
-            <view class="ring-half ring-left">
-              <view class="ring-arc ring-arc-left" style="transform: rotate({{view.ring.left}}deg);" />
-            </view>
-            <view class="ring-center">
+          <view class="ring" style="{{ring.background}}" aria-role="img" aria-label="今日复习 {{view.done}} / {{view.total}} 张">
+            <view wx:if="{{ring.caps}}" class="ring-cap" />
+            <view wx:if="{{ring.caps}}" class="ring-arm" style="{{ring.endCap}}"><view class="ring-cap" /></view>
+            <view class="ring-hole">
               <text class="ring-caption">今日复习</text>
               <text class="ring-done serif">{{view.done}}</text>
               <text class="ring-total">/ {{view.total}} 张</text>
@@ -33,7 +28,7 @@
           </view>
           <block wx:if="{{view.mode === 'due'}}">
             <text class="hero-meta">{{view.meta}}</text>
-            <view class="start" bindtap="onStart" aria-role="button" aria-label="开始复习">
+            <view class="btn btn-primary btn-lg start" bindtap="onStart" aria-role="button" aria-label="开始复习">
               <text>开始复习</text>
             </view>
           </block>
@@ -49,24 +44,26 @@
 
       <view wx:if="{{errorText}}" class="load-error">
         <text class="error load-error-text">{{errorText}}</text>
-        <view class="retry" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+        <view class="btn btn-secondary btn-sm" bindtap="onRetry" aria-role="button"><text>重试</text></view>
       </view>
 
       <view wx:if="{{material}}" class="material" bindtap="onMaterial" aria-role="button" aria-label="{{material.title}}">
         <view class="material-head">
           <text class="material-title">{{material.title}}</text>
-          <text class="material-chevron">›</text>
+          <t-icon name="chevron-right" tone="muted" size="32" />
         </view>
         <text class="material-counts">{{material.counts}}</text>
-        <view
-          wx:if="{{material.hasStory}}"
-          class="material-story"
-          catchtap="onPlayStory"
-          aria-role="button"
-          aria-label="{{playingStory ? '停止朗读' : '朗读情景短文'}}"
-        >
+        <view wx:if="{{material.hasStory}}" class="material-story">
           <text>附 1 篇情景短文</text>
-          <text class="material-play">{{playingStory ? '■' : '▶︎'}}</text>
+          <view
+            class="btn btn-tonal btn-sm btn-icon-first"
+            catchtap="onPlayStory"
+            aria-role="button"
+            aria-label="{{playingStory ? '停止朗读' : '朗读情景短文'}}"
+          >
+            <t-icon name="{{playingStory ? 'stop' : 'speaker'}}" tone="accent" size="32" />
+            <text>{{playingStory ? '停止' : '朗读'}}</text>
+          </view>
         </view>
       </view>
       <view wx:elif="{{materialMissing}}" class="material">
@@ -77,11 +74,14 @@
       <view class="links">
         <view class="row" bindtap="onLibrary" aria-role="button">
           <text class="row-label">词库</text>
-          <text class="row-value">搜索 ›</text>
+          <view class="row-trail">
+            <text class="row-value">搜索</text>
+            <t-icon name="chevron-right" tone="muted" size="32" />
+          </view>
         </view>
         <view class="row" bindtap="onWeekly" aria-role="button">
           <text class="row-label">周报</text>
-          <text class="row-value">›</text>
+          <t-icon name="chevron-right" tone="muted" size="32" />
         </view>
       </view>
     </view>

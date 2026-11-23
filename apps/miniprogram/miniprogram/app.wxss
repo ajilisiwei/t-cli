@@ -1,11 +1,19 @@
 /*
+ * The design system (see README "Design system").
+ *
  * Paper-like and quiet: off-white ground, ink text, one indigo accent; thin
- * rules and whitespace instead of cards, shadows or gradients. English
- * results use a serif, everything else the system font.
+ * rules and whitespace instead of shadows. English results use a serif,
+ * everything else the system font.
  *
  * Colours are CSS variables on the page root (`theme-light` / `theme-dark`,
  * set from the system theme in JS) so they work the same under Skyline and
- * WebView. Secondary text meets 4.5:1 against the ground in both themes.
+ * WebView; lib/palette.ts mirrors them for icons and gradients. Secondary
+ * text meets 4.5:1 against the ground in both themes.
+ *
+ * Skyline limits shape the components below: a rounded box takes one border
+ * colour for all four sides, there is no currentColor, and text glyphs such
+ * as ▶︎ ✓ › turn into emoji on iOS. So icons are <t-icon> SVGs, never
+ * characters, and shapes never rely on per-side border colours.
  */
 .theme-light {
   --bg: #f7f5f0;
@@ -120,86 +128,8 @@
   display: flex;
   flex-direction: row;
   align-items: center;
+  gap: 8rpx;
   margin-left: auto;
-}
-
-.tool {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 64rpx;
-  height: 64rpx;
-  margin-right: 8rpx;
-  border-radius: 32rpx;
-  color: var(--muted);
-  font-size: 28rpx;
-}
-
-.send {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 64rpx;
-  padding: 0 36rpx;
-  border-radius: 32rpx;
-  background-color: var(--accent);
-  color: var(--accent-ink);
-  font-size: 28rpx;
-  font-weight: 600;
-}
-
-.send-disabled {
-  opacity: 0.35;
-}
-
-.tool-active {
-  background-color: var(--accent-soft);
-  color: var(--accent);
-}
-
-/* Microphone drawn with borders, so it follows the theme colours. */
-.mic {
-  position: relative;
-  width: 32rpx;
-  height: 38rpx;
-}
-
-.mic-capsule {
-  position: absolute;
-  top: 0;
-  left: 7rpx;
-  width: 12rpx;
-  height: 20rpx;
-  border: 3rpx solid var(--muted);
-  border-radius: 10rpx;
-}
-
-.mic-arc {
-  position: absolute;
-  top: 12rpx;
-  left: 0;
-  width: 26rpx;
-  height: 14rpx;
-  border: 3rpx solid var(--muted);
-  border-top-width: 0;
-  border-radius: 0 0 16rpx 16rpx;
-}
-
-.mic-stem {
-  position: absolute;
-  top: 29rpx;
-  left: 14rpx;
-  width: 3rpx;
-  height: 9rpx;
-  background-color: var(--muted);
-}
-
-.mic-on {
-  border-color: var(--accent);
-}
-
-.mic-stem-on {
-  background-color: var(--accent);
 }
 
 .hint {
@@ -275,22 +205,12 @@
 .actions {
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 16rpx;
   margin-top: 40rpx;
-  padding-top: 24rpx;
+  padding-top: 28rpx;
   border-top: 1px solid var(--rule);
-}
-
-.action {
-  margin-right: 48rpx;
-  padding: 8rpx 0;
-  color: var(--accent);
-  font-size: 30rpx;
-}
-
-.action-disabled {
-  color: var(--muted);
-  opacity: 0.6;
 }
 
 /* ---- word diff (纠错) ---- */
@@ -356,28 +276,6 @@
   letter-spacing: 8rpx;
 }
 
-.button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 88rpx;
-  margin-top: 40rpx;
-  border-radius: 8rpx;
-  background-color: var(--accent);
-  color: var(--bg);
-  font-size: 32rpx;
-}
-
-.button-quiet {
-  background-color: transparent;
-  color: var(--accent);
-  border: 1px solid var(--rule);
-}
-
-.button-disabled {
-  opacity: 0.4;
-}
-
 .notice {
   display: block;
   margin-top: 32rpx;
@@ -391,4 +289,163 @@
   color: var(--muted);
   text-align: center;
   font-size: 28rpx;
+}
+
+/* ---- buttons ----
+ * One shape, the pill. Weights:
+ *   .btn-primary    filled indigo — the one main action of a screen
+ *   .btn-secondary  surface + hairline — other actions
+ *   .btn-tonal      indigo tint — inline actions next to content (朗读, 复制)
+ *   .btn-danger     danger hairline — destructive
+ * Sizes: default 88rpx, .btn-sm 64rpx (inline), .btn-lg 96rpx (docked).
+ * An icon goes first: <view class="btn btn-tonal btn-sm"><t-icon …/><text>朗读</text></view>.
+ */
+.btn {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  height: 88rpx;
+  padding: 0 40rpx;
+  border-radius: 44rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.btn-sm {
+  gap: 8rpx;
+  height: 64rpx;
+  padding: 0 28rpx;
+  border-radius: 32rpx;
+  font-size: 26rpx;
+}
+
+.btn-lg {
+  height: 96rpx;
+  border-radius: 48rpx;
+  font-size: 32rpx;
+}
+
+/* A small pill that starts with an icon: less padding on the icon side
+ * (declared after .btn-sm, so it wins; Skyline needs no compound selector). */
+.btn-icon-first {
+  padding-left: 22rpx;
+}
+
+.btn-primary {
+  background-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.btn-secondary {
+  background-color: var(--surface);
+  border: 1px solid var(--rule);
+  color: var(--accent);
+}
+
+.btn-tonal {
+  background-color: var(--accent-soft);
+  color: var(--accent);
+}
+
+.btn-danger {
+  background-color: transparent;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}
+
+.btn-disabled {
+  opacity: 0.4;
+}
+
+/* Full-width buttons in forms keep a gap above. */
+.btn-block {
+  margin-top: 40rpx;
+}
+
+/* ---- icon buttons: a round target around one <t-icon> ---- */
+.icon-btn {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 32rpx;
+}
+
+.icon-btn-sm {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 28rpx;
+}
+
+.icon-btn-tonal {
+  background-color: var(--accent-soft);
+}
+
+/* Working (e.g. audio loading): dimmed, still tappable. */
+.icon-btn-busy {
+  opacity: 0.45;
+}
+
+.icon-btn-off {
+  opacity: 0.3;
+}
+
+/* ---- text links: quiet actions inside a line ---- */
+.link {
+  padding: 12rpx 0;
+  color: var(--accent);
+  font-size: 28rpx;
+}
+
+.link-strong {
+  font-weight: 600;
+}
+
+.link-danger {
+  color: var(--danger);
+}
+
+/* ---- rows: a trailing value and chevron ---- */
+.row-trail {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4rpx;
+}
+
+/* ---- progress ----
+ * .meter: a rounded bar (width of .meter-fill set inline in %).
+ * The 复习 ring is a conic gradient built in JS (lib/review-home.ts). */
+.meter {
+  height: 8rpx;
+  border-radius: 4rpx;
+  background-color: var(--rule);
+}
+
+.meter-fill {
+  height: 8rpx;
+  border-radius: 4rpx;
+  background-color: var(--accent);
+}
+
+/* ---- marks: a ✓ / ✗ icon in front of a line of text ---- */
+.mark-line {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.mark-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  width: 44rpx;
+  height: 48rpx;
 }

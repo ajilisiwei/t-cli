@@ -10,15 +10,20 @@
   border-bottom: 1px solid var(--rule);
 }
 
+/* ‹ 上一周 / 下一周 ›: an icon and a word, as one link. */
 .step {
-  min-width: 140rpx;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4rpx;
+  min-width: 160rpx;
   padding: 16rpx 0;
   color: var(--accent);
   font-size: 28rpx;
 }
 
 .step-right {
-  text-align: right;
+  justify-content: flex-end;
 }
 
 .step-off {

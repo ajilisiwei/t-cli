@@ -14,13 +14,13 @@
           <text class="file-name">{{fileName}}</text>
           <text class="file-size">{{fileSize}} · 已保存在手机上</text>
         </view>
-        <view class="file-send" bindtap="onShare" aria-role="button" aria-label="把 {{fileName}} 发送到聊天">
+        <view class="btn btn-primary btn-sm" bindtap="onShare" aria-role="button" aria-label="把 {{fileName}} 发送到聊天">
           <text>发送到聊天</text>
         </view>
       </view>
       <!-- Once a file exists, sending it is the main action and exporting again the quiet one. -->
       <view
-        class="button {{fileName ? 'button-quiet' : ''}} {{exporting ? 'button-disabled' : ''}}"
+        class="btn btn-block {{fileName ? 'btn-secondary' : 'btn-primary'}} {{exporting ? 'btn-disabled' : ''}}"
         bindtap="onExport"
         aria-role="button"
         aria-disabled="{{exporting}}"
@@ -40,7 +40,7 @@
       </view>
       <text class="notice">删除后无法恢复，之后再用需要新的邀请码。电脑上 t-cli 自己保存的历史文件不受影响。建议先导出记录。</text>
       <view
-        class="button button-danger {{deleting ? 'button-disabled' : ''}}"
+        class="btn btn-block btn-danger {{deleting ? 'btn-disabled' : ''}}"
         bindtap="onDelete"
         aria-role="button"
         aria-disabled="{{deleting}}"

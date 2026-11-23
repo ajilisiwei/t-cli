@@ -3,12 +3,12 @@
 
   <view class="mat-head">
     <view wx:if="{{dateLabel || older || newer || moreOlder}}" class="date-nav">
-      <view class="date-step" bindtap="onOlder" aria-role="button" aria-label="前一天">
-        <text class="{{older || moreOlder ? 'step' : 'step step-off'}}">‹</text>
+      <view class="icon-btn {{older || moreOlder ? '' : 'icon-btn-off'}}" bindtap="onOlder" aria-role="button" aria-label="前一天">
+        <t-icon name="chevron-left" tone="accent" size="40" />
       </view>
       <text class="date-label">{{dateLabel || ' '}}</text>
-      <view class="date-step" bindtap="onNewer" aria-role="button" aria-label="后一天">
-        <text class="{{newer ? 'step' : 'step step-off'}}">›</text>
+      <view class="icon-btn {{newer ? '' : 'icon-btn-off'}}" bindtap="onNewer" aria-role="button" aria-label="后一天">
+        <t-icon name="chevron-right" tone="accent" size="40" />
       </view>
     </view>
     <view wx:if="{{phase === 'ready'}}" class="tabs">
@@ -40,7 +40,10 @@
           <block wx:for="{{tabs}}" wx:key="id">
             <view wx:if="{{item.id !== 'overview'}}" class="row" data-id="{{item.id}}" bindtap="onSection" aria-role="button">
               <text class="row-label">{{item.label}}</text>
-              <text class="row-value">{{item.countLabel}} ›</text>
+              <view class="row-trail">
+                <text class="row-value">{{item.countLabel}}</text>
+                <t-icon name="chevron-right" tone="muted" size="32" />
+              </view>
             </view>
           </block>
         </block>
@@ -51,8 +54,15 @@
             <view class="headline">
               <text class="entry-head serif" user-select>{{item.headword}}</text>
               <text wx:if="{{item.ipa}}" class="entry-ipa">/{{item.ipa}}/</text>
-              <view class="play" data-id="{{item.itemId}}" data-key="{{item.key}}" bindtap="onPlayItem" aria-role="button" aria-label="朗读">
-                <text>{{playing === item.key ? '■' : '▶︎'}}</text>
+              <view
+                class="icon-btn icon-btn-sm icon-btn-tonal play"
+                data-id="{{item.itemId}}"
+                data-key="{{item.key}}"
+                bindtap="onPlayItem"
+                aria-role="button"
+                aria-label="{{playing === item.key ? '停止' : '朗读'}}"
+              >
+                <t-icon name="{{playing === item.key ? 'stop' : 'speaker'}}" tone="accent" size="30" />
               </view>
             </view>
             <view wx:for="{{item.meanings}}" wx:for-item="meaning" wx:key="zh" class="meaning">
@@ -85,8 +95,15 @@
           <view wx:for="{{phrases}}" wx:key="itemId" class="entry">
             <view class="headline">
               <text class="entry-phrase serif" user-select>{{item.phrase}}</text>
-              <view class="play" data-id="{{item.itemId}}" data-key="{{item.key}}" bindtap="onPlayItem" aria-role="button" aria-label="朗读">
-                <text>{{playing === item.key ? '■' : '▶︎'}}</text>
+              <view
+                class="icon-btn icon-btn-sm icon-btn-tonal play"
+                data-id="{{item.itemId}}"
+                data-key="{{item.key}}"
+                bindtap="onPlayItem"
+                aria-role="button"
+                aria-label="{{playing === item.key ? '停止' : '朗读'}}"
+              >
+                <t-icon name="{{playing === item.key ? 'stop' : 'speaker'}}" tone="accent" size="30" />
               </view>
             </view>
             <text class="gloss-line">{{item.zh}}<text class="register"> · {{item.registerLabel}}</text></text>
@@ -105,12 +122,12 @@
         <block wx:elif="{{section === 'grammar'}}">
           <view wx:for="{{grammar}}" wx:key="itemId" class="entry">
             <text class="grammar-title">{{item.title}}</text>
-            <view wx:if="{{item.wrong}}" class="pair">
-              <text class="pair-mark pair-wrong">✗</text>
+            <view wx:if="{{item.wrong}}" class="mark-line pair">
+              <view class="mark-icon"><t-icon name="close" tone="danger" size="28" /></view>
               <text class="pair-text pair-text-wrong serif">{{item.wrong}}</text>
             </view>
-            <view wx:if="{{item.right}}" class="pair">
-              <text class="pair-mark pair-right">✓</text>
+            <view wx:if="{{item.right}}" class="mark-line pair">
+              <view class="mark-icon"><t-icon name="check" tone="accent" size="30" /></view>
               <text class="pair-text serif">{{item.right}}</text>
             </view>
             <text wx:if="{{item.rule}}" class="rule-text">{{item.rule}}</text>
@@ -126,8 +143,8 @@
                 aria-role="button"
               >
                 <text class="exercise-text serif">{{exercise.wrong}}</text>
-                <view wx:if="{{revealed[exercise.key]}}" class="pair">
-                  <text class="pair-mark pair-right">✓</text>
+                <view wx:if="{{revealed[exercise.key]}}" class="mark-line pair">
+                  <view class="mark-icon"><t-icon name="check" tone="accent" size="30" /></view>
                   <text class="pair-text serif">{{exercise.right}}</text>
                 </view>
                 <text wx:else class="exercise-hint">轻点看答案</text>
@@ -141,10 +158,11 @@
           <view wx:if="{{story}}" class="story">
             <text wx:if="{{story.title}}" class="story-title serif">{{story.title}}</text>
             <view class="story-actions">
-              <view class="story-action" bindtap="onPlayStory" aria-role="button">
-                <text>{{playing === story.key ? '■ 停止' : '▶︎ 朗读'}}</text>
+              <view class="btn btn-tonal btn-sm btn-icon-first" bindtap="onPlayStory" aria-role="button">
+                <t-icon name="{{playing === story.key ? 'stop' : 'speaker'}}" tone="accent" size="32" />
+                <text>{{playing === story.key ? '停止' : '朗读'}}</text>
               </view>
-              <view wx:if="{{story.zh}}" class="story-action" bindtap="onToggleStoryZh" aria-role="button">
+              <view wx:if="{{story.zh}}" class="btn btn-secondary btn-sm" bindtap="onToggleStoryZh" aria-role="button">
                 <text>{{showStoryZh ? '隐藏译文' : '显示译文'}}</text>
               </view>
             </view>
@@ -174,7 +192,9 @@
 
       <view wx:elif="{{phase === 'error'}}" class="none">
         <text class="error">{{errorText}}</text>
-        <view class="retry" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+        <view class="retry">
+          <view class="btn btn-secondary btn-sm" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+        </view>
       </view>
 
       <text wx:else class="empty">加载中…</text>
