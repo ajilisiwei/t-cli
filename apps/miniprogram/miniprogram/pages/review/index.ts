@@ -10,13 +10,13 @@ import { homeView, ringStyle, type HomeView, type RingStyle } from '../../lib/re
 import { materialCounts } from '../../lib/review-material'
 import type { DailyMaterialResponse } from '../../lib/review-types'
 import { localDateKey } from '../../lib/history'
-import { PALETTES } from '../../lib/palette'
+import { paletteFor } from '../../lib/palette'
 import { speechPhase, type SpeechPhase, type SpeechStatus } from '../../lib/speaker'
 import { askForReminderThen, fetchDailyMaterial, loadReminderConfig, loadSummary } from '../../services/review'
 import { redirectIfInviteRequired } from '../../services/session'
 import { reminderHour } from '../../services/settings'
 import { speechStatus, stopSpeaking, toggleSpeech, watchSpeech } from '../../services/speech'
-import { currentTheme, watchTheme, type Theme } from '../../services/theme'
+import { currentLook, watchLook, type Look } from '../../services/theme'
 import { toast } from '../../services/ui'
 
 const SESSION_PAGE = '/pages/review-session/index'
@@ -29,8 +29,7 @@ interface MaterialCard {
   hasStory: boolean
 }
 
-interface ReviewHomeData {
-  theme: Theme
+interface ReviewHomeData extends Look {
   dateLabel: string
   loaded: boolean
   view: HomeView
@@ -52,16 +51,18 @@ const EMPTY_VIEW: HomeView = homeView({
   streakDays: 0,
 })
 
-/** The ring in the theme's colours (literal: they go into an inline gradient). */
-const ringFor = (view: HomeView, theme: Theme): RingStyle =>
-  ringStyle(view.ringDegrees, PALETTES[theme].accent, PALETTES[theme].rule)
+/** The ring in the theme's and accent's colours (literal: they go into an inline gradient). */
+const ringFor = (view: HomeView, look: Pick<Look, 'theme' | 'accent'>): RingStyle => {
+  const palette = paletteFor(look.theme, look.accent)
+  return ringStyle(view.ringDegrees, palette.accent, palette.rule)
+}
 
 const initialData: ReviewHomeData = {
-  theme: currentTheme(),
+  ...currentLook(),
   dateLabel: '',
   loaded: false,
   view: EMPTY_VIEW,
-  ring: ringFor(EMPTY_VIEW, currentTheme()),
+  ring: ringFor(EMPTY_VIEW, currentLook()),
   errorText: '',
   refreshing: false,
   material: null,
@@ -86,10 +87,10 @@ Page({
   starting: false,
 
   onLoad() {
-    this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme, ring: ringFor(this.data.view, theme) }))
+    this.stopWatchingTheme = watchLook((look) => this.setData({ ...look, ring: ringFor(this.data.view, look) }))
     this.stopWatchingSpeech = watchSpeech((speech) => this.syncSpeech(speech))
-    const theme = currentTheme()
-    this.setData({ theme, ring: ringFor(this.data.view, theme) })
+    const look = currentLook()
+    this.setData({ ...look, ring: ringFor(this.data.view, look) })
   },
 
   onShow() {
@@ -129,7 +130,7 @@ Page({
     try {
       const summary = await loadSummary()
       const view = homeView(summary)
-      this.setData({ view, ring: ringFor(view, this.data.theme), loaded: true, errorText: '' })
+      this.setData({ view, ring: ringFor(view, this.data), loaded: true, errorText: '' })
     } catch (error: unknown) {
       if (redirectIfInviteRequired(error)) return
       this.setData({ errorText: errorMessage(error) })

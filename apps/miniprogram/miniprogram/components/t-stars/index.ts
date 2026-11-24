@@ -6,6 +6,8 @@
  * the page decides (save, update, or ignore offline). Where it sits — beside
  * the bookmark in a wide action bar, or on its own line under a narrow row —
  * is the parent's layout. Each star is a tap target of at least 30×36 px.
+ * Filled stars are <t-icon tone="accent">, so they follow the theme and the
+ * accent (主题色) like every icon.
  */
 
 const MAX_STARS = 4

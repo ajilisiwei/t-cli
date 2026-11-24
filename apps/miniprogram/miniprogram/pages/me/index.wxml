@@ -1,4 +1,4 @@
-<view class="page theme-{{theme}}">
+<view class="page theme-{{theme}} {{accentClass}}">
   <nav-bar title="我的" />
   <scroll-view class="body" scroll-y type="list" show-scrollbar="{{false}}">
     <view class="content">
@@ -25,13 +25,20 @@
         <t-icon name="chevron-right" tone="muted" size="32" />
       </view>
 
-      <text class="section-title">设置</text>
-      <view class="row">
-        <text class="row-label">解释语言</text>
-        <view class="segmented">
-          <view class="segment {{lang === 'zh' ? 'segment-on' : ''}}" data-lang="zh" bindtap="onLang" aria-role="button"><text>中文</text></view>
-          <view class="segment {{lang === 'en' ? 'segment-on' : ''}}" data-lang="en" bindtap="onLang" aria-role="button"><text>English</text></view>
+      <text class="section-title">翻译</text>
+      <view
+        class="row"
+        data-key="showDirection"
+        bindtap="onToggle"
+        aria-role="switch"
+        aria-checked="{{showDirection}}"
+        aria-label="显示翻译方向按钮"
+      >
+        <view class="row-text">
+          <text class="row-label">显示翻译方向按钮</text>
+          <text class="row-hint">{{directionHint}}</text>
         </view>
+        <view class="switch {{showDirection ? 'switch-on' : ''}}"><view class="knob {{showDirection ? 'knob-on' : ''}}"></view></view>
       </view>
       <view
         class="row"
@@ -43,6 +50,31 @@
       >
         <text class="row-label">查单词后自动朗读</text>
         <view class="switch {{autoSpeakWord ? 'switch-on' : ''}}"><view class="knob {{autoSpeakWord ? 'knob-on' : ''}}"></view></view>
+      </view>
+      <picker mode="selector" range="{{langOptions}}" value="{{langIndex}}" bindchange="onLang">
+        <view class="row" aria-role="button" aria-label="释义语言：{{langLabel}}">
+          <text class="row-label">释义语言</text>
+          <view class="row-trail">
+            <text class="row-value">{{langLabel}}</text>
+            <t-icon name="chevron-right" tone="muted" size="32" />
+          </view>
+        </view>
+      </picker>
+
+      <text class="section-title">笔记本与复习</text>
+      <view
+        class="row"
+        data-key="importanceReview"
+        bindtap="onToggle"
+        aria-role="switch"
+        aria-checked="{{importanceReview}}"
+        aria-label="按重要程度安排复习"
+      >
+        <view class="row-text">
+          <text class="row-label">按重要程度安排复习</text>
+          <text class="row-hint">星越多，复习越勤；4 星优先进每日材料</text>
+        </view>
+        <view class="switch {{importanceReview ? 'switch-on' : ''}}"><view class="knob {{importanceReview ? 'knob-on' : ''}}"></view></view>
       </view>
       <view
         class="row"
@@ -74,6 +106,45 @@
           <text class="setting-note">有到期的卡片时才提醒。微信每次允许只能发一条提醒，收到后回来再点一次「接收下一次提醒」；在弹窗里勾选「总是保持以上选择」，以后点一下即可。</text>
         </block>
       </block>
+
+      <text class="section-title">外观</text>
+      <view class="row">
+        <text class="row-label">主题色</text>
+        <view class="swatches" aria-role="radiogroup" aria-label="主题色">
+          <view
+            wx:for="{{accents}}"
+            wx:key="id"
+            class="swatch"
+            data-accent="{{item.id}}"
+            bindtap="onAccent"
+            aria-role="radio"
+            aria-checked="{{item.checked}}"
+            aria-label="{{item.label}}"
+          >
+            <view class="swatch-ring" style="{{item.ringStyle}}">
+              <view class="swatch-dot" style="background-color: {{item.color}};"></view>
+            </view>
+          </view>
+        </view>
+      </view>
+      <view class="row" bindtap="onAppearance" aria-role="button" aria-label="深浅模式：{{themeModeText}}">
+        <text class="row-label">深浅模式</text>
+        <view class="row-trail">
+          <text class="row-value">{{themeModeText}}</text>
+          <t-icon name="chevron-right" tone="muted" size="32" />
+        </view>
+      </view>
+      <view class="row" bindtap="onAppearance" aria-role="button" aria-label="阅读模式：{{readingText}}">
+        <text class="row-label">阅读模式</text>
+        <view class="row-trail">
+          <text class="row-value">{{readingText}}</text>
+          <t-icon name="chevron-right" tone="muted" size="32" />
+        </view>
+      </view>
+      <view class="saved-note">
+        <t-icon name="cloud-check" tone="muted" size="28" />
+        <text class="saved-note-text">设置会自动保存到账号，换手机或重新安装也不会丢</text>
+      </view>
 
       <text class="section-title">账号</text>
       <view class="row" bindtap="onDevices" aria-role="button">

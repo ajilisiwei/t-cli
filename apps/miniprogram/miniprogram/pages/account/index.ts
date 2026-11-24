@@ -19,7 +19,7 @@ import {
 } from '../../services/account'
 import { fetchMe } from '../../services/endpoints'
 import { redirectIfInviteRequired } from '../../services/session'
-import { currentTheme, watchTheme, type Theme } from '../../services/theme'
+import { bindPageLook, currentTheme, type Theme } from '../../services/theme'
 import { confirm, toast } from '../../services/ui'
 
 const ENTRY_PAGE = '/pages/translate/index'
@@ -66,7 +66,7 @@ Page({
   stopWatchingTheme: null as (() => void) | null,
 
   onLoad() {
-    this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme }))
+    this.stopWatchingTheme = bindPageLook(this)
     this.setData({ theme: currentTheme() })
     fetchMe()
       .then((me) => this.setData({ since: formatDay(me.createdAt) }))

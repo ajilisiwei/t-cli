@@ -1,32 +1,4 @@
-/* Shared styles live in app.wxss; the switch and the reminder note are page-only. */
-
-/* A drawn switch: follows the theme colours, unlike the native one. */
-.switch {
-  position: relative;
-  width: 84rpx;
-  height: 48rpx;
-  border-radius: 24rpx;
-  background-color: var(--rule);
-}
-
-.switch-on {
-  background-color: var(--accent);
-}
-
-.knob {
-  position: absolute;
-  top: 4rpx;
-  left: 4rpx;
-  width: 40rpx;
-  height: 40rpx;
-  border-radius: 20rpx;
-  background-color: var(--muted);
-}
-
-.knob-on {
-  left: 40rpx;
-  background-color: var(--accent-ink);
-}
+/* Shared styles live in app.wxss (rows, switch); the swatches and notes are page-only. */
 
 .row-accent {
   color: var(--accent);
@@ -38,4 +10,53 @@
   color: var(--muted);
   font-size: 24rpx;
   line-height: 1.6;
+}
+
+/* 主题色: five round swatches, the chosen one ringed in its own colour. */
+.swatches {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4rpx;
+}
+
+/* A 36 px target around a 24 px dot; px so the target keeps its size on every screen. */
+.swatch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+}
+
+.swatch-ring {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 16px;
+  border: 2px solid transparent;
+}
+
+.swatch-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+}
+
+/* The footnote under the settings: a cloud with a check, then the text. */
+.saved-note {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  margin-top: 40rpx;
+}
+
+.saved-note-text {
+  color: var(--muted);
+  font-size: 24rpx;
 }

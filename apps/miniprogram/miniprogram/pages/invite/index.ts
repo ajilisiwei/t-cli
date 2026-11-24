@@ -5,7 +5,8 @@
  */
 import { errorMessage } from '../../lib/api'
 import { hasSession, loginWithInvite } from '../../services/session'
-import { currentTheme, watchTheme, type Theme } from '../../services/theme'
+import { syncSettings } from '../../services/settings'
+import { bindPageLook, currentTheme, type Theme } from '../../services/theme'
 
 interface InviteData {
   theme: Theme
@@ -28,7 +29,7 @@ Page({
   stopWatchingTheme: null as (() => void) | null,
 
   onLoad() {
-    this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme }))
+    this.stopWatchingTheme = bindPageLook(this)
     this.setData({ theme: currentTheme() })
   },
 
@@ -50,6 +51,8 @@ Page({
     this.setData({ busy: true, errorText: '' })
     try {
       await loginWithInvite(code)
+      // A new account: push anything set on this phone before, take the account's defaults for the rest.
+      void syncSettings()
       wx.reLaunch({ url: TRANSLATE_PAGE, fail: () => undefined })
     } catch (error: unknown) {
       this.setData({ errorText: errorMessage(error) })
