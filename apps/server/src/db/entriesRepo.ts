@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, inArray, isNull, lt } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, isNull, lt, type SQL } from 'drizzle-orm';
 import type { Entry } from '@t-cli/core/entry';
 import { AppError } from '../http/errors.ts';
 import type { Executor } from './client.ts';
@@ -126,15 +126,16 @@ export async function listEntriesAfter(
 
 /**
  * Browse an account's entries newest first (`seq < before`, or from the
- * newest when `before` is absent). `nextBefore` is the cursor for the next
- * page, null once there is nothing older.
+ * newest when `before` is absent), optionally narrowed by `where` (the
+ * history filters). `nextBefore` is the cursor for the next page, null once
+ * there is nothing older.
  */
 export async function listEntriesBefore(
   db: Executor,
   userId: string,
-  { before, limit }: { before?: number | undefined; limit: number },
+  { before, limit, where }: { before?: number | undefined; limit: number; where?: SQL | undefined },
 ): Promise<{ entries: SyncedEntry[]; nextBefore: number | null; hasMore: boolean }> {
-  const scope = before === undefined ? eq(entries.userId, userId) : and(eq(entries.userId, userId), lt(entries.seq, before));
+  const scope = and(eq(entries.userId, userId), before === undefined ? undefined : lt(entries.seq, before), where);
   const rows = await db.select().from(entries).where(scope).orderBy(desc(entries.seq)).limit(limit + 1);
   const page = rows.slice(0, limit).map(fromRow);
   const hasMore = rows.length > limit;
