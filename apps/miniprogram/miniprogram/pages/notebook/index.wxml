@@ -1,6 +1,145 @@
 <view class="page theme-{{theme}}">
   <nav-bar title="笔记本" />
-  <scroll-view class="body" scroll-y type="list" show-scrollbar="{{false}}">
-    <view class="content"></view>
+  <scroll-view
+    class="body"
+    scroll-y
+    type="list"
+    show-scrollbar="{{false}}"
+    lower-threshold="240"
+    bindscrolltolower="onLoadMore"
+    refresher-enabled
+    refresher-triggered="{{refreshing}}"
+    bindrefresherrefresh="onRefresh"
+  >
+    <view class="content">
+      <!-- Summary: total, this week, mastery bar (hidden when the summary is unavailable) -->
+      <view wx:if="{{summary}}" class="summary">
+        <view class="summary-head">
+          <text class="summary-total">{{summary.total}}</text>
+          <text class="summary-caption">{{summary.caption}}</text>
+        </view>
+        <block wx:if="{{summary.bar.length > 0}}">
+          <view class="mastery" aria-role="img" aria-label="{{summary.barAria}}">
+            <view
+              wx:for="{{summary.bar}}"
+              wx:key="key"
+              class="mastery-seg seg-{{item.key}}"
+              style="flex: {{item.count}};"
+            />
+          </view>
+          <view class="legend">
+            <view wx:for="{{summary.legend}}" wx:key="key" class="legend-item">
+              <view class="legend-dot seg-{{item.key}}" />
+              <text>{{item.label}} {{item.count}}</text>
+            </view>
+          </view>
+        </block>
+      </view>
+
+      <!-- Type tabs -->
+      <view class="tabs" aria-role="tablist" aria-label="笔记类型">
+        <view
+          wx:for="{{kindTabs}}"
+          wx:key="value"
+          class="tab {{item.selected ? 'tab-on' : ''}}"
+          data-value="{{item.value}}"
+          bindtap="onKindTab"
+          aria-role="tab"
+          aria-selected="{{item.selected}}"
+        >
+          <text>{{item.label}}</text>
+        </view>
+      </view>
+
+      <!-- Star filters -->
+      <view class="filters">
+        <view class="star-chips">
+          <view
+            wx:for="{{starChips}}"
+            wx:key="value"
+            class="star-chip {{item.selected ? 'star-chip-on' : ''}}"
+            data-value="{{item.value}}"
+            bindtap="onStarChip"
+            aria-role="button"
+            aria-label="{{item.aria}}{{item.selected ? '，已选' : ''}}"
+          >
+            <t-icon wx:if="{{item.star}}" name="star-filled" tone="{{item.selected ? 'accentInk' : 'muted'}}" size="22" />
+            <text>{{item.label}}</text>
+          </view>
+        </view>
+        <text class="order">最近加入</text>
+      </view>
+
+      <!-- Notes -->
+      <view
+        wx:for="{{rows}}"
+        wx:key="id"
+        class="note"
+        data-id="{{item.id}}"
+        bindtap="onRow"
+        aria-role="button"
+        aria-label="{{item.aria}}{{item.opensWord ? '，打开单词详情' : (item.expanded ? '，收起' : '，展开')}}"
+      >
+        <view class="note-main">
+          <text wx:if="{{item.lines === 0}}" class="note-text note-text-{{item.kind}} {{item.serif ? 'serif' : ''}}" user-select>{{item.text}}</text>
+          <text
+            wx:else
+            class="note-text note-text-{{item.kind}} {{item.serif ? 'serif' : ''}} clamp-{{item.lines}}"
+            max-lines="{{item.lines}}"
+            overflow="ellipsis"
+          >{{item.text}}</text>
+          <block wx:if="{{item.gloss}}">
+            <text wx:if="{{item.expanded}}" class="note-gloss note-gloss-full" user-select>{{item.gloss}}</text>
+            <text wx:else class="note-gloss clamp-1" max-lines="1" overflow="ellipsis">{{item.gloss}}</text>
+          </block>
+          <view class="tags">
+            <text class="tag">{{item.kindLabel}}</text>
+            <text wx:if="{{item.levelLabel}}" class="tag tag-{{item.level}}">{{item.levelLabel}}</text>
+          </view>
+
+          <!-- Expanded phrase / sentence (option B): stars on their own line, then 朗读 and 删除 -->
+          <view wx:if="{{item.expanded}}" class="note-edit" catchtap="onNoop">
+            <view class="note-stars-edit" aria-label="重要程度">
+              <t-stars level="{{item.stars}}" size="36" data-id="{{item.id}}" bind:change="onRowStars" />
+            </view>
+            <view class="note-actions">
+              <view
+                class="btn btn-tonal btn-sm btn-icon-first"
+                data-id="{{item.id}}"
+                catchtap="onRowSpeak"
+                aria-role="button"
+                aria-label="{{speakKey === 'item-' + item.itemId && speakPhase !== 'idle' ? '停止朗读' : '朗读'}}"
+              >
+                <t-speak-icon phase="{{item.itemId && speakKey === 'item-' + item.itemId ? speakPhase : 'idle'}}" tone="accent" size="28" />
+                <text>{{item.itemId && speakKey === 'item-' + item.itemId && speakPhase !== 'idle' ? '停止' : '朗读'}}</text>
+              </view>
+              <view class="btn btn-danger btn-sm" data-id="{{item.id}}" catchtap="onRowDelete" aria-role="button" aria-label="删除这条笔记">
+                <text>删除</text>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <!-- Stars column: never squeezed -->
+        <view wx:if="{{!item.expanded}}" class="note-stars" aria-label="{{item.stars}} 星">
+          <t-icon
+            wx:for="{{item.marks}}"
+            wx:for-item="mark"
+            wx:key="key"
+            name="{{mark.filled ? 'star-filled' : 'star'}}"
+            tone="{{mark.filled ? 'accent' : 'muted'}}"
+            size="24"
+          />
+        </view>
+      </view>
+
+      <view wx:if="{{errorText}}" class="failed">
+        <text class="error">{{errorText}}</text>
+        <view wx:if="{{rows.length === 0}}" class="btn btn-secondary btn-block" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+      </view>
+      <text wx:if="{{loaded && rows.length === 0 && !errorText && !loading}}" class="empty">{{emptyText}}</text>
+      <text wx:if="{{loading && !refreshing}}" class="empty">加载中…</text>
+      <text wx:elif="{{loaded && rows.length > 0 && !hasMore}}" class="empty">没有更早的笔记了</text>
+    </view>
   </scroll-view>
 </view>

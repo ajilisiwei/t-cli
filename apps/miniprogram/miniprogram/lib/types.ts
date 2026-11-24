@@ -190,6 +190,8 @@ export interface LookupResult {
 
 export type NoteKind = 'word' | 'phrase' | 'sentence'
 export type NoteStars = 1 | 2 | 3 | 4
+/** The learning unit's level behind a note (as `GET /v1/items?level=`). */
+export type NoteLevel = 'new' | 'learning' | 'mastered'
 
 /** A saved word, phrase or sentence (笔记). */
 export interface Note {
@@ -208,6 +210,10 @@ export interface Note {
   readonly createdAt: string
   readonly updatedAt: string
   readonly deletedAt: string | null
+  /** Its unit's level; null (or absent, from an older server) while there is no unit yet. */
+  readonly level?: NoteLevel | null
+  /** The task of the record it was saved from; null without one (or before it is pushed). */
+  readonly task?: EntryTask | null
 }
 
 /** Body of `PUT /v1/notes/:id`. */
@@ -235,6 +241,15 @@ export interface NotesPage {
   readonly notes: readonly Note[]
   readonly nextBefore: string | null
   readonly hasMore: boolean
+}
+
+/** `GET /v1/notes/summary`: counts over the live notes. */
+export interface NotesSummary {
+  readonly total: number
+  /** Saved since Monday of the current local week. */
+  readonly thisWeek: number
+  readonly kinds: Readonly<Record<NoteKind, number>>
+  readonly levels: Readonly<Record<NoteLevel, number>>
 }
 
 /** `GET /v1/notes/changes`: every changed note since the cursor, deleted ones included. */
