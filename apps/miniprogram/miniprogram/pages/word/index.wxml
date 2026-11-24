@@ -1,0 +1,6 @@
+<view class="page theme-{{theme}}">
+  <nav-bar title="单词" back />
+  <scroll-view class="body" scroll-y type="list" show-scrollbar="{{false}}">
+    <view class="content"></view>
+  </scroll-view>
+</view>

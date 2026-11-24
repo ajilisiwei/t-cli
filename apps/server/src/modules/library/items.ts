@@ -6,7 +6,7 @@ import { stateName, type CardStateName } from '../review/fsrs.ts';
 
 /** 词库 (docs/api-v1.md, "Library and stats"): learning units with their level. */
 
-export type ItemType = 'word' | 'phrase' | 'grammar';
+export type ItemType = 'word' | 'phrase' | 'grammar' | 'sentence';
 /** `new` = every card new (or no cards yet), `mastered` = every card mastered, otherwise `learning`. */
 export type ItemLevel = 'new' | 'learning' | 'mastered';
 

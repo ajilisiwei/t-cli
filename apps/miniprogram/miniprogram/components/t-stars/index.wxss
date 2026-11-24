@@ -1,0 +1,16 @@
+/* A row of four tap targets; the parent places the row. px, not rpx, so the
+ * targets keep their minimum size on every screen width. */
+.stars {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.star {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  min-height: 36px;
+}

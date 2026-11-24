@@ -61,6 +61,14 @@ export const ICON_NAMES = [
   'chevron-left',
   'chevron-right',
   'mic',
+  'bookmark',
+  'bookmark-filled',
+  'star',
+  'star-filled',
+  'calendar',
+  'search',
+  'arrow-up',
+  'swap',
 ] as const
 
 export type IconName = (typeof ICON_NAMES)[number]

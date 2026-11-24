@@ -40,6 +40,18 @@ const SHAPES = {
   'chevron-left': '<path d="M14.5 5.5L8 12l6.5 6.5"/>',
   'chevron-right': '<path d="M9.5 5.5L16 12l-6.5 6.5"/>',
   mic: '<rect x="9" y="3" width="6" height="11.5" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5V21"/>',
+  // 收藏: the outline, and the same silhouette filled (saved).
+  bookmark: '<path d="M7.5 4h9A1.5 1.5 0 0 1 18 5.5V20l-6-4.2L6 20V5.5A1.5 1.5 0 0 1 7.5 4z"/>',
+  'bookmark-filled': '<path d="M7.5 4h9A1.5 1.5 0 0 1 18 5.5V20l-6-4.2L6 20V5.5A1.5 1.5 0 0 1 7.5 4z" fill="{c}"/>',
+  // 重要程度: one star of <t-stars>, empty and filled.
+  star: '<path d="M12 3.6L14.41 9.28L20.56 9.82L15.9 13.87L17.29 19.88L12 16.7L6.71 19.88L8.1 13.87L3.44 9.82L9.59 9.28z"/>',
+  'star-filled': '<path d="M12 3.6L14.41 9.28L20.56 9.82L15.9 13.87L17.29 19.88L12 16.7L6.71 19.88L8.1 13.87L3.44 9.82L9.59 9.28z" fill="{c}"/>',
+  calendar: '<rect x="4" y="5.5" width="16" height="14.5" rx="2.5"/><path d="M4 10.5h16M8.5 3.5v4M15.5 3.5v4"/>',
+  search: '<circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/>',
+  // 回到顶部.
+  'arrow-up': '<path d="M12 19.5V5.5M6 11.5l6-6 6 6"/>',
+  // Two opposite arrows: switch the translate direction.
+  swap: '<path d="M5 8.5h13.5M15 5l3.5 3.5L15 12"/><path d="M19 15.5H5.5M9 12l-3.5 3.5L9 19"/>',
 }
 
 export function renderIcon(name, color) {

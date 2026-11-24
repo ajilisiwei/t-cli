@@ -30,7 +30,7 @@ export interface ReviewLimits {
 export interface QueueCard {
   id: string;
   itemId: string;
-  itemType: 'word' | 'phrase' | 'grammar';
+  itemType: 'word' | 'phrase' | 'grammar' | 'sentence';
   cardType: string;
   front: Record<string, unknown>;
   back: Record<string, unknown>;

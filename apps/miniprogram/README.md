@@ -5,7 +5,7 @@ daily materials and the word library (M3–M4), stats, weekly reports and
 account data (M5). WeChat native + TypeScript + Skyline, the same stack as
 heji-ledger's mini-program. The API contract is `docs/api-v1.md`.
 
-Tabs: **翻译** (default), **纠错**, **复习** (今日进度, 开始复习, 每日材料, 词库, 周报; the tab
+Tabs: **翻译** (default), **笔记本** (v2; replaces 纠错, whose page stays until 翻译 takes it over), **复习** (今日进度, 开始复习, 每日材料, 词库, 周报; the tab
 badge is the number of cards due), **我的** (记录, 学习统计, 周报, 词库, settings — 解释语言,
 单词自动朗读, 复习翻面自动朗读, 复习提醒 —, 账号与数据 (导出 / 注销), 设备, 授权 CLI 登录).
 
@@ -41,13 +41,16 @@ apps/miniprogram/
       stats.ts weekly.ts     学习统计 heatmap / streak / retention bars; 周报 view and week paging
       account.ts             settings options (reminder hours), export filename, subscribe outcomes
       palette.ts             theme colours for JS (icons, ring gradient), icon names and paths
+      wire.ts                shape checks for API responses: settings, lookup, notes, entry days, TTS part headers
     services/                wx-bound glue: request transport, session, stream, TTS, voice, theme,
                              settings, review (queue, ratings outbox, badge, reminders), library, account
     pages/                   translate, check, me, history, devices, authorize, invite,
-                             review (tab), review-session, materials, library, item, stats, weekly, account
+                             review (tab), review-session, materials, library, item, stats, weekly, account,
+                             notebook (tab), word, appearance (v2)
     components/nav-bar/      custom navigation bar (Skyline pages have no native one)
     components/t-icon/       <t-icon name tone size>: one generated SVG in the current theme
     components/t-speak-icon/ <t-speak-icon phase tone size>: the speaker, or loading dots / playing bars
+    components/t-stars/      <t-stars level size bind:change>: a note's importance, four tappable stars
     assets/icons/            GENERATED: <theme>/<name>-<tone>.svg
     vendor/core/detect.js    GENERATED copy of packages/core/src/detect.js
 ```
@@ -94,8 +97,9 @@ of page-local look-alikes; a page's own wxss only lays things out.
 | Colour | `--bg --surface --ink --ink-soft --muted --rule --accent --accent-soft --accent-ink --danger` | CSS variables on the page root (`theme-light` / `theme-dark`); `lib/palette.ts` mirrors them for JS |
 | Button | `.btn` + `.btn-primary` / `.btn-secondary` / `.btn-tonal` / `.btn-danger`, sizes `.btn-sm` / `.btn-lg`, `.btn-block`, `.btn-disabled` | Pill. One primary per screen; tonal for inline actions (朗读, 复制, 停止); an icon comes first, with `.btn-icon-first` on a small pill |
 | Icon button | `.icon-btn` (+ `.icon-btn-sm`, `.icon-btn-tonal`, `.icon-btn-off`) | A round target around one icon: 朗读 next to a word, clear, date steppers |
-| Icon | `<t-icon name tone size>` | `name`: speaker, stop, copy, close, check, chevron-left, chevron-right, mic. `tone`: ink, muted, accent, danger, accentInk (= `--accent-ink`, only on an accent fill). `size` in rpx |
+| Icon | `<t-icon name tone size>` | `name`: speaker, stop, copy, close, check, chevron-left, chevron-right, mic, bookmark, bookmark-filled, star, star-filled, calendar, search, arrow-up, swap. `tone`: ink, muted, accent, danger, accentInk (= `--accent-ink`, only on an accent fill). `size` in rpx |
 | 朗读 | `<t-speak-icon phase tone size>` inside a `.icon-btn` or a tonal `.btn` | The one speaker icon. `phase` (idle / loading / playing) comes from `services/speech.ts`: idle draws the speaker, loading three dots pulsing in turn, playing three bouncing bars. The label reads 朗读 when idle and 停止 otherwise; the tap is `toggleSpeech`, so tapping what sounds stops it |
+| Stars | `<t-stars level size bind:change>` | A note's importance (重要程度): `level` 0–4 (0 = not saved), filled stars in accent, empty ones muted. Tapping star N emits `change` `{ level: N }` (only when it differs); the page owns the value. Each star is a ≥ 30×36 px target labelled 「重要程度 N 星」. Placement is the page's: beside the bookmark in a wide action bar, on its own line under a narrow row |
 | Link | `.link` (+ `.link-strong`, `.link-danger`) | A quiet action inside a line (撤销) |
 | Row | `.row`, `.row-label`, `.row-value`, `.row-trail` | List rows; a trailing value plus `chevron-right` |
 | Marks | `.mark-line` + `.mark-icon` | ✓ / ✗ in front of a sentence (check accent, close danger) |
