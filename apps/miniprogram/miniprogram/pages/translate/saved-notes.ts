@@ -1,10 +1,11 @@
 /**
- * The notes saved from the 翻译 page, by kind and text (lib/note-outbox.ts
- * `noteKey`): their ids and stars, so a bookmark shows its state again when
- * the same word comes back, and saving after 取消收藏 revives the same note.
- * Page-local; the changes themselves go through services/notes.ts.
+ * The 翻译 page's bookmarks over the shared saved-note index
+ * (services/saved-index.ts): a bookmark shows its state again when the same
+ * word comes back, and saving after 取消收藏 revives the same note. The index
+ * is the one source, so a change made on the 笔记本 or word page shows here
+ * after the next sync. The changes themselves go through services/notes.ts.
  */
-import { noteKey, type NoteTarget } from '../../lib/note-outbox'
+import type { NoteTarget } from '../../lib/note-outbox'
 import type { LookupResult, NoteStars } from '../../lib/types'
 import { lookupGloss } from '../../lib/lookup-view'
 import { canSaveNote, newNoteId, removeNote, saveNote, setNoteStars } from '../../services/notes'
@@ -32,25 +33,21 @@ const isStars = (value: number): value is NoteStars => value === 1 || value === 
 const indexText = (target: NoteTarget): string => (target.kind === 'word' ? (target.lemma ?? target.text) : target.text)
 
 export function createSavedNotes(): SavedNotes {
-  let notes: ReadonlyMap<string, SavedNote> = new Map()
   const remember = (target: NoteTarget, note: SavedNote): void => {
-    notes = new Map(notes).set(noteKey(target), note)
-    // Shared with the word page, so neither saves a note the other already has.
+    const known = savedNoteFor(target.kind, indexText(target))
     rememberSaved({
       id: note.id,
       kind: target.kind,
       text: indexText(target),
-      stars: isStars(note.stars) ? note.stars : 1,
+      // A removal keeps the stars the note had, as the server does.
+      stars: isStars(note.stars) ? note.stars : (known?.stars ?? 1),
       live: note.stars > 0,
-      itemId: null,
+      itemId: known?.itemId ?? null,
     })
   }
-  /** This page's own state first, else a note synced from the account (笔记本). */
   const knownOf = (target: NoteTarget): SavedNote | undefined => {
-    const local = notes.get(noteKey(target))
-    if (local !== undefined) return local
-    const synced = savedNoteFor(target.kind, indexText(target))
-    return synced === null ? undefined : { id: synced.id, stars: synced.live ? synced.stars : 0 }
+    const saved = savedNoteFor(target.kind, indexText(target))
+    return saved === null ? undefined : { id: saved.id, stars: saved.live ? saved.stars : 0 }
   }
   return {
     starsOf: (target) => knownOf(target)?.stars ?? 0,
