@@ -299,14 +299,20 @@
 }
 
 /* ---- actions: inline under the result, or docked ---- */
+/* One line: the stars stay beside the bookmark. With wrap, Skyline sized the
+ * icon group to its content and pushed the stars to a second line. The row
+ * fits on 360 px screens, docked with 朗读 progress and 回到顶部 included. */
 .tr-actions {
+  flex-wrap: nowrap;
   justify-content: space-between;
 }
 
 .tr-icons {
   display: flex;
   flex-direction: row;
-  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 20rpx;
 }
