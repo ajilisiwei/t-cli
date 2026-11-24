@@ -6,7 +6,15 @@
     "tabColor": "#6f6a62",
     "tabSelectedColor": "#2f3e7a",
     "tabBgColor": "#f7f5f0",
-    "tabBorderStyle": "black"
+    "tabBorderStyle": "black",
+    "tabIconTranslate": "assets/tab/light/translate.png",
+    "tabIconTranslateOn": "assets/tab/light/translate-indigo.png",
+    "tabIconNotebook": "assets/tab/light/notebook.png",
+    "tabIconNotebookOn": "assets/tab/light/notebook-indigo.png",
+    "tabIconReview": "assets/tab/light/review.png",
+    "tabIconReviewOn": "assets/tab/light/review-indigo.png",
+    "tabIconMe": "assets/tab/light/me.png",
+    "tabIconMeOn": "assets/tab/light/me-indigo.png"
   },
   "dark": {
     "bgColor": "#131312",
@@ -15,6 +23,14 @@
     "tabColor": "#8f8a80",
     "tabSelectedColor": "#9fb0ee",
     "tabBgColor": "#131312",
-    "tabBorderStyle": "white"
+    "tabBorderStyle": "white",
+    "tabIconTranslate": "assets/tab/dark/translate.png",
+    "tabIconTranslateOn": "assets/tab/dark/translate-indigo.png",
+    "tabIconNotebook": "assets/tab/dark/notebook.png",
+    "tabIconNotebookOn": "assets/tab/dark/notebook-indigo.png",
+    "tabIconReview": "assets/tab/dark/review.png",
+    "tabIconReviewOn": "assets/tab/dark/review-indigo.png",
+    "tabIconMe": "assets/tab/dark/me.png",
+    "tabIconMeOn": "assets/tab/dark/me-indigo.png"
   }
 }

@@ -1,11 +1,12 @@
 /**
  * <t-icon name="speaker" tone="accent" size="32" />: one icon of the generated
- * set (scripts/icons.mjs) in the current theme's colour. `tone` is a palette
- * entry (ink, muted, accent, danger, accentInk); `size` is in rpx. Decorative:
- * the tappable parent carries the aria-label.
+ * set (scripts/icons.mjs) in the current theme's colour; `accent` follows the
+ * current accent (主题色). `tone` is a palette entry (ink, muted, accent,
+ * danger, accentInk); `size` is in rpx. Decorative: the tappable parent
+ * carries the aria-label.
  */
-import { iconPath, type Theme } from '../../lib/palette'
-import { currentTheme, followTheme, unfollowTheme } from '../../services/theme'
+import { iconPath } from '../../lib/palette'
+import { currentLook, followLook, unfollowTheme, type Look } from '../../services/theme'
 
 Component({
   properties: {
@@ -15,27 +16,25 @@ Component({
   },
   data: {
     src: '',
-    // The right theme before `attached`, so the first paint uses it.
-    theme: currentTheme() as Theme,
   },
   observers: {
     'name, tone'() {
-      this.refresh(this.data.theme)
+      this.refresh(currentLook())
     },
   },
   lifetimes: {
     attached() {
-      followTheme(this, (theme) => this.refresh(theme))
-      this.refresh(currentTheme())
+      followLook(this, (look) => this.refresh(look))
+      this.refresh(currentLook())
     },
     detached() {
       unfollowTheme(this)
     },
   },
   methods: {
-    refresh(theme: Theme) {
-      const src = iconPath(this.data.name, this.data.tone, theme)
-      if (src !== this.data.src || theme !== this.data.theme) this.setData({ src, theme })
+    refresh(look: Look) {
+      const src = iconPath(this.data.name, this.data.tone, look.theme, look.accent)
+      if (src !== this.data.src) this.setData({ src })
     },
   },
 })

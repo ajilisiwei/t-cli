@@ -6,6 +6,8 @@
 export const STORAGE_KEYS = {
   tokens: 'tcli:tokens',
   settings: 'tcli:settings',
+  /** Settings changed on this phone and not yet saved to the account (services/settings.ts). */
+  settingsPending: 'tcli:settings:pending',
   historyFirstPage: 'tcli:history:first',
 } as const
 

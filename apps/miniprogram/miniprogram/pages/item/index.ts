@@ -26,7 +26,7 @@ import { speechPhase, type SpeechPhase, type SpeechStatus } from '../../lib/spea
 import { fetchItem } from '../../services/library'
 import { redirectIfInviteRequired } from '../../services/session'
 import { itemSpeechKey, speechStatus, stopSpeaking, toggleSpeech, watchSpeech } from '../../services/speech'
-import { currentTheme, watchTheme, type Theme } from '../../services/theme'
+import { bindPageLook, currentTheme, type Theme } from '../../services/theme'
 import { toast } from '../../services/ui'
 
 interface WordView {
@@ -150,7 +150,7 @@ Page({
   stopWatchingSpeech: null as (() => void) | null,
 
   onLoad(query: Record<string, string | undefined>) {
-    this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme }))
+    this.stopWatchingTheme = bindPageLook(this)
     this.itemId = query['id'] ?? ''
     this.stopWatchingSpeech = watchSpeech((speech) => this.syncSpeech(speech))
     this.setData({ theme: currentTheme(), speakPhase: this.phaseOf(speechStatus()) })

@@ -8,7 +8,7 @@ import { errorMessage } from '../../lib/api'
 import { normalizeTypedCode, parseUserCode } from '../../lib/user-code'
 import { decideDevice, lookupDevice } from '../../services/endpoints'
 import { redirectIfInviteRequired } from '../../services/session'
-import { currentTheme, watchTheme, type Theme } from '../../services/theme'
+import { bindPageLook, currentTheme, type Theme } from '../../services/theme'
 import { confirm, toast } from '../../services/ui'
 
 interface AuthorizeData {
@@ -37,7 +37,7 @@ Page({
   stopWatchingTheme: null as (() => void) | null,
 
   onLoad(query: Record<string, string | undefined>) {
-    this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme }))
+    this.stopWatchingTheme = bindPageLook(this)
     this.setData({ theme: currentTheme() })
     const code = parseUserCode(query['code'] ?? '')
     if (code !== null) {

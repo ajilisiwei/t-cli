@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 /**
  * Generates the icon set: one SVG per icon × tone × theme under
- * miniprogram/assets/icons/<theme>/<name>-<tone>.svg.
+ * miniprogram/assets/icons/<theme>/<name>-<tone>.svg, plus one per other
+ * accent for the accent-dependent tones: <name>-accent-<accent>.svg (the
+ * default accent, indigo, keeps the plain name).
  *
  * Why files: Skyline has no `currentColor` and no per-side border colours on
  * rounded boxes, and emoji glyphs (▶︎) render as coloured emoji on iOS. A
  * static SVG per colour is the documented way to get a crisp, themed icon.
- * The <t-icon> component picks the file for the current theme.
+ * The <t-icon> component picks the file for the current theme and accent.
  *
  * Style: 24×24 grid, 2px round strokes, a few filled shapes. Skyline's SVG
  * support excludes percentages and <style>, so neither is used.
@@ -20,7 +22,16 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { ICON_NAMES, ICON_TONES, PALETTES } from '../miniprogram/lib/palette.ts'
+import {
+  ACCENTS,
+  ACCENT_TONES,
+  DEFAULT_ACCENT,
+  ICON_NAMES,
+  ICON_TONES,
+  PALETTES,
+  iconSuffix,
+  paletteFor,
+} from '../miniprogram/lib/palette.ts'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 export const ICON_DIR = path.join(ROOT, 'miniprogram', 'assets', 'icons')
@@ -52,11 +63,12 @@ const SHAPES = {
   'arrow-up': '<path d="M12 19.5V5.5M6 11.5l6-6 6 6"/>',
   // Two opposite arrows: switch the translate direction.
   swap: '<path d="M5 8.5h13.5M15 5l3.5 3.5L15 12"/><path d="M19 15.5H5.5M9 12l-3.5 3.5L9 19"/>',
+  // A cloud with a check: settings are saved to the account.
+  'cloud-check': '<path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a4 4 0 0 1-.5 7.97"/><path d="M9.5 15.5l2 2 3.5-3.5"/>',
 }
 
-export function renderIcon(name, color) {
-  const shape = SHAPES[name]
-  if (shape === undefined) throw new Error(`no shape for icon "${name}"`)
+/** A 24×24 icon document: `shape` (with `{c}` for the colour) stroked in `color`. Also used for the tab icons. */
+export function svgDocument(shape, color) {
   return (
     '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" ' +
     `fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">` +
@@ -64,13 +76,30 @@ export function renderIcon(name, color) {
   )
 }
 
+export function renderIcon(name, color) {
+  const shape = SHAPES[name]
+  if (shape === undefined) throw new Error(`no shape for icon "${name}"`)
+  return svgDocument(shape, color)
+}
+
+/** Every (tone, accent) pair that has its own file: all tones in the default accent, accent tones in the others. */
+const toneVariants = () => [
+  ...ICON_TONES.map((tone) => ({ tone, accent: DEFAULT_ACCENT })),
+  ...ACCENTS.filter((accent) => accent !== DEFAULT_ACCENT).flatMap((accent) =>
+    ACCENT_TONES.map((tone) => ({ tone, accent })),
+  ),
+]
+
 /** Every icon file as { file (relative to ICON_DIR), content }. */
 export function iconFiles() {
   const files = []
-  for (const [theme, palette] of Object.entries(PALETTES)) {
+  for (const theme of Object.keys(PALETTES)) {
     for (const name of ICON_NAMES) {
-      for (const tone of ICON_TONES) {
-        files.push({ file: path.join(theme, `${name}-${tone}.svg`), content: renderIcon(name, palette[tone]) })
+      for (const { tone, accent } of toneVariants()) {
+        files.push({
+          file: path.join(theme, `${name}-${iconSuffix(tone, accent)}.svg`),
+          content: renderIcon(name, paletteFor(theme, accent)[tone]),
+        })
       }
     }
   }

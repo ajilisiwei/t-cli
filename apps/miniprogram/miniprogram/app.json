@@ -35,18 +35,26 @@
     "list": [
       {
         "pagePath": "pages/translate/index",
+        "iconPath": "@tabIconTranslate",
+        "selectedIconPath": "@tabIconTranslateOn",
         "text": "翻译"
       },
       {
         "pagePath": "pages/notebook/index",
+        "iconPath": "@tabIconNotebook",
+        "selectedIconPath": "@tabIconNotebookOn",
         "text": "笔记本"
       },
       {
         "pagePath": "pages/review/index",
+        "iconPath": "@tabIconReview",
+        "selectedIconPath": "@tabIconReviewOn",
         "text": "复习"
       },
       {
         "pagePath": "pages/me/index",
+        "iconPath": "@tabIconMe",
+        "selectedIconPath": "@tabIconMeOn",
         "text": "我的"
       }
     ]

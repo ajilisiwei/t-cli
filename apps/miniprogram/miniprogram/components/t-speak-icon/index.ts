@@ -4,10 +4,11 @@
  * dots pulsing in turn; playing → three bars bouncing like a level meter.
  * `phase` is a SpeechPhase (lib/speaker.ts) that pages take from
  * services/speech.ts. Decorative: the tappable parent carries the tap and the
- * aria-label. Colours come from lib/palette.ts (Skyline has no currentColor).
+ * aria-label. Colours come from lib/palette.ts (Skyline has no currentColor)
+ * and follow the current theme and accent (主题色).
  */
-import { iconPath, toneColor, type Theme } from '../../lib/palette'
-import { currentTheme, followTheme, unfollowTheme } from '../../services/theme'
+import { iconPath, toneColor } from '../../lib/palette'
+import { currentLook, followLook, unfollowTheme, type Look } from '../../services/theme'
 
 /** Bar width, gap and full height as shares of `size`. */
 const BAR_WIDTH = 0.16
@@ -21,39 +22,37 @@ Component({
     size: { type: Number, value: 32 },
   },
   data: {
-    // The right theme before `attached`, so the first paint uses it.
-    theme: currentTheme() as Theme,
     src: '',
     boxStyle: '',
     barStyle: '',
   },
   observers: {
     'phase, tone, size'() {
-      this.refresh(this.data.theme)
+      this.refresh(currentLook())
     },
   },
   lifetimes: {
     attached() {
-      followTheme(this, (theme) => this.refresh(theme))
-      this.refresh(currentTheme())
+      followLook(this, (look) => this.refresh(look))
+      this.refresh(currentLook())
     },
     detached() {
       unfollowTheme(this)
     },
   },
   methods: {
-    refresh(theme: Theme) {
+    refresh(look: Look) {
+      const { theme, accent } = look
       const { phase, tone, size } = this.data
       const width = Math.max(3, Math.round(size * BAR_WIDTH))
       // Loading draws dots: bars as tall as they are wide.
       const height = phase === 'playing' ? Math.round(size * BAR_HEIGHT) : width
       this.setData({
-        theme,
-        src: iconPath('speaker', tone, theme),
+        src: iconPath('speaker', tone, theme, accent),
         boxStyle: `width: ${size}rpx; height: ${size}rpx; gap: ${Math.round(size * BAR_GAP)}rpx;`,
         barStyle:
           `width: ${width}rpx; height: ${height}rpx; border-radius: ${width / 2}rpx; ` +
-          `background-color: ${toneColor(tone, theme)};`,
+          `background-color: ${toneColor(tone, theme, accent)};`,
       })
     },
   },

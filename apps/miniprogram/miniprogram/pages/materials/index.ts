@@ -26,7 +26,7 @@ import { SPEECH_IDLE, type SpeechStatus } from '../../lib/speaker'
 import { fetchDailyMaterial, fetchMaterialDates } from '../../services/review'
 import { redirectIfInviteRequired } from '../../services/session'
 import { speechStatus, stopSpeaking, toggleSpeech, watchSpeech, type SpeechSource } from '../../services/speech'
-import { currentTheme, watchTheme, type Theme } from '../../services/theme'
+import { bindPageLook, currentTheme, type Theme } from '../../services/theme'
 import { toast } from '../../services/ui'
 
 type Phase = 'loading' | 'ready' | 'none' | 'error'
@@ -126,7 +126,7 @@ Page({
   stopWatchingSpeech: null as (() => void) | null,
 
   onLoad(options: Record<string, string | undefined>) {
-    this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme }))
+    this.stopWatchingTheme = bindPageLook(this)
     this.stopWatchingSpeech = watchSpeech((speech) => this.setData({ speech }))
     this.setData({ theme: currentTheme(), speech: speechStatus() })
     this.cache = new Map()

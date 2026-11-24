@@ -2,10 +2,14 @@
  * 我的: records and learning (统计, 周报, 词库), settings, account and
  * devices, and approving a CLI login.
  *
- * Settings save optimistically and roll back on failure. 复习提醒 appears
- * only when the server has a reminder template: the hour is a setting, and
- * every reminder needs one acceptance of WeChat's subscribe dialog, which
- * can only open from a tap — hence the separate 接收下一次提醒 row.
+ * Settings are local-first (services/settings.ts): a change is in force at
+ * once and saved to the account in the background, so nothing here waits or
+ * rolls back. The view re-renders from the settings whenever they change,
+ * including when the account's values arrive. 深浅模式 and 阅读模式 open 外观.
+ *
+ * 复习提醒 appears only when the server has a reminder template: the hour is
+ * a setting, and every reminder needs one acceptance of WeChat's subscribe
+ * dialog, which can only open from a tap — hence the separate 接收下一次提醒 row.
  */
 import {
   REMINDER_OPTIONS,
@@ -15,23 +19,20 @@ import {
   reminderLabel,
 } from '../../lib/account'
 import { errorMessage } from '../../lib/api'
-import type { ExplanationLang, Settings } from '../../lib/types'
+import { ACCENT_LABELS, themeModeSummary } from '../../lib/appearance'
+import { ACCENTS, DEFAULT_ACCENT, isAccent, paletteFor, type Theme } from '../../lib/palette'
+import type { Accent, ExplanationLang, Settings } from '../../lib/types'
 import { parseUserCode } from '../../lib/user-code'
 import { fetchReminderTemplate, grantReminder, requestReminder } from '../../services/account'
 import { apiBaseUrl, envVersion } from '../../services/platform'
-import {
-  autoSpeakOnFlip,
-  autoSpeakWord,
-  explanationLang,
-  refreshSettings,
-  reminderHour,
-  saveSettings,
-  setExplanationLang,
-} from '../../services/settings'
-import { currentTheme, watchTheme, type Theme } from '../../services/theme'
+import { changeSettings, currentSettings, syncSettingsSoon, watchSettings } from '../../services/settings'
+import { currentLook, watchLook, type Look } from '../../services/theme'
 import { toast } from '../../services/ui'
 
-type ToggleKey = 'autoSpeakWord' | 'autoSpeakOnFlip'
+type ToggleKey = 'autoSpeakWord' | 'autoSpeakOnFlip' | 'showDirection' | 'importanceReview'
+
+const LANGS: readonly ExplanationLang[] = ['zh', 'en']
+const LANG_OPTIONS: readonly string[] = ['中文', 'English']
 
 interface ReminderView {
   reminderIndex: number
@@ -39,12 +40,33 @@ interface ReminderView {
   reminderOn: boolean
 }
 
-interface MeData extends ReminderView {
-  theme: Theme
-  lang: ExplanationLang
-  saving: boolean
+interface AccentOption {
+  id: Accent
+  label: string
+  color: string
+  checked: boolean
+  /** Inline style of the ring: in the swatch's colour when chosen. */
+  ringStyle: string
+}
+
+interface SettingsView extends ReminderView {
+  langIndex: number
+  langLabel: string
   autoSpeakWord: boolean
   autoSpeakOnFlip: boolean
+  showDirection: boolean
+  directionHint: string
+  importanceReview: boolean
+  accents: AccentOption[]
+  themeModeText: string
+  readingText: string
+}
+
+interface MeData extends SettingsView {
+  theme: Theme
+  accent: Accent
+  accentClass: string
+  langOptions: readonly string[]
   /** The server has a reminder template: show 复习提醒. */
   reminderAvailable: boolean
   reminderOptions: readonly string[]
@@ -55,6 +77,8 @@ interface MeData extends ReminderView {
 }
 
 const GRANT_PROMPT = '点此允许'
+const AUTHORIZE_PAGE = '/pages/authorize/index'
+const APPEARANCE_PAGE = '/pages/appearance/index'
 
 const reminderView = (hour: number | null): ReminderView => ({
   reminderIndex: hourToOption(hour),
@@ -62,28 +86,72 @@ const reminderView = (hour: number | null): ReminderView => ({
   reminderOn: hour !== null,
 })
 
+const accentOptions = (theme: Theme, chosen: Accent): AccentOption[] =>
+  ACCENTS.map((id) => {
+    const color = paletteFor(theme, id).accent
+    const checked = id === chosen
+    return {
+      id,
+      label: id === DEFAULT_ACCENT ? `${ACCENT_LABELS[id]}（默认）` : ACCENT_LABELS[id],
+      color,
+      checked,
+      ringStyle: checked ? `border-color: ${color};` : '',
+    }
+  })
+
+const settingsView = (theme: Theme): SettingsView => {
+  const s = currentSettings()
+  const langIndex = Math.max(0, LANGS.indexOf(s.explanationLang))
+  return {
+    langIndex,
+    langLabel: LANG_OPTIONS[langIndex] ?? '',
+    autoSpeakWord: s.autoSpeakWord,
+    autoSpeakOnFlip: s.autoSpeakOnFlip,
+    showDirection: s.showDirection,
+    directionHint: s.showDirection
+      ? '输入框左下角显示「中文 ⇄ 英文」，点一下切换'
+      : '关闭时自动识别：中文译成英文，英文译成中文',
+    importanceReview: s.importanceReview,
+    accents: accentOptions(theme, s.accent),
+    themeModeText: themeModeSummary({
+      mode: s.themeMode,
+      fixed: s.themeFixed,
+      dayStart: s.themeDayStart,
+      nightStart: s.themeNightStart,
+    }),
+    readingText: s.readingMode ? '开' : '关',
+    ...reminderView(s.reminderHour),
+  }
+}
+
+const togglePatch = (key: ToggleKey, value: boolean): Settings => {
+  switch (key) {
+    case 'autoSpeakWord':
+      return { autoSpeakWord: value }
+    case 'autoSpeakOnFlip':
+      return { autoSpeakOnFlip: value }
+    case 'showDirection':
+      return { showDirection: value }
+    case 'importanceReview':
+      return { importanceReview: value }
+  }
+}
+
+const isToggleKey = (key: unknown): key is ToggleKey =>
+  key === 'autoSpeakWord' || key === 'autoSpeakOnFlip' || key === 'showDirection' || key === 'importanceReview'
+
+const initialLook = currentLook()
+
 const initialData: MeData = {
-  theme: currentTheme(),
-  lang: 'zh',
-  saving: false,
-  autoSpeakWord: true,
-  autoSpeakOnFlip: true,
+  ...initialLook,
+  ...settingsView(initialLook.theme),
+  langOptions: LANG_OPTIONS,
   reminderAvailable: false,
   reminderOptions: REMINDER_OPTIONS,
-  ...reminderView(null),
   grantText: GRANT_PROMPT,
   granting: false,
   serverLabel: '',
 }
-
-const AUTHORIZE_PAGE = '/pages/authorize/index'
-
-const settingsView = (): Partial<MeData> => ({
-  lang: explanationLang(),
-  autoSpeakWord: autoSpeakWord(),
-  autoSpeakOnFlip: autoSpeakOnFlip(),
-  ...reminderView(reminderHour()),
-})
 
 const open = (url: string): void => {
   wx.navigateTo({ url, fail: () => undefined })
@@ -93,26 +161,19 @@ Page({
   data: initialData,
   /** Undefined until `GET /v1/notify/config` answered; null = reminders off on the server. */
   templateId: undefined as string | null | undefined,
-  /** Saves in flight: a background refresh must not overwrite their optimistic values. */
-  pendingSaves: 0,
-  stopWatchingTheme: null as (() => void) | null,
+  stopWatching: [] as (() => void)[],
 
   onLoad() {
-    this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme }))
-    this.setData({
-      theme: currentTheme(),
-      serverLabel: envVersion() === 'develop' ? apiBaseUrl() : '',
-    })
+    const render = (look: Look): void => this.setData({ ...look, ...settingsView(look.theme) })
+    this.stopWatching = [watchLook(render), watchSettings(() => this.setData(settingsView(currentLook().theme)))]
+    render(currentLook())
+    this.setData({ serverLabel: envVersion() === 'develop' ? apiBaseUrl() : '' })
   },
 
   onShow() {
-    this.setData(settingsView())
+    this.setData(settingsView(currentLook().theme))
     // Another client may have changed them; quiet when offline.
-    refreshSettings()
-      .then(() => {
-        if (!this.data.saving && this.pendingSaves === 0) this.setData(settingsView())
-      })
-      .catch(() => undefined)
+    syncSettingsSoon()
     if (this.templateId === undefined) {
       fetchReminderTemplate()
         .then((templateId) => {
@@ -124,7 +185,8 @@ Page({
   },
 
   onUnload() {
-    this.stopWatchingTheme?.()
+    for (const stop of this.stopWatching) stop()
+    this.stopWatching = []
   },
 
   onHistory() {
@@ -151,6 +213,10 @@ Page({
     open('/pages/account/index')
   },
 
+  onAppearance() {
+    open(APPEARANCE_PAGE)
+  },
+
   onTypeCode() {
     open(AUTHORIZE_PAGE)
   },
@@ -172,47 +238,28 @@ Page({
     })
   },
 
-  onLang(event: WechatMiniprogram.BaseEvent<Record<string, never>, { lang?: string }>) {
-    const lang = event.currentTarget.dataset.lang
-    if ((lang !== 'zh' && lang !== 'en') || lang === this.data.lang || this.data.saving) return
-    const previous = this.data.lang
-    this.setData({ lang, saving: true })
-    setExplanationLang(lang)
-      .then((saved) => this.setData({ lang: saved, saving: false }))
-      .catch((error: unknown) => {
-        this.setData({ lang: previous, saving: false })
-        toast(errorMessage(error))
-      })
-  },
-
-  /** Saves `patch`; `revert` undoes the optimistic change when the save fails. */
-  save(patch: Settings, revert: () => void) {
-    this.pendingSaves += 1
-    saveSettings(patch)
-      .catch((error: unknown) => {
-        revert()
-        toast(errorMessage(error))
-      })
-      .finally(() => {
-        this.pendingSaves -= 1
-      })
+  onLang(event: WechatMiniprogram.PickerChange) {
+    const lang = LANGS[Number(event.detail.value)]
+    if (lang === undefined || lang === currentSettings().explanationLang) return
+    changeSettings({ explanationLang: lang })
   },
 
   onToggle(event: WechatMiniprogram.BaseEvent<Record<string, never>, { key?: string }>) {
     const key = event.currentTarget.dataset.key
-    if (key !== 'autoSpeakWord' && key !== 'autoSpeakOnFlip') return
-    const toggleKey: ToggleKey = key
-    const next = !this.data[toggleKey]
-    this.setData({ [toggleKey]: next })
-    this.save({ [toggleKey]: next }, () => this.setData({ [toggleKey]: !next }))
+    if (!isToggleKey(key)) return
+    changeSettings(togglePatch(key, !currentSettings()[key]))
+  },
+
+  onAccent(event: WechatMiniprogram.BaseEvent<Record<string, never>, { accent?: string }>) {
+    const accent = event.currentTarget.dataset.accent
+    if (!isAccent(accent) || accent === currentSettings().accent) return
+    changeSettings({ accent })
   },
 
   onReminderHour(event: WechatMiniprogram.PickerChange) {
     const hour = optionToHour(event.detail.value)
-    const previous = optionToHour(this.data.reminderIndex)
-    if (hour === previous) return
-    this.setData(reminderView(hour))
-    this.save({ reminderHour: hour }, () => this.setData(reminderView(previous)))
+    if (hour === currentSettings().reminderHour) return
+    changeSettings({ reminderHour: hour })
     if (hour !== null && this.data.grantText === GRANT_PROMPT) toast('再点「接收下一次提醒」，允许微信发送')
   },
 

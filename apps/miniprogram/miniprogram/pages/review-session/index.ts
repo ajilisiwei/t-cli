@@ -42,7 +42,7 @@ import {
 import { redirectIfInviteRequired } from '../../services/session'
 import { autoSpeakOnFlip } from '../../services/settings'
 import { prefetchSpeech, speak, speechStatus, stopSpeaking, toggleSpeech, watchSpeech } from '../../services/speech'
-import { currentTheme, watchTheme, type Theme } from '../../services/theme'
+import { bindPageLook, currentTheme, type Theme } from '../../services/theme'
 import { toast } from '../../services/ui'
 
 type Phase = 'loading' | 'error' | 'empty' | 'reviewing' | 'done'
@@ -170,7 +170,7 @@ Page({
   stopWatchingSpeech: null as (() => void) | null,
 
   onLoad() {
-    this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme }))
+    this.stopWatchingTheme = bindPageLook(this)
     this.stopWatchingSpeech = watchSpeech((speech) => this.syncSpeech(speech))
     this.setData({ theme: currentTheme(), safeBottom: safeBottomInset() })
     void this.start()

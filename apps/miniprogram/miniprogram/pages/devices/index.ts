@@ -7,7 +7,7 @@ import { formatInstant } from '../../lib/history'
 import type { Device } from '../../lib/types'
 import { listDevices, revokeDevice } from '../../services/endpoints'
 import { redirectIfInviteRequired } from '../../services/session'
-import { currentTheme, watchTheme, type Theme } from '../../services/theme'
+import { bindPageLook, currentTheme, type Theme } from '../../services/theme'
 import { confirm, toast } from '../../services/ui'
 
 interface DeviceRow {
@@ -47,7 +47,7 @@ Page({
   stopWatchingTheme: null as (() => void) | null,
 
   onLoad() {
-    this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme }))
+    this.stopWatchingTheme = bindPageLook(this)
     this.setData({ theme: currentTheme() })
   },
 
