@@ -1,5 +1,89 @@
 <view class="page theme-{{theme}}">
-  <nav-bar title="记录" back />
+  <nav-bar title="查询记录" back />
+
+  <!-- Search, calendar, day strip and source filter stay above the list -->
+  <view class="filters">
+    <view class="search-line">
+      <view class="search {{searchFocused ? 'search-focused' : ''}}">
+        <t-icon name="search" tone="muted" size="30" />
+        <input
+          class="search-input"
+          type="text"
+          confirm-type="search"
+          maxlength="100"
+          placeholder="搜索记录"
+          placeholder-class="placeholder"
+          aria-label="搜索记录"
+          value="{{query}}"
+          bindinput="onQueryInput"
+          bindconfirm="onQueryConfirm"
+          bindfocus="onSearchFocus"
+          bindblur="onSearchBlur"
+        />
+        <view wx:if="{{query}}" class="icon-btn icon-btn-sm" bindtap="onClearQuery" aria-role="button" aria-label="清空搜索">
+          <t-icon name="close" tone="muted" size="28" />
+        </view>
+      </view>
+      <picker mode="date" value="{{pickerValue}}" end="{{today}}" bindchange="onPickDate">
+        <view class="calendar-btn" aria-role="button" aria-label="选择日期">
+          <t-icon name="calendar" tone="accent" size="34" />
+        </view>
+      </picker>
+    </view>
+
+    <scroll-view
+      class="strip"
+      scroll-x
+      enable-flex
+      show-scrollbar="{{false}}"
+      scroll-into-view="{{stripInto}}"
+      scroll-with-animation
+    >
+      <view class="strip-row">
+        <view
+          class="day {{selectedDate === '' ? 'day-on' : ''}}"
+          bindtap="onAllDays"
+          aria-role="button"
+          aria-label="全部日期{{selectedDate === '' ? '，已选' : ''}}"
+        >
+          <text class="day-top">全部</text>
+          <view class="day-dot" />
+          <view class="day-count" />
+        </view>
+        <view
+          wx:for="{{chips}}"
+          wx:key="date"
+          id="{{item.anchor}}"
+          class="day {{item.selected ? 'day-on' : ''}} {{item.empty ? 'day-empty' : ''}}"
+          data-date="{{item.date}}"
+          data-empty="{{item.empty}}"
+          bindtap="onDayChip"
+          aria-role="button"
+          aria-disabled="{{item.empty}}"
+          aria-label="{{item.aria}}"
+        >
+          <text class="day-top">{{item.top}}</text>
+          <text class="day-mid">{{item.mid}}</text>
+          <text class="day-count">{{item.countLabel}}</text>
+        </view>
+      </view>
+    </scroll-view>
+
+    <view class="sources">
+      <view
+        wx:for="{{sourceChips}}"
+        wx:key="value"
+        class="source {{item.value === sourceValue ? 'source-on' : ''}}"
+        data-value="{{item.value}}"
+        bindtap="onSourceChip"
+        aria-role="button"
+        aria-label="来源 {{item.label}}{{item.value === sourceValue ? '，已选' : ''}}"
+      >
+        <text>{{item.label}}</text>
+      </view>
+    </view>
+  </view>
+
   <scroll-view
     class="body"
     scroll-y
@@ -11,27 +95,48 @@
     refresher-triggered="{{refreshing}}"
     bindrefresherrefresh="onRefresh"
   >
-    <view class="content">
-      <text wx:if="{{offline}}" class="direction">需要联网 · 显示的是上次缓存的记录</text>
+    <view class="list">
+      <text wx:if="{{offline}}" class="notice-line">需要联网 · 显示的是上次缓存的记录</text>
 
-      <view
-        wx:for="{{rows}}"
-        wx:key="id"
-        class="entry"
-        data-id="{{item.id}}"
-        bindtap="onToggle"
-        aria-role="button"
-      >
-        <text class="entry-meta">{{item.sourceLabel}} · {{item.taskLabel}} · {{item.time}}</text>
-        <text class="entry-input {{expandedId === item.id ? '' : 'clamp'}}">{{item.input}}</text>
-        <text wx:if="{{expandedId === item.id}}" class="entry-output" user-select>{{item.output}}</text>
-        <text wx:else class="entry-output clamp">{{item.preview}}</text>
+      <view wx:for="{{groups}}" wx:key="date" wx:for-item="group" class="group">
+        <view class="group-head">
+          <text class="group-label">{{group.label}}</text>
+          <text class="group-full">{{group.full}}</text>
+          <view class="group-rule" />
+          <text class="group-count">{{group.countLabel}}</text>
+        </view>
+
+        <view
+          wx:for="{{group.rows}}"
+          wx:key="id"
+          class="entry"
+          data-id="{{item.id}}"
+          bindtap="onToggle"
+          aria-role="button"
+          aria-label="{{item.time}} {{item.sourceLabel}} {{item.taskLabel}}：{{item.input}}"
+        >
+          <text class="entry-time">{{item.time}}</text>
+          <view class="entry-main">
+            <block wx:if="{{expandedId === item.id}}">
+              <text class="entry-input {{item.serif ? 'serif' : ''}}" user-select>{{item.input}}</text>
+              <text class="entry-output" user-select>{{item.output}}</text>
+            </block>
+            <block wx:else>
+              <text class="entry-input clamp-1 {{item.serif ? 'serif' : ''}}" max-lines="1" overflow="ellipsis">{{item.input}}</text>
+              <text class="entry-preview clamp-1" max-lines="1" overflow="ellipsis">{{item.preview}}</text>
+            </block>
+            <view class="tags">
+              <text class="tag tag-{{item.source}}">{{item.sourceLabel}}</text>
+              <text class="tag">{{item.taskLabel}}</text>
+            </view>
+          </view>
+        </view>
       </view>
 
-      <text wx:if="{{loaded && rows.length === 0 && !errorText}}" class="empty">还没有记录</text>
-      <text wx:if="{{errorText && !offline}}" class="error">{{errorText}}</text>
-      <text wx:if="{{loading && !refreshing}}" class="empty">加载中…</text>
-      <text wx:elif="{{loaded && rows.length > 0 && !hasMore}}" class="empty">没有更早的记录了</text>
+      <text wx:if="{{loaded && groups.length === 0 && !errorText && !loading}}" class="empty list-message">{{emptyText}}</text>
+      <text wx:if="{{errorText && !offline}}" class="error list-message">{{errorText}}</text>
+      <text wx:if="{{loading && !refreshing}}" class="empty list-message">加载中…</text>
+      <text wx:elif="{{loaded && groups.length > 0 && !hasMore}}" class="empty list-message">没有更早的记录了</text>
     </view>
   </scroll-view>
 </view>

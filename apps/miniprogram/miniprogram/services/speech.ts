@@ -2,7 +2,7 @@
  * 朗读: `POST /v1/tts` → an mp3 under `wx.env.USER_DATA_PATH` → one shared
  * InnerAudioContext. The server picks the text to read (docs/api-v1.md
  * "Speech"), so the client only ever sends the id of the user's own record,
- * card, item or material.
+ * card, item or material, or a lemma of the shared lexicon.
  *
  * One sound at a time, named by its key (the cache key). Which key is loading
  * or playing is the speaker's status (lib/speaker.ts): pages mirror it with
@@ -18,12 +18,17 @@ import { api } from './session'
 
 const TTS_TIMEOUT_MS = 20_000
 
-/** What `POST /v1/tts` reads: a record, a learning unit, a card or the daily story. */
+/**
+ * What `POST /v1/tts` reads: a record, a learning unit, a card, the daily
+ * story, or a lexicon entry (单词详情: the lemma, or its example at 0-based
+ * index `example`).
+ */
 export type SpeechSource =
   | { readonly entryId: string }
   | { readonly itemId: string }
   | { readonly cardId: string }
   | { readonly material: { readonly kind: 'daily'; readonly date: string; readonly section: 'story' } }
+  | { readonly lexicon: { readonly lemma: string; readonly example?: number } }
 
 const fs = (): WechatMiniprogram.FileSystemManager => wx.getFileSystemManager()
 

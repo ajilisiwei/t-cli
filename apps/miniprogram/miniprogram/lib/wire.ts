@@ -13,8 +13,10 @@ import type {
   Note,
   NoteChanges,
   NoteKind,
+  NoteLevel,
   NotesPage,
   NoteStars,
+  NotesSummary,
   Settings,
   SpeechParts,
   ThemeChoice,
@@ -38,6 +40,7 @@ const ACCENT_VALUES: readonly Accent[] = ['indigo', 'pine', 'plum', 'ochre', 'in
 const THEME_MODES: readonly ThemeMode[] = ['system', 'time', 'fixed']
 const THEME_CHOICES: readonly ThemeChoice[] = ['light', 'dark']
 const NOTE_KINDS: readonly NoteKind[] = ['word', 'phrase', 'sentence']
+const NOTE_LEVELS: readonly NoteLevel[] = ['new', 'learning', 'mastered']
 const CLOCK_RE = /^(?:[01]\d|2[0-3]):[0-5]\d$/
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -142,6 +145,8 @@ export function readNote(value: unknown): Note | null {
   const text = str(value['text'])
   const stars = value['stars']
   const seq = value['seq']
+  const level = value['level']
+  const task = value['task']
   if (id === null || text === null || !oneOf(NOTE_KINDS, kind) || !isInt(stars, 1, 4) || !isInt(seq, 0, Number.MAX_SAFE_INTEGER)) {
     return null
   }
@@ -159,6 +164,9 @@ export function readNote(value: unknown): Note | null {
     createdAt: str(value['createdAt']) ?? '',
     updatedAt: str(value['updatedAt']) ?? '',
     deletedAt: strOrNull(value['deletedAt']),
+    // Added after v2's first contract; absent or anything else means unknown (left out).
+    ...(oneOf(NOTE_LEVELS, level) ? { level } : {}),
+    ...(task === 'translate' || task === 'check' ? { task } : {}),
   }
 }
 
@@ -184,6 +192,29 @@ export function readNoteChanges(value: unknown): NoteChanges | null {
   const nextAfter = value['nextAfter']
   if (notes === null || !isInt(nextAfter, 0, Number.MAX_SAFE_INTEGER)) return null
   return { notes, nextAfter, hasMore: value['hasMore'] === true }
+}
+
+const counts = <K extends string>(keys: readonly K[], value: unknown): Record<K, number> | null => {
+  if (!isRecord(value)) return null
+  const out: Partial<Record<K, number>> = {}
+  for (const key of keys) {
+    const count = value[key]
+    if (!isInt(count, 0, Number.MAX_SAFE_INTEGER)) return null
+    out[key] = count
+  }
+  return out as Record<K, number>
+}
+
+/** `GET /v1/notes/summary` data; null when any count is missing or malformed. */
+export function readNotesSummary(value: unknown): NotesSummary | null {
+  if (!isRecord(value)) return null
+  const total = value['total']
+  const thisWeek = value['thisWeek']
+  const kinds = counts(NOTE_KINDS, value['kinds'])
+  const levels = counts(NOTE_LEVELS, value['levels'])
+  if (!isInt(total, 0, Number.MAX_SAFE_INTEGER) || !isInt(thisWeek, 0, Number.MAX_SAFE_INTEGER)) return null
+  if (kinds === null || levels === null) return null
+  return { total, thisWeek, kinds, levels }
 }
 
 /** `GET /v1/entries/days` data → the days with records; null when malformed. */

@@ -1,1 +1,265 @@
-/* Layout only; the pieces come from app.wxss (README "Design system"). */
+/* Layout only; buttons, icons and stars come from app.wxss and the components
+ * (README "Design system"). Every rounded box has one border colour. */
+
+/* ---- summary card ---- */
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+  margin-top: 8rpx;
+  padding: 28rpx;
+  border-radius: 32rpx;
+  background-color: var(--surface);
+  border: 1px solid var(--rule);
+}
+
+.summary-head {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 12rpx;
+}
+
+.summary-total {
+  font-size: 48rpx;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.summary-caption {
+  color: var(--muted);
+  font-size: 28rpx;
+}
+
+.mastery {
+  display: flex;
+  flex-direction: row;
+  gap: 4rpx;
+  height: 16rpx;
+}
+
+/* Each segment rounds itself: no overflow clipping needed. */
+.mastery-seg {
+  height: 16rpx;
+  min-width: 8rpx;
+  border-radius: 8rpx;
+}
+
+.seg-new {
+  background-color: var(--rule);
+}
+
+.seg-learning {
+  background-color: var(--accent);
+  opacity: 0.55;
+}
+
+.seg-mastered {
+  background-color: var(--accent);
+}
+
+.legend {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 28rpx;
+  color: var(--ink-soft);
+  font-size: 24rpx;
+}
+
+.legend-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.legend-dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 8rpx;
+}
+
+/* ---- type tabs: a segmented control ---- */
+.tabs {
+  display: flex;
+  flex-direction: row;
+  margin-top: 24rpx;
+  padding: 6rpx;
+  border-radius: 24rpx;
+  background-color: var(--rule);
+}
+
+.tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 68rpx;
+  border-radius: 18rpx;
+  color: var(--muted);
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.tab-on {
+  background-color: var(--surface);
+  color: var(--ink);
+}
+
+/* ---- star filter chips ---- */
+.filters {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-top: 24rpx;
+}
+
+.star-chips {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.star-chip {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6rpx;
+  height: 56rpx;
+  padding: 0 18rpx;
+  border-radius: 28rpx;
+  border: 1px solid var(--rule);
+  background-color: var(--surface);
+  color: var(--ink-soft);
+  font-size: 26rpx;
+}
+
+.star-chip-on {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.order {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 26rpx;
+}
+
+/* ---- rows ---- */
+.note {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 24rpx;
+  padding: 22rpx 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.note-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.note-text {
+  display: block;
+  font-size: 36rpx;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.note-text-sentence {
+  font-size: 30rpx;
+}
+
+.note-gloss {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 26rpx;
+}
+
+.note-gloss-full {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Words and phrases: one line; sentences: two (Skyline also reads max-lines). */
+.clamp-1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clamp-2 {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.tags {
+  display: flex;
+  flex-direction: row;
+  gap: 12rpx;
+  padding-top: 4rpx;
+}
+
+.tag {
+  padding: 2rpx 12rpx;
+  border-radius: 10rpx;
+  background-color: var(--rule);
+  color: var(--ink-soft);
+  font-size: 20rpx;
+  white-space: nowrap;
+}
+
+.tag-learning {
+  background-color: var(--accent-soft);
+  color: var(--accent);
+}
+
+.tag-mastered {
+  background-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.note-stars {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  gap: 2rpx;
+  padding-top: 12rpx;
+}
+
+/* ---- expanded row ---- */
+.note-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+  padding-top: 12rpx;
+}
+
+/* The first star's target starts at the text's edge. */
+.note-stars-edit {
+  display: flex;
+  flex-direction: row;
+  margin-left: -14rpx;
+}
+
+.note-actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.failed {
+  padding-top: 24rpx;
+}

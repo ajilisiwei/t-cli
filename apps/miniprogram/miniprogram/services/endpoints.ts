@@ -24,6 +24,7 @@ import type {
   NoteInput,
   NotesPage,
   NotesQuery,
+  NotesSummary,
   Settings,
   SourceFilter,
 } from '../lib/types'
@@ -33,6 +34,7 @@ import {
   readNoteChanges,
   readNoteEnvelope,
   readNotesPage,
+  readNotesSummary,
   readSettings,
 } from '../lib/wire'
 import { api } from './session'
@@ -182,4 +184,12 @@ export async function fetchNoteChanges(after: number, limit: number = NOTE_CHANG
   const changes = readNoteChanges(data)
   if (changes === null) throw badResponse('note changes')
   return changes
+}
+
+/** Counts over the live notes (笔记本's summary card and tab counts); 本周 is since Monday at `utcOffsetMinutes`. */
+export async function fetchNotesSummary(utcOffsetMinutes: number): Promise<NotesSummary> {
+  const data = await api.request<unknown>({ method: 'GET', path: '/v1/notes/summary', query: { utcOffsetMinutes } })
+  const summary = readNotesSummary(data)
+  if (summary === null) throw badResponse('notes summary')
+  return summary
 }
