@@ -39,8 +39,8 @@ export interface ItemDetail {
 
 const cardOfItem = and(eq(cards.userId, items.userId), eq(cards.itemId, items.id));
 
-/** Aggregate over the item's cards (left join: an item without cards is `new`). */
-const LEVEL_SQL = sql<ItemLevel>`(case
+/** Aggregate over the item's cards (left join: an item without cards is `new`). Also used by the notebook. */
+export const LEVEL_SQL = sql<ItemLevel>`(case
   when count(${cards.id}) = 0 or bool_and(${cards.state} = 0) then 'new'
   when bool_and(${cards.mastered}) then 'mastered'
   else 'learning' end)`;

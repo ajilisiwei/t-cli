@@ -107,6 +107,7 @@ export async function seedItem(
     display,
     lookupCount = 1,
     errorCount = 0,
+    stars = 0,
     status = 'ready',
     content,
     createdAt = new Date('2026-11-16T21:00:00Z'),
@@ -117,6 +118,8 @@ export async function seedItem(
     display: string;
     lookupCount?: number;
     errorCount?: number;
+    /** items.stars (0 = no note → retention 0.85; 1 ★ → 0.90, the v1 retention). */
+    stars?: number;
     status?: 'pending' | 'ready' | 'needs_regen';
     content?: Record<string, unknown> | null;
     createdAt?: Date;
@@ -135,6 +138,7 @@ export async function seedItem(
     status,
     lookupCount,
     errorCount,
+    stars,
     firstSeenAt: createdAt,
     lastSeenAt,
     createdAt,

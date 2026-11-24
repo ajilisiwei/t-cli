@@ -344,8 +344,12 @@ type Note = {
   itemId: string | null;      // the learning unit it feeds (set by the server)
   seq: number;                // the note's latest change, for /v1/notes/changes
   createdAt: string; updatedAt: string; deletedAt: string | null;
+  level: 'new' | 'learning' | 'mastered' | null; // its item's learning level; null without an item
+  task: 'translate' | 'check' | null;            // the task of its source record; null without entryId or before that record is pushed
 };
 ```
+
+`level` and `task` are derived whenever a note is read (every response that carries a `Note`), never stored: `level` exactly as `GET /v1/items` derives an item's level (`new` = every card new or no card yet, `mastered` = every card mastered, otherwise `learning`); `task` from the caller's own record with id `entryId`. Reviews and record pushes change them without a new `seq`, so a client that keeps notes by `/v1/notes/changes` refreshes them from `GET /v1/notes` when it shows the notebook.
 
 #### `PUT /v1/notes/:id` (auth) — save or update
 
@@ -362,7 +366,7 @@ Semantics:
 - In the same transaction the server links the learning unit (`itemId`) and sets `items.stars` = the highest `stars` of the item's live notes:
   - `word` → the `word` item with `normKey` = the lemma key of `lemma ?? text` (the same item the nightly pipeline extracts). When the item has no content yet and the lexicon has an entry for that key (account's explanation language, current version), the content is built from it — `headword` = `lemma`, `ipa` = `ipa.us`, `meanings` = senses `{ pos, zh: gloss }`, `examples` = the first two `{ en: text, zh: gloss, fromUser: false }`, `collocations` = their `text`, `synonyms` = `contrasts`, `family` = the forms' `form` — and its cards are created at once. Otherwise the item stays `pending` and the nightly pipeline fills it.
   - `phrase` → the `phrase` item with the pipeline's phrase key; a new one is `pending` and filled by the nightly pipeline.
-  - `sentence` → a `sentence` item: `normKey` = SHA-256 (hex) of the lowercased, whitespace-collapsed text (keeps the unique index small), `display` = text, `content` = `{ text, translation }` (no AI), `ready`. It gets one `recall` card when `translation` is not null; a sentence without a translation has nothing to recall from and gets no card.
+  - `sentence` → a `sentence` item: `normKey` = SHA-256 (hex) of the lowercased, whitespace-collapsed text (keeps the unique index small), `display` = text, `content` = `{ text, translation }` (no AI), `ready`. It gets one `recall` card when `translation` is not null; a sentence without a translation has nothing to recall from and gets no card. A later write with a translation replaces the item's translation and creates the card, or rewrites its front in place (same card, progress kept). "内容有误" on a `recall` card rebuilds it from the stored text and translation without AI; the fix for a wrong translation is a `PUT` with the right one.
   - Notes write no `item_sources` row and do not change `lookupCount` (records are linked by the pipeline as before).
 - `200 { "note": Note }`. Errors: `400 VALIDATION_FAILED`, `401`, `409 NOTE_CONFLICT`.
 
@@ -379,6 +383,11 @@ Live notes only, newest first by `id` (a ULID's time is when the client saved it
 
 Every note with `seq > after`, deleted ones included (`deletedAt` set), in its latest state, ordered by `seq`. `after` ≥ 0 (default 0), `limit` 1–500 (default 200).
 `200 { "notes": Note[], "nextAfter": number, "hasMore": boolean }` (as the entries pull). Clients persist `nextAfter`. Seqs are per account and allocated under the account row's lock, so seq order equals commit order and a cursor never skips a change. The mini-program and the CLI share this endpoint.
+
+#### `GET /v1/notes/summary?utcOffsetMinutes=` (auth) — the notebook header
+
+`utcOffsetMinutes` as in "Local day" (default 480).
+`200 { "total": number, "thisWeek": number, "kinds": { "word": number, "phrase": number, "sentence": number }, "levels": { "new": number, "learning": number, "mastered": number } }` — live notes only. `thisWeek` = notes whose `createdAt` is at or after the start of the current local week (Monday 00:00 at `utcOffsetMinutes`). `levels` counts notes by their `level` (a note without an item counts in `total` and `kinds` only).
 
 ### Records (记录页)
 
@@ -442,7 +451,7 @@ Queue order: due non-new cards first (oldest due first, unchanged), then new car
 |---|---|---|---|
 | recall | `{ text: translation }` | `{ text: sentence }` | sentence |
 
-Daily material (nightly pipeline) picks 4 ★ items first, then 3 ★, for its words and story, before the usual weighting. `GET /v1/items` and `GET /v1/items/:id` gain `stars` (0–4); the `type` filter and `type` field gain `sentence`; item → TTS reads a sentence item's `text`.
+Daily material (nightly pipeline) picks 4 ★ items first, then 3 ★, for its words and story, before the usual weighting (1–2 ★ rank by weight like unsaved items). The day's items are those with a source record made that day, and those with a live note saved or changed that day (a word tapped in a sentence has no record of its own). `GET /v1/items` and `GET /v1/items/:id` gain `stars` (0–4); the `type` filter and `type` field gain `sentence`; item → TTS reads a sentence item's `text`.
 
 ### New error codes
 

@@ -4,7 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import { and, eq } from 'drizzle-orm';
 import { ulid } from '@t-cli/core/ulid';
 import { cards, items, reviewLogs } from '../src/db/schema.ts';
-import { replayCard, toSchedule } from '../src/modules/review/fsrs.ts';
+import { replayCard, retentionFor, toSchedule } from '../src/modules/review/fsrs.ts';
 import type { ItemRegenerator } from '../src/ports.ts';
 import { buildTestApp, fakeRegenerator, fixedClock, testConfig, type FakeRegenerator, type TestClock } from './helpers/app.ts';
 import { createTestDatabase, skipWithoutDb, type TestDatabase } from './helpers/db.ts';
@@ -101,7 +101,8 @@ describe('review: summary, queue, ratings, undo, report', { skip: skipWithoutDb 
 
   test('a review card is due for the whole local day it falls on; learning steps only once their time has come', async (ctx) => {
     const { app, account, clock } = await setup(ctx, { clock: fixedClock(new Date('2026-11-17T08:00:00+08:00')) });
-    const item = await seedItem(t.db, account.userId, { type: 'phrase', display: 'in a nutshell' });
+    // 1 ★ → retention 0.90 (the intervals below; 0 ★ would use 0.85).
+    const item = await seedItem(t.db, account.userId, { type: 'phrase', display: 'in a nutshell', stars: 1 });
     const cardId = item.cardIds[0]!;
     const learning = await rate(app, account, clock, cardId, 3);
     assert.equal(learning.state, 'learning');
@@ -125,7 +126,7 @@ describe('review: summary, queue, ratings, undo, report', { skip: skipWithoutDb 
 
   test('intervals preview the next due time per rating, in seconds', async (ctx) => {
     const { app, account, clock } = await setup(ctx);
-    const item = await seedItem(t.db, account.userId, { type: 'phrase', display: 'break the ice' });
+    const item = await seedItem(t.db, account.userId, { type: 'phrase', display: 'break the ice', stars: 1 }); // retention 0.90
     const cardId = item.cardIds[0]!;
     const intervals = async () => ((await get(app, account, '/v1/review/queue')).json().data.cards as { intervals: Record<string, number> }[])[0]!.intervals;
     assert.deepEqual(await intervals(), { '1': 60, '2': 360, '3': 600, '4': 8 * 86_400 });
@@ -233,8 +234,9 @@ describe('review: summary, queue, ratings, undo, report', { skip: skipWithoutDb 
     assert.equal(pick(a.cardIds[0]!).reps, 4);
     assert.equal(pick(a.cardIds[0]!).lapses, 1);
 
+    // Seeded items have no note: 0 stars → retention 0.85.
     const expected = toSchedule(
-      replayCard(new Date('2026-11-16T21:00:00Z'), times.map((at, i) => ({ id: logsA[i]!.id, rating: ratings[i]!, reviewedAt: at }))),
+      replayCard(new Date('2026-11-16T21:00:00Z'), times.map((at, i) => ({ id: logsA[i]!.id, rating: ratings[i]!, reviewedAt: at })), retentionFor(0, true)),
       180,
     );
     assert.equal(final.due, expected.due.toISOString());
