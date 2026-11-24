@@ -1,1 +1,586 @@
-/* Shared styles live in app.wxss. */
+/*
+ * Layout of 翻译. The pieces (composer, buttons, icon buttons, stars, result
+ * type) come from app.wxss; this file places them and draws what only this
+ * page has: tappable words, numbered changes, the docked bar and the sheet.
+ * Skyline: one border colour per rounded box, motion on transform/opacity.
+ */
+.tr-page {
+  position: relative;
+  overflow: hidden;
+}
+
+/* ---- composer ---- */
+.tr-field {
+  position: relative;
+}
+
+/* Eight lines (34rpx × 1.55): past that the box stops growing and scrolls. */
+.tr-input-tall {
+  height: 422rpx;
+}
+
+/* The empty-box hint lies over the textarea; taps go through to it, except on 粘贴. */
+.tr-hint {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12rpx;
+  pointer-events: none;
+}
+
+.tr-hint-text {
+  color: var(--muted);
+  font-size: 34rpx;
+  line-height: 1.55;
+}
+
+.tr-paste {
+  pointer-events: auto;
+}
+
+.tr-preview {
+  padding: 4rpx 0;
+}
+
+.tr-preview-text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  color: var(--ink-soft);
+  font-size: 32rpx;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.tr-bar-left {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12rpx;
+  min-width: 0;
+}
+
+.tr-dir {
+  padding: 0 20rpx;
+}
+
+.tr-counter {
+  color: var(--muted);
+  font-size: 24rpx;
+}
+
+/* 纠错 while its result shows. */
+.tr-current {
+  border-color: var(--accent);
+}
+
+/* ---- result ---- */
+.tr-meta {
+  display: block;
+  margin-bottom: 16rpx;
+  color: var(--muted);
+  font-size: 24rpx;
+}
+
+.tr-label {
+  display: block;
+  margin-bottom: 8rpx;
+  color: var(--muted);
+  font-size: 24rpx;
+}
+
+.tr-label-after {
+  margin-top: 12rpx;
+}
+
+.tr-headline {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.tr-head {
+  margin-right: 0;
+  word-break: break-all;
+}
+
+.tr-head-long {
+  font-size: 48rpx;
+}
+
+.tr-head-xlong {
+  font-size: 40rpx;
+}
+
+.tr-more {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4rpx;
+  min-height: 64rpx;
+  margin-top: 16rpx;
+  color: var(--accent);
+  font-size: 28rpx;
+}
+
+.tr-chevron {
+  display: flex;
+  transform: rotate(90deg);
+}
+
+.tr-chevron-up {
+  transform: rotate(-90deg);
+}
+
+/* ---- tappable words (lib/tokens.ts): chips wrap, words inside them tap ---- */
+.tokens {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  color: var(--ink);
+  font-size: 34rpx;
+  line-height: 1.7;
+}
+
+.tokens-big {
+  font-size: 40rpx;
+  line-height: 1.6;
+}
+
+.chip {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  margin-right: 10rpx;
+}
+
+.tok-word {
+  text-decoration-line: underline;
+  text-decoration-color: var(--rule);
+}
+
+.tok-on {
+  color: var(--accent);
+  background-color: var(--accent-soft);
+  text-decoration-color: var(--accent);
+}
+
+.tok-break {
+  width: 100%;
+  height: 0;
+}
+
+.tok-para {
+  height: 20rpx;
+}
+
+.tr-source {
+  margin-top: 32rpx;
+}
+
+/* Six lines of .tokens (34rpx × 1.7). */
+.tr-source-clamped {
+  max-height: 347rpx;
+  overflow: hidden;
+}
+
+.tr-fold {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-top: 16rpx;
+  padding: 20rpx 24rpx;
+  border: 1px solid var(--rule);
+  border-radius: 24rpx;
+  background-color: var(--surface);
+}
+
+.tr-fold-text {
+  color: var(--ink-soft);
+  font-size: 26rpx;
+}
+
+.tr-fold-link {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  color: var(--accent);
+  font-size: 26rpx;
+}
+
+/* ---- 纠错: numbered changes ---- */
+.tr-mark {
+  padding: 0 6rpx;
+  color: var(--accent);
+  background-color: var(--accent-soft);
+  font-family: -apple-system, 'PingFang SC', sans-serif;
+  font-size: 20rpx;
+}
+
+.tr-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+  margin-top: 28rpx;
+}
+
+.tr-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 20rpx;
+}
+
+.tr-badge {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 40rpx;
+  height: 40rpx;
+  margin-top: 4rpx;
+  border-radius: 20rpx;
+  background-color: var(--accent-soft);
+  color: var(--accent);
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+.tr-badge-space {
+  flex-shrink: 0;
+  width: 40rpx;
+}
+
+.tr-row-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4rpx;
+  min-width: 0;
+}
+
+.tr-change {
+  font-size: 28rpx;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.tr-before {
+  color: var(--danger);
+  text-decoration: line-through;
+}
+
+.tr-after {
+  color: var(--accent);
+}
+
+.tr-why {
+  color: var(--ink-soft);
+  font-size: 28rpx;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.tr-why-heading {
+  color: var(--muted);
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+/* ---- actions: inline under the result, or docked ---- */
+.tr-actions {
+  justify-content: space-between;
+}
+
+.tr-icons {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.tr-progress {
+  color: var(--accent);
+  font-size: 24rpx;
+}
+
+.tr-top {
+  border: 1px solid var(--rule);
+  background-color: var(--surface);
+}
+
+/* 120rpx: DOCK_BAR_PX in view.ts. */
+.tr-dock {
+  display: flex;
+  flex-direction: row;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  height: 120rpx;
+  padding: 0 40rpx;
+  border-top: 1px solid var(--rule);
+  background-color: var(--surface);
+}
+
+/* ---- 点词查词 sheet ---- */
+.tr-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding: 16rpx 40rpx 0;
+  border: 1px solid var(--rule);
+  border-top-left-radius: 44rpx;
+  border-top-right-radius: 44rpx;
+  background-color: var(--surface);
+  box-shadow: 0 -16rpx 56rpx rgba(29, 28, 26, 0.12);
+  animation-name: tr-rise;
+  animation-duration: 180ms;
+  animation-timing-function: ease-out;
+}
+
+@keyframes tr-rise {
+  from {
+    opacity: 0;
+    transform: translateY(48rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tr-grip {
+  flex-shrink: 0;
+  align-self: center;
+  width: 72rpx;
+  height: 10rpx;
+  margin-bottom: 12rpx;
+  border-radius: 5rpx;
+  background-color: var(--rule);
+}
+
+.tr-sheet-head {
+  display: flex;
+  flex-direction: row;
+  flex-shrink: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.tr-sheet-title {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4rpx;
+  min-width: 0;
+}
+
+.tr-sheet-word {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 16rpx;
+}
+
+.tr-sheet-lemma {
+  font-size: 52rpx;
+  line-height: 1.2;
+  word-break: break-all;
+}
+
+.tr-sheet-ipa {
+  color: var(--muted);
+  font-size: 28rpx;
+}
+
+.tr-sheet-sub {
+  color: var(--muted);
+  font-size: 24rpx;
+}
+
+.tr-sheet-actions {
+  display: flex;
+  flex-direction: row;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 12rpx;
+  margin-top: 12rpx;
+}
+
+.tr-sheet-body {
+  flex: 1;
+  height: 0;
+  margin-top: 16rpx;
+  border-top: 1px solid var(--rule);
+}
+
+.tr-sheet-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+  padding: 24rpx 0 56rpx;
+}
+
+.tr-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.tr-skel {
+  border-radius: 14rpx;
+  background-color: var(--rule);
+  animation-name: tr-pulse;
+  animation-duration: 900ms;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+
+@keyframes tr-pulse {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.45;
+  }
+}
+
+.tr-skel-block {
+  height: 116rpx;
+  border-radius: 24rpx;
+}
+
+.tr-skel-line {
+  height: 28rpx;
+}
+
+.tr-skel-80 {
+  width: 80%;
+}
+
+.tr-skel-64 {
+  width: 64%;
+}
+
+.tr-skel-72 {
+  width: 72%;
+}
+
+.tr-sheet-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8rpx;
+}
+
+.tr-context {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  padding: 20rpx 24rpx;
+  border-radius: 24rpx;
+  background-color: var(--accent-soft);
+}
+
+.tr-context-label {
+  color: var(--accent);
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+.tr-context-text {
+  font-size: 30rpx;
+  line-height: 1.55;
+}
+
+/* The phrase row (option B): bookmark on the right, its stars on a line below the text. */
+.tr-phrase {
+  display: flex;
+  flex-direction: column;
+  padding: 12rpx 12rpx 12rpx 24rpx;
+  border: 1px solid var(--rule);
+  border-radius: 24rpx;
+}
+
+.tr-phrase-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.tr-phrase-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2rpx;
+  min-width: 0;
+}
+
+.tr-phrase-label {
+  color: var(--muted);
+  font-size: 24rpx;
+}
+
+.tr-phrase-en {
+  font-size: 30rpx;
+  word-break: break-word;
+}
+
+.tr-phrase-gloss {
+  color: var(--ink-soft);
+  font-size: 26rpx;
+}
+
+.tr-phrase-stars {
+  display: flex;
+  flex-direction: row;
+  margin-left: -14rpx;
+}
+
+.tr-senses {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.tr-sense {
+  display: flex;
+  flex-direction: row;
+  gap: 16rpx;
+  font-size: 30rpx;
+  line-height: 1.55;
+}
+
+.tr-pos {
+  flex-shrink: 0;
+  width: 72rpx;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.tr-sense-gloss {
+  flex: 1;
+  min-width: 0;
+}
