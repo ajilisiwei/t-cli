@@ -9,10 +9,11 @@
     "typecheck": "tsc -p tsconfig.json && tsc -p test/tsconfig.json",
     "sync:core": "node scripts/sync-core.mjs",
     "upload": "node scripts/upload.mjs",
-    "icons": "node --disable-warning=ExperimentalWarning scripts/icons.mjs"
+    "icons": "node --disable-warning=ExperimentalWarning scripts/icons.mjs && node --disable-warning=ExperimentalWarning scripts/tab-icons.mjs"
   },
   "license": "ISC",
   "devDependencies": {
+    "@resvg/resvg-js": "2.6.2",
     "@t-cli/core": "0.1.0",
     "@types/node": "24.13.3",
     "miniprogram-api-typings": "5.2.3",

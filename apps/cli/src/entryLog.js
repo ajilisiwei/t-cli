@@ -245,9 +245,11 @@ function readBytesFrom(fd, start) {
 
 /**
  * Record one live CLI result. Sets `liveSince` on the first successful write.
+ * On success, `entryId` is the new record's id (a note saved from this result
+ * refers to it).
  * @param {{ task: 'translate'|'check', input: string, output: string,
  *           mode: 'simple'|'detail', srcLang?: 'zh'|'en'|'other'|null, createdAt?: Date }} fields
- * @returns {WriteResult}
+ * @returns {{ ok: true, entryId: string } | { ok: false, error: string }}
  */
 export function recordLiveEntry({ task, input, output, mode, srcLang = null, createdAt = new Date() }) {
   let entry;
@@ -259,9 +261,10 @@ export function recordLiveEntry({ task, input, output, mode, srcLang = null, cre
   const written = appendEntries([entry]);
   if (!written.ok) return written;
   if (getLiveSince() === null) {
-    return updateSyncState({ liveSince: entry.createdAt });
+    const state = updateSyncState({ liveSince: entry.createdAt });
+    if (!state.ok) return state;
   }
-  return written;
+  return { ok: true, entryId: entry.id };
 }
 
 function errorMessage(error) {

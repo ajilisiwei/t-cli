@@ -1,11 +1,11 @@
-import { and, asc, desc, eq, gt, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, exists, gt, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import { ulid } from '@t-cli/core/ulid';
 import type { Database, Executor } from '../../db/client.ts';
 import { cards, entries, items, itemSources, pipelineState, users } from '../../db/schema.ts';
-import { cardsFor } from './cards.ts';
+import { cardsFor, type CardSource, type CardSpec } from './cards.ts';
 import { displayOf } from './content.ts';
 import { DEFAULT_UTC_OFFSET_MINUTES } from './dates.ts';
-import type { ExplanationLang, ItemContent, ItemType } from './schemas.ts';
+import type { ExplanationLang, ItemType } from './schemas.ts';
 import { checkSides, clip, findTarget, sidesOf, type RecordFields } from './text.ts';
 
 /**
@@ -30,12 +30,23 @@ const recordColumns = {
   createdAt: entries.createdAt,
 };
 
-/** Accounts the nightly run looks at: active, with at least one record. */
+/** Item types whose content the model writes; sentence items (v2) take theirs from the note. */
+export const GENERATED_TYPES: readonly ItemType[] = ['word', 'phrase', 'grammar'];
+
+/**
+ * Accounts the nightly run looks at: active, with at least one record or an
+ * item waiting for content (a word or phrase saved as a note before any
+ * record was pushed).
+ */
 export async function accountsWithRecords(db: Executor): Promise<string[]> {
+  const waiting = db
+    .select({ one: sql`1` })
+    .from(items)
+    .where(and(eq(items.userId, users.id), inArray(items.status, ['pending', 'needs_regen']), inArray(items.type, [...GENERATED_TYPES])));
   const rows = await db
     .select({ id: users.id })
     .from(users)
-    .where(and(isNull(users.deletedAt), gt(users.lastSeq, 0)))
+    .where(and(isNull(users.deletedAt), or(gt(users.lastSeq, 0), exists(waiting))))
     .orderBy(asc(users.createdAt));
   return rows.map((row) => row.id);
 }
@@ -160,12 +171,16 @@ export async function storeUnits(
   });
 }
 
-/** Items waiting for content: new ones first, then those to regenerate. */
+/**
+ * Items waiting for content: new ones first, then those to regenerate. New
+ * includes word and phrase items created `pending` by notes; sentence items
+ * never go to the model.
+ */
 export async function itemsToGenerate(db: Executor, userId: string, limit: number): Promise<ItemRow[]> {
   return db
     .select()
     .from(items)
-    .where(and(eq(items.userId, userId), inArray(items.status, ['pending', 'needs_regen'])))
+    .where(and(eq(items.userId, userId), inArray(items.status, ['pending', 'needs_regen']), inArray(items.type, [...GENERATED_TYPES])))
     .orderBy(sql`${items.status} = 'pending' desc`, asc(items.firstSeenAt), asc(items.id))
     .limit(limit);
 }
@@ -178,53 +193,76 @@ export async function getItem(db: Executor, userId: string, itemId: string): Pro
   return row ?? null;
 }
 
+export interface CardChanges {
+  cardsCreated: number;
+  cardsUpdated: number;
+}
+
 /**
- * Save generated content and make the item's cards match it: existing cards
- * of a type get their faces rewritten in place (same id, scheduling kept) and
- * are unsuspended; missing types are created as new cards due `now`.
+ * Make the item's cards match `specs`: existing cards of a type get their
+ * faces rewritten in place (same id, scheduling kept) and are unsuspended;
+ * missing types are created as new cards due `now`.
  */
+async function applyCardSpecs(tx: Executor, userId: string, itemId: string, specs: readonly CardSpec[], now: Date): Promise<CardChanges> {
+  const existing = await tx
+    .select({ id: cards.id, cardType: cards.cardType })
+    .from(cards)
+    .where(and(eq(cards.userId, userId), eq(cards.itemId, itemId)));
+  let cardsCreated = 0;
+  let cardsUpdated = 0;
+  for (const spec of specs) {
+    const current = existing.filter((card) => card.cardType === spec.cardType);
+    if (current.length > 0) {
+      await tx
+        .update(cards)
+        .set({ front: spec.front, back: spec.back, suspended: false })
+        .where(and(eq(cards.userId, userId), inArray(cards.id, current.map((card) => card.id))));
+      cardsUpdated += current.length;
+    } else {
+      await tx.insert(cards).values({ userId, id: ulid(), itemId, cardType: spec.cardType, front: spec.front, back: spec.back, due: now });
+      cardsCreated += 1;
+    }
+  }
+  return { cardsCreated, cardsUpdated };
+}
+
+/**
+ * Store an item's content (`ready`) and make its cards match it, inside the
+ * caller's transaction. Takes the item row's lock before the cards' (as
+ * every content writer does). `model` is null for content no model wrote
+ * (sentence notes).
+ */
+export async function writeContent(
+  tx: Executor,
+  userId: string,
+  item: Pick<ItemRow, 'id' | 'display'>,
+  value: CardSource,
+  { model, now }: { model: string | null; now: Date },
+): Promise<CardChanges> {
+  const specs = cardsFor(value);
+  await tx
+    .update(items)
+    .set({
+      content: { ...value.content },
+      status: 'ready',
+      display: value.type === 'sentence' ? item.display : displayOf(value, item.display),
+      model,
+      version: sql`case when ${items.content} is null then ${items.version} else ${items.version} + 1 end`,
+      updatedAt: now,
+    })
+    .where(and(eq(items.userId, userId), eq(items.id, item.id)));
+  return applyCardSpecs(tx, userId, item.id, specs, now);
+}
+
+/** `writeContent` in a transaction of its own (generated content, regeneration). */
 export async function saveContent(
   db: Database,
   userId: string,
   item: Pick<ItemRow, 'id' | 'display'>,
-  value: ItemContent,
-  { model, now }: { model: string; now: Date },
-): Promise<{ cardsCreated: number; cardsUpdated: number }> {
-  const specs = cardsFor(value);
-  return db.transaction(async (tx) => {
-    await tx
-      .update(items)
-      .set({
-        content: value.content,
-        status: 'ready',
-        display: displayOf(value, item.display),
-        model,
-        version: sql`case when ${items.content} is null then ${items.version} else ${items.version} + 1 end`,
-        updatedAt: now,
-      })
-      .where(and(eq(items.userId, userId), eq(items.id, item.id)));
-
-    const existing = await tx
-      .select({ id: cards.id, cardType: cards.cardType })
-      .from(cards)
-      .where(and(eq(cards.userId, userId), eq(cards.itemId, item.id)));
-    let cardsCreated = 0;
-    let cardsUpdated = 0;
-    for (const spec of specs) {
-      const current = existing.filter((card) => card.cardType === spec.cardType);
-      if (current.length > 0) {
-        await tx
-          .update(cards)
-          .set({ front: spec.front, back: spec.back, suspended: false })
-          .where(and(eq(cards.userId, userId), inArray(cards.id, current.map((card) => card.id))));
-        cardsUpdated += current.length;
-      } else {
-        await tx.insert(cards).values({ userId, id: ulid(), itemId: item.id, cardType: spec.cardType, front: spec.front, back: spec.back, due: now });
-        cardsCreated += 1;
-      }
-    }
-    return { cardsCreated, cardsUpdated };
-  });
+  value: CardSource,
+  options: { model: string | null; now: Date },
+): Promise<CardChanges> {
+  return db.transaction((tx) => writeContent(tx, userId, item, value, options));
 }
 
 export async function markNeedsRegen(db: Executor, userId: string, itemIds: readonly string[], now: Date): Promise<void> {

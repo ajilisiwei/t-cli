@@ -1,0 +1,13 @@
+<view class="stars">
+  <view
+    wx:for="{{stars}}"
+    wx:key="n"
+    class="star"
+    data-n="{{item.n}}"
+    bindtap="onTap"
+    aria-role="button"
+    aria-label="{{item.label}}"
+  >
+    <t-icon name="{{item.filled ? 'star-filled' : 'star'}}" tone="{{item.filled ? 'accent' : 'muted'}}" size="{{size}}" />
+  </view>
+</view>

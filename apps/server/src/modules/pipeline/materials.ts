@@ -68,6 +68,19 @@ interface ReadyItem {
 
 const weight = (item: { errorCount: number; lookupCount: number }): number => item.errorCount * 2 + item.lookupCount;
 
+/** Stars from which an item is picked before the usual weighting (docs/api-v1.md, "Review by importance"). */
+export const PRIORITY_MIN_STARS = 3;
+
+/** 4 ★ items first, then 3 ★; every other item ranks by weight alone. */
+export const priorityOf = (stars: number): number => (stars >= PRIORITY_MIN_STARS ? stars : 0);
+
+type RankedRow = { stars: number; errorCount: number; lookupCount: number; lastSeenAt: Date };
+
+/** Daily material order: priority (stars), then weight, then the most recently seen. */
+export function compareForMaterial(a: RankedRow, b: RankedRow): number {
+  return priorityOf(b.stars) - priorityOf(a.stars) || weight(b) - weight(a) || b.lastSeenAt.getTime() - a.lastSeenAt.getTime();
+}
+
 async function materialExists(db: Executor, userId: string, kind: 'daily' | 'weekly', date: string): Promise<boolean> {
   const [row] = await db
     .select({ date: materials.date })
@@ -126,22 +139,41 @@ async function countNewItems(
   return row?.n ?? 0;
 }
 
-/** Items with a source record made in the range, with valid content, heaviest first. */
+/**
+ * The day's items, with valid content: those with a source record made in
+ * the range, and those a live note was saved or changed for in the range (a
+ * word tapped in a sentence has no source record of its own). 4 ★ first,
+ * then 3 ★, then heaviest first.
+ */
 async function readyItemsFromRange(db: Executor, userId: string, range: { start: Date; end: Date }): Promise<ReadyItem[]> {
+  const start = range.start.toISOString();
+  const end = range.end.toISOString();
   const rows = await db
-    .select({ id: items.id, type: items.type, display: items.display, content: items.content, lookupCount: items.lookupCount, errorCount: items.errorCount, lastSeenAt: items.lastSeenAt })
+    .select({
+      id: items.id,
+      type: items.type,
+      display: items.display,
+      content: items.content,
+      lookupCount: items.lookupCount,
+      errorCount: items.errorCount,
+      stars: items.stars,
+      lastSeenAt: items.lastSeenAt,
+    })
     .from(items)
     .where(
       and(
         eq(items.userId, userId),
         eq(items.status, 'ready'),
-        sql`exists (select 1 from item_sources s join entries e on e.user_id = s.user_id and e.id = s.entry_id
-          where s.user_id = ${items.userId} and s.item_id = ${items.id}
-            and e.created_at >= ${range.start.toISOString()}::timestamptz and e.created_at < ${range.end.toISOString()}::timestamptz)`,
+        sql`(exists (select 1 from item_sources s join entries e on e.user_id = s.user_id and e.id = s.entry_id
+              where s.user_id = ${items.userId} and s.item_id = ${items.id}
+                and e.created_at >= ${start}::timestamptz and e.created_at < ${end}::timestamptz)
+          or exists (select 1 from notes n
+              where n.user_id = ${items.userId} and n.item_id = ${items.id} and n.deleted_at is null
+                and n.updated_at >= ${start}::timestamptz and n.updated_at < ${end}::timestamptz))`,
       ),
     );
-  return rows
-    .sort((a, b) => weight(b) - weight(a) || b.lastSeenAt.getTime() - a.lastSeenAt.getTime())
+  return [...rows]
+    .sort(compareForMaterial)
     .flatMap((row) => {
       const parsed = parseStoredContent(row.type, row.content);
       return parsed ? [{ id: row.id, display: row.display, lookupCount: row.lookupCount, errorCount: row.errorCount, parsed }] : [];

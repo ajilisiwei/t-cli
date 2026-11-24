@@ -16,6 +16,7 @@ import {
   fingerprint,
   fixSegments,
   markOccurrences,
+  storySpeechKey,
 } from '../miniprogram/lib/review-card.ts'
 import {
   dateNeighbours,
@@ -190,6 +191,8 @@ test('speech keys change when the faces change', () => {
   assert.equal(cardSpeechKey(a), cardSpeechKey(queueCard({})))
   assert.match(cardSpeechKey(a), /^c-card-1-[0-9a-z]+$/)
   assert.equal(fingerprint(''), (0x811c9dc5).toString(36))
+  assert.match(storySpeechKey('2026-11-20', 'Once upon a time.'), /^s-2026-11-20-[0-9a-z]+$/)
+  assert.notEqual(storySpeechKey('2026-11-20', 'a'), storySpeechKey('2026-11-20', 'b'))
 })
 
 const material = {

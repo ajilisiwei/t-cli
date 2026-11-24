@@ -1,4 +1,4 @@
-<view class="page theme-{{theme}}">
+<view class="page theme-{{theme}} {{accentClass}}">
   <nav-bar title="每日材料" back />
 
   <view class="mat-head">
@@ -60,9 +60,9 @@
                 data-key="{{item.key}}"
                 bindtap="onPlayItem"
                 aria-role="button"
-                aria-label="{{playing === item.key ? '停止' : '朗读'}}"
+                aria-label="{{speech.key === item.key ? '停止朗读' : '朗读'}}"
               >
-                <t-icon name="{{playing === item.key ? 'stop' : 'speaker'}}" tone="accent" size="30" />
+                <t-speak-icon phase="{{speech.key === item.key ? speech.phase : 'idle'}}" tone="accent" size="30" />
               </view>
             </view>
             <view wx:for="{{item.meanings}}" wx:for-item="meaning" wx:key="zh" class="meaning">
@@ -101,9 +101,9 @@
                 data-key="{{item.key}}"
                 bindtap="onPlayItem"
                 aria-role="button"
-                aria-label="{{playing === item.key ? '停止' : '朗读'}}"
+                aria-label="{{speech.key === item.key ? '停止朗读' : '朗读'}}"
               >
-                <t-icon name="{{playing === item.key ? 'stop' : 'speaker'}}" tone="accent" size="30" />
+                <t-speak-icon phase="{{speech.key === item.key ? speech.phase : 'idle'}}" tone="accent" size="30" />
               </view>
             </view>
             <text class="gloss-line">{{item.zh}}<text class="register"> · {{item.registerLabel}}</text></text>
@@ -158,9 +158,9 @@
           <view wx:if="{{story}}" class="story">
             <text wx:if="{{story.title}}" class="story-title serif">{{story.title}}</text>
             <view class="story-actions">
-              <view class="btn btn-tonal btn-sm btn-icon-first" bindtap="onPlayStory" aria-role="button">
-                <t-icon name="{{playing === story.key ? 'stop' : 'speaker'}}" tone="accent" size="32" />
-                <text>{{playing === story.key ? '停止' : '朗读'}}</text>
+              <view class="btn btn-tonal btn-sm btn-icon-first" bindtap="onPlayStory" aria-role="button" aria-label="{{speech.key === story.key ? '停止朗读' : '朗读短文'}}">
+                <t-speak-icon phase="{{speech.key === story.key ? speech.phase : 'idle'}}" tone="accent" size="32" />
+                <text>{{speech.key === story.key ? '停止' : '朗读'}}</text>
               </view>
               <view wx:if="{{story.zh}}" class="btn btn-secondary btn-sm" bindtap="onToggleStoryZh" aria-role="button">
                 <text>{{showStoryZh ? '隐藏译文' : '显示译文'}}</text>

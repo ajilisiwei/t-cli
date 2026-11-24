@@ -4,7 +4,8 @@ import { cards, items } from '../../db/schema.ts';
 import { currentStreak } from './activity.ts';
 import { localDayAt, type LocalDay } from './common.ts';
 import { logsOfCards } from './cards.ts';
-import { previewIntervals, replayCard, stateName, STATE_NEW, STATE_REVIEW, type CardStateName, type Intervals } from './fsrs.ts';
+import { previewIntervals, replayCard, retentionFor, stateName, STATE_NEW, STATE_REVIEW, type CardStateName, type Intervals } from './fsrs.ts';
+import { importanceReviewOf } from './retention.ts';
 
 /**
  * What the review queue serves now (docs/api-v1.md, "Review").
@@ -30,7 +31,7 @@ export interface ReviewLimits {
 export interface QueueCard {
   id: string;
   itemId: string;
-  itemType: 'word' | 'phrase' | 'grammar';
+  itemType: 'word' | 'phrase' | 'grammar' | 'sentence';
   cardType: string;
   front: Record<string, unknown>;
   back: Record<string, unknown>;
@@ -145,11 +146,14 @@ const queueColumns = {
   front: cards.front,
   back: cards.back,
   createdAt: cards.createdAt,
+  stars: items.stars,
 };
 
 /**
- * Due non-new cards first (oldest due first), then new cards by item weight
- * (`errorCount × 2 + lookupCount`, desc), within today's limits and `limit`.
+ * Due non-new cards first (oldest due first), then new cards by their item's
+ * stars (desc), then item weight (`errorCount × 2 + lookupCount`, desc),
+ * within today's limits and `limit` (docs/api-v1.md, "Review by importance").
+ * Intervals are previewed with each card's own retention.
  */
 export async function reviewQueue(
   db: Executor,
@@ -175,13 +179,22 @@ export async function reviewQueue(
         .from(cards)
         .innerJoin(items, itemOfCard)
         .where(and(due, eq(cards.state, STATE_NEW)))
-        .orderBy(desc(sql`${items.errorCount} * 2 + ${items.lookupCount}`), desc(items.lastSeenAt), asc(cards.itemId), asc(cards.id))
+        .orderBy(
+          desc(items.stars),
+          desc(sql`${items.errorCount} * 2 + ${items.lookupCount}`),
+          desc(items.lastSeenAt),
+          asc(cards.itemId),
+          asc(cards.id),
+        )
         .limit(newCount);
 
   const rows = [...reviewRows, ...newRows];
+  if (rows.length === 0) return [];
   const logs = await logsOfCards(db, userId, rows.map((row) => row.id));
+  const importanceReview = await importanceReviewOf(db, userId);
   return rows.map((row) => {
-    const card = replayCard(row.createdAt, logs.get(row.id) ?? []);
+    const retention = retentionFor(row.stars, importanceReview);
+    const card = replayCard(row.createdAt, logs.get(row.id) ?? [], retention);
     return {
       id: row.id,
       itemId: row.itemId,
@@ -190,7 +203,7 @@ export async function reviewQueue(
       front: row.front,
       back: row.back,
       state: stateName(card.state),
-      intervals: previewIntervals(card, now),
+      intervals: previewIntervals(card, now, retention),
     };
   });
 }

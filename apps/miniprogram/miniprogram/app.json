@@ -2,7 +2,6 @@
   "entryPagePath": "pages/translate/index",
   "pages": [
     "pages/translate/index",
-    "pages/check/index",
     "pages/me/index",
     "pages/history/index",
     "pages/devices/index",
@@ -15,7 +14,10 @@
     "pages/item/index",
     "pages/stats/index",
     "pages/weekly/index",
-    "pages/account/index"
+    "pages/account/index",
+    "pages/notebook/index",
+    "pages/word/index",
+    "pages/appearance/index"
   ],
   "window": {
     "navigationStyle": "custom",
@@ -32,25 +34,35 @@
     "list": [
       {
         "pagePath": "pages/translate/index",
+        "iconPath": "@tabIconTranslate",
+        "selectedIconPath": "@tabIconTranslateOn",
         "text": "翻译"
       },
       {
-        "pagePath": "pages/check/index",
-        "text": "纠错"
+        "pagePath": "pages/notebook/index",
+        "iconPath": "@tabIconNotebook",
+        "selectedIconPath": "@tabIconNotebookOn",
+        "text": "笔记本"
       },
       {
         "pagePath": "pages/review/index",
+        "iconPath": "@tabIconReview",
+        "selectedIconPath": "@tabIconReviewOn",
         "text": "复习"
       },
       {
         "pagePath": "pages/me/index",
+        "iconPath": "@tabIconMe",
+        "selectedIconPath": "@tabIconMeOn",
         "text": "我的"
       }
     ]
   },
   "usingComponents": {
     "nav-bar": "/components/nav-bar/index",
-    "t-icon": "/components/t-icon/index"
+    "t-icon": "/components/t-icon/index",
+    "t-speak-icon": "/components/t-speak-icon/index",
+    "t-stars": "/components/t-stars/index"
   },
   "darkmode": true,
   "themeLocation": "theme.json",

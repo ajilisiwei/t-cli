@@ -70,6 +70,16 @@ const ConfigSchema = z.object({
   WECHAT_REMINDER_DATA: z.string().min(2).optional(),
   /** Which mini-program version a reminder opens; `trial` while only the 体验版 exists. */
   WECHAT_REMINDER_MINIPROGRAM_STATE: z.enum(['developer', 'trial', 'formal']).default('trial'),
+
+  // ---- v2 (docs/api-v1.md, "v2 → Lookup") ----
+  /** false → POST /v1/lookup answers 503 LOOKUP_DISABLED (clients hide tap-to-look-up). */
+  LOOKUP_ENABLED: z.stringbool().default(true),
+  LOOKUP_REQUESTS_PER_MINUTE: z.coerce.number().int().positive().default(30),
+  /**
+   * Upper bound for a lookup's model calls (retry included). Clients give up
+   * on JSON requests after 20 s, so the server must answer (or 502) before.
+   */
+  LOOKUP_TIMEOUT_MS: z.coerce.number().int().min(1000).max(19_000).default(18_000),
 }).refine((config) => !(config.WECHAT_DEV_LOGIN && config.NODE_ENV === 'production'), {
   path: ['WECHAT_DEV_LOGIN'],
   message: 'WECHAT_DEV_LOGIN must not be enabled in production',

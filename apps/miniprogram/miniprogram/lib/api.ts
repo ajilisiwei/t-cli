@@ -103,6 +103,10 @@ const MESSAGES: Readonly<Record<string, string>> = {
   TTS_UNAVAILABLE: '朗读功能未开启',
   NOTHING_TO_SPEAK: '没有可朗读的内容',
   TEXT_TOO_LONG: '内容太长，无法朗读',
+  PART_OUT_OF_RANGE: '没有更多可朗读的内容',
+  LOOKUP_DISABLED: '查词暂未开放',
+  NOT_A_WORD: '没有查到这个词',
+  NOTE_CONFLICT: '笔记已在别处修改，请刷新',
   INVITE_REQUIRED: '需要邀请码',
   INVITE_INVALID: '邀请码无效、已使用或已过期',
   ACCOUNT_DISABLED: '账号已停用',
@@ -137,7 +141,7 @@ export function errorMessage(error: unknown, overrides: Readonly<Record<string, 
   return MESSAGES[error.code] ?? DEFAULT_MESSAGE
 }
 
-export type HttpMethod = 'GET' | 'POST' | 'DELETE'
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE'
 
 export interface HttpRequest {
   readonly method: HttpMethod

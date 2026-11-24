@@ -9,6 +9,7 @@ import type { AppDeps } from '../../deps.ts';
 import { authOf, requireAuth } from '../../http/auth.ts';
 import { ok } from '../../http/errors.ts';
 import { LocalDate, localDay, UtcOffsetMinutes } from '../review/common.ts';
+import { DaysQuery, HistoryFilters, historyFilter, listEntryDays, RECORD_LOG_SERIALIZERS } from './records.ts';
 
 export const PUSH_MAX_ENTRIES = 500;
 export const PULL_MAX_LIMIT = 500;
@@ -29,7 +30,7 @@ const PullQuery = z.object({
   limit: z.coerce.number().int().min(1).max(PULL_MAX_LIMIT).default(200),
 });
 
-const HistoryQuery = z.object({
+const HistoryQuery = HistoryFilters.extend({
   // Absent → start from the newest entry.
   before: z.coerce.number().int().min(1).optional(),
   limit: z.coerce.number().int().min(1).max(HISTORY_MAX_LIMIT).default(30),
@@ -89,11 +90,16 @@ async function listEntriesOfDay(db: Executor, userId: string, { date, utcOffsetM
 }
 
 /**
- * Record sync.
+ * Record sync and the record page.
  *   POST /v1/entries   push a batch (idempotent by entry id)
  *   GET  /v1/entries   pull in seq order: ?after=<seq>&limit=<n>
  *   GET  /v1/entries/history  browse newest first: ?before=<seq>&limit=<n>
+ *                             &date=&utcOffsetMinutes=&source=&q= (filters, records.ts)
  *   GET  /v1/entries/day      one local day, oldest first: ?date=YYYY-MM-DD&utcOffsetMinutes=<n>
+ *   GET  /v1/entries/days     records per local day: ?from=&to=&utcOffsetMinutes=&source=
+ *
+ * The history route logs its URL without the query string: `q` is the
+ * user's own text.
  */
 export async function registerSyncRoutes(app: FastifyInstance, deps: AppDeps): Promise<void> {
   const authenticate = requireAuth(deps.config.JWT_SECRET, deps.clock, deps.db);
@@ -113,10 +119,16 @@ export async function registerSyncRoutes(app: FastifyInstance, deps: AppDeps): P
     return ok(await listEntriesAfter(deps.db, userId, query));
   });
 
-  app.get('/v1/entries/history', { preHandler: authenticate }, async (request) => {
+  app.get('/v1/entries/history', { preHandler: authenticate, logSerializers: RECORD_LOG_SERIALIZERS }, async (request) => {
     const { userId } = authOf(request);
-    const query = HistoryQuery.parse(request.query);
-    return ok(await listEntriesBefore(deps.db, userId, query));
+    const { before, limit, ...filters } = HistoryQuery.parse(request.query);
+    return ok(await listEntriesBefore(deps.db, userId, { before, limit, where: historyFilter(filters) }));
+  });
+
+  app.get('/v1/entries/days', { preHandler: authenticate }, async (request) => {
+    const { userId } = authOf(request);
+    const query = DaysQuery.parse(request.query);
+    return ok({ days: await listEntryDays(deps.db, userId, query) });
   });
 
   app.get('/v1/entries/day', { preHandler: authenticate }, async (request) => {

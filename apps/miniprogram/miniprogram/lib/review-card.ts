@@ -193,3 +193,8 @@ export function fingerprint(text: string): string {
 export function cardSpeechKey(card: QueueCard): string {
   return `c-${card.id}-${fingerprint(`${card.front.text}\n${card.back.text}`)}`
 }
+
+/** Cache key of a daily material's story audio: the date plus the text it reads. */
+export function storySpeechKey(date: string, text: string): string {
+  return `s-${date}-${fingerprint(text)}`
+}

@@ -5,9 +5,10 @@ daily materials and the word library (M3–M4), stats, weekly reports and
 account data (M5). WeChat native + TypeScript + Skyline, the same stack as
 heji-ledger's mini-program. The API contract is `docs/api-v1.md`.
 
-Tabs: **翻译** (default), **纠错**, **复习** (今日进度, 开始复习, 每日材料, 词库, 周报; the tab
-badge is the number of cards due), **我的** (记录, 学习统计, 周报, 词库, settings — 解释语言,
-单词自动朗读, 复习翻面自动朗读, 复习提醒 —, 账号与数据 (导出 / 注销), 设备, 授权 CLI 登录).
+Tabs: **翻译** (default), **笔记本** (v2; replaces 纠错, whose page stays until 翻译 takes it over), **复习** (今日进度, 开始复习, 每日材料, 词库, 周报; the tab
+badge is the number of cards due), **我的** (记录, 学习统计, 周报, 词库, settings — 翻译: 显示翻译方向按钮,
+查单词后自动朗读, 释义语言; 笔记本与复习: 按重要程度安排复习, 复习翻面后自动朗读, 复习提醒; 外观: 主题色,
+深浅模式 and 阅读模式 (→ 外观) —, 账号与数据 (导出 / 注销), 设备, 授权 CLI 登录).
 
 ## Structure
 
@@ -19,6 +20,7 @@ apps/miniprogram/
   scripts/sync-core.mjs      copies packages/core modules into miniprogram/vendor/core
   scripts/upload.mjs         miniprogram-ci upload / preview (used by .github/workflows/mp-upload.yml)
   scripts/icons.mjs          generates the SVG icon set (npm run icons)
+  scripts/tab-icons.mjs      renders the tab bar PNGs with @resvg/resvg-js (npm run icons; manifest beside it)
   miniprogram/
     app.json app.ts app.wxss theme.json sitemap.json
     config.local.example.ts  template for the git-ignored config.local.ts (dev only)
@@ -33,20 +35,38 @@ apps/miniprogram/
       history.ts             history paging, row and time formatting
       env.ts                 API base URL and dev login by envVersion
       tts-cache.ts           audio file naming and eviction
+      speaker.ts             朗读 state: one sound at a time, idle / loading / playing per key
       review-*.ts            复习: session state machine, rating outbox, client ULIDs, interval
                              labels, card-face rendering, swipe, home ring/badge, material view,
                              response validation (review-types.ts: shared types)
       library.ts item.ts     词库 query/filters and rows; 学习单元 view per item type
       stats.ts weekly.ts     学习统计 heatmap / streak / retention bars; 周报 view and week paging
       account.ts             settings options (reminder hours), export filename, subscribe outcomes
-      palette.ts             theme colours for JS (icons, ring gradient), icon names and paths
+      settings.ts            setting defaults and the local-first rules (pending queue, merge with the account)
+      appearance.ts          深浅模式 (system / time / fixed), the day bar, 阅读模式 type sizes, labels
+      palette.ts             theme and accent colours for JS (icons, tab bar, ring gradient), icon and tab icon paths
+      wire.ts                shape checks for API responses: settings, lookup, notes, entry days, TTS part headers
+      tokens.ts              English word tokens for tap-to-look-up; extending a selection to a phrase
+      lookup-view.ts         the lookup sheet's content, the word-page URL, scroll-into-view math
+      check-changes.ts       纠错: numbered changes in the corrected text and their explanation rows
+      composer.ts            input counter, paste clipping, paragraph count
+      copy.ts                what 复制 copies (translation only; a word's gloss line; corrected text)
+      note-outbox.ts         offline queue of note changes, one per note
+      notebook.ts            笔记本 rows and filters, 单词详情 view, the saved-notes index
+      history-days.ts        查询记录 day groups, day strip and labels
     services/                wx-bound glue: request transport, session, stream, TTS, voice, theme,
-                             settings, review (queue, ratings outbox, badge, reminders), library, account
-    pages/                   translate, check, me, history, devices, authorize, invite,
-                             review (tab), review-session, materials, library, item, stats, weekly, account
+                             settings, review (queue, ratings outbox, badge, reminders), library, account,
+                             notes (saves with an offline outbox), saved-index (the account's notes, shared
+                             by the 翻译 and word pages so a note is never saved twice)
+    pages/                   translate (翻译 and 纠错 in one page), me, history, devices, authorize, invite,
+                             review (tab), review-session, materials, library, item, stats, weekly, account,
+                             notebook (tab), word, appearance (v2)
     components/nav-bar/      custom navigation bar (Skyline pages have no native one)
-    components/t-icon/       <t-icon name tone size>: one generated SVG in the current theme
-    assets/icons/            GENERATED: <theme>/<name>-<tone>.svg
+    components/t-icon/       <t-icon name tone size>: one generated SVG in the current theme and accent
+    components/t-speak-icon/ <t-speak-icon phase tone size>: the speaker, or loading dots / playing bars
+    components/t-stars/      <t-stars level size bind:change>: a note's importance, four tappable stars
+    assets/icons/            GENERATED: <theme>/<name>-<tone>.svg (+ <name>-accent-<accent>.svg)
+    assets/tab/              GENERATED: <theme>/<tab>.png (unselected), <theme>/<tab>-<accent>.png (selected)
     vendor/core/detect.js    GENERATED copy of packages/core/src/detect.js
 ```
 
@@ -78,8 +98,8 @@ is stale. After changing such a module in `packages/core`:
 npm run sync:core -w @t-cli/miniprogram
 ```
 
-Only `detect.js` is vendored (the 纠错 tab uses `detectSourceLang` to send
-non-English input to 翻译). The translate direction comes from the server's
+Only `detect.js` is vendored (the 翻译 page uses `detectSourceLang` to turn
+纠错 off for Chinese input and to label the direction). The translate direction comes from the server's
 `meta` line, and TTS text selection happens on the server.
 
 ## Design system
@@ -89,12 +109,15 @@ of page-local look-alikes; a page's own wxss only lays things out.
 
 | Piece | Classes | Use |
 | --- | --- | --- |
-| Colour | `--bg --surface --ink --ink-soft --muted --rule --accent --accent-soft --accent-ink --danger` | CSS variables on the page root (`theme-light` / `theme-dark`); `lib/palette.ts` mirrors them for JS |
+| Colour | `--bg --surface --ink --ink-soft --muted --rule --accent --accent-soft --accent-ink --danger` | CSS variables on the page root: `theme-light` / `theme-dark`, then `accent-<accent>-<theme>` (主题色: indigo, pine, plum, ochre, ink) overriding the three accent variables; `lib/palette.ts` mirrors them for JS. See "Theme and accent on a page" |
 | Button | `.btn` + `.btn-primary` / `.btn-secondary` / `.btn-tonal` / `.btn-danger`, sizes `.btn-sm` / `.btn-lg`, `.btn-block`, `.btn-disabled` | Pill. One primary per screen; tonal for inline actions (朗读, 复制, 停止); an icon comes first, with `.btn-icon-first` on a small pill |
-| Icon button | `.icon-btn` (+ `.icon-btn-sm`, `.icon-btn-tonal`, `.icon-btn-busy`, `.icon-btn-off`) | A round target around one icon: the ▶ next to a word, clear, date steppers |
-| Icon | `<t-icon name tone size>` | `name`: speaker, stop, copy, close, check, chevron-left, chevron-right, mic. `tone`: ink, muted, accent, danger, accentInk (= `--accent-ink`, only on an accent fill). `size` in rpx |
+| Icon button | `.icon-btn` (+ `.icon-btn-sm`, `.icon-btn-tonal`, `.icon-btn-off`) | A round target around one icon: 朗读 next to a word, clear, date steppers |
+| Icon | `<t-icon name tone size>` | `name`: speaker, stop, copy, close, check, chevron-left, chevron-right, mic, bookmark, bookmark-filled, star, star-filled, calendar, search, arrow-up, swap, cloud-check. `tone`: ink, muted, accent, danger, accentInk (= `--accent-ink`, only on an accent fill); `accent` follows the current 主题色. `size` in rpx |
+| 朗读 | `<t-speak-icon phase tone size>` inside a `.icon-btn` or a tonal `.btn` | The one speaker icon. `phase` (idle / loading / playing) comes from `services/speech.ts`: idle draws the speaker, loading three dots pulsing in turn, playing three bouncing bars. The label reads 朗读 when idle and 停止 otherwise; the tap is `toggleSpeech`, so tapping what sounds stops it |
+| Stars | `<t-stars level size bind:change>` | A note's importance (重要程度): `level` 0–4 (0 = not saved), filled stars in accent, empty ones muted. Tapping star N emits `change` `{ level: N }` (only when it differs); the page owns the value. Each star is a ≥ 30×36 px target labelled 「重要程度 N 星」. Placement is the page's: beside the bookmark in a wide action bar, on its own line under a narrow row |
 | Link | `.link` (+ `.link-strong`, `.link-danger`) | A quiet action inside a line (撤销) |
-| Row | `.row`, `.row-label`, `.row-value`, `.row-trail` | List rows; a trailing value plus `chevron-right` |
+| Row | `.row`, `.row-label`, `.row-value`, `.row-trail`; `.row-text` + `.row-hint` | List rows; a trailing value plus `chevron-right`. A label with a hint line under it goes in `.row-text` |
+| Switch | `.switch` (+ `.switch-on`) with a `.knob` (+ `.knob-on`) | A drawn on/off switch in the accent, at the end of a `.row` that carries `aria-role="switch"`, `aria-checked` and the tap |
 | Marks | `.mark-line` + `.mark-icon` | ✓ / ✗ in front of a sentence (check accent, close danger) |
 | Progress | `.meter` + `.meter-fill` | A rounded bar; the 复习 ring is a conic gradient (`lib/review-home.ts`) |
 
@@ -108,13 +131,53 @@ Rules that come from Skyline (they are why the pieces look the way they do):
   supports.
 - **No `currentColor`.** Hence one SVG file per tone and theme.
 - SVG files: no percentages, no `<style>` (Skyline's image limits).
+- **Motion** animates `transform` and `opacity` only, with longhand
+  `animation-*` properties and `@keyframes` in the component's own wxss
+  (Skyline scopes keyframes to the component).
 
 Adding an icon: add its shape to `scripts/icons.mjs` and its name to
 `ICON_NAMES` in `lib/palette.ts`, then `npm run icons -w @t-cli/miniprogram`.
-`test/icons.test.ts` fails while files are missing or stale, and when
-`palette.ts` and the variables in `app.wxss` disagree. Icons are referenced by
-computed paths; miniprogram-ci packs them anyway (its unused-file analysis
-drops only code, checked with `ignoreUploadUnusedFiles` on).
+Each icon exists per theme and tone, and its `accent` tone once per accent
+(`<name>-accent-pine.svg`; indigo keeps `<name>-accent.svg`; accentInk is the
+same for every accent). `test/icons.test.ts` fails while files are missing or
+stale, when `palette.ts` and the variables in `app.wxss` disagree, and when an
+accent drops below 4.5:1. Icons are referenced by computed paths;
+miniprogram-ci packs them anyway (its unused-file analysis drops only code,
+checked with `ignoreUploadUnusedFiles` on).
+
+Tab bar icons are PNG (the native tab bar takes no SVG): `scripts/tab-icons.mjs`
+draws the four shapes on the same grid and rasterises them at 81×81 with
+`@resvg/resvg-js` (a devDependency with prebuilt binaries; it needs no install
+script, so `ignore-scripts` stays on). Unselected icons are muted per theme,
+selected ones in each accent per theme. `app.json` points at `theme.json`
+variables (the system theme, indigo); `services/theme.ts` switches them with
+`wx.setTabBarStyle` / `wx.setTabBarItem` when the app's look differs. PNG bytes
+vary between resvg versions, so `test/tab-icons.test.ts` checks a manifest of
+source hashes (`scripts/tab-icons.manifest.json`) instead of the bytes.
+
+### Theme and accent on a page
+
+`services/theme.ts` resolves the look from the settings (深浅模式: follow the
+phone, switch at two times of day, or fixed; 主题色) and the system theme.
+A page shows it through its root view and one call in `onLoad`:
+
+```html
+<view class="page theme-{{theme}} {{accentClass}}">
+```
+
+```ts
+import { bindPageLook } from '../../services/theme'
+// onLoad: sets theme, accent and accentClass in the page's data now and on every change
+this.stopWatchingTheme = bindPageLook(this)
+// onUnload (unchanged): this.stopWatchingTheme?.()
+```
+
+`bindPageLook` replaces `watchTheme((theme) => this.setData({ theme }))`.
+Pages that draw with colours in JS (the 复习 ring) use `watchLook` and
+`paletteFor(theme, accent)`. Components use `followLook(this, …)` /
+`unfollowTheme(this)`. `<t-icon>`, `<t-speak-icon>` and `<t-stars>` follow the
+look on their own. `<nav-bar>` restyles the native chrome (status bar text, the
+tab bar on tab pages) on every page show, so pages need nothing for that.
 
 ## Commands
 
@@ -125,7 +188,7 @@ npm install
 npm test                                   # every workspace, including these tests
 npm test -w @t-cli/miniprogram             # just the mini-program
 npm run typecheck -w @t-cli/miniprogram    # tsc for miniprogram/ and test/
-npm run icons -w @t-cli/miniprogram        # regenerate miniprogram/assets/icons
+npm run icons -w @t-cli/miniprogram        # regenerate miniprogram/assets/icons and assets/tab
 ```
 
 ## Run in WeChat DevTools against a local server
@@ -192,10 +255,26 @@ MINIPROGRAM_CI_DIR=/tmp/mpci WX_APPID=wx... WX_UPLOAD_KEY=~/.wx-miniprogram/priv
   NDJSON lines; unknown line types are ignored. The HTTP status is taken from
   the completed request because DevTools does not report it in
   `onHeadersReceived`. A new submit aborts the running request.
-- **Settings** are saved with `POST /v1/me/settings` (`wx.request` has no PATCH).
+- **Settings** are local-first (`services/settings.ts`, rules in `lib/settings.ts`):
+  a change is in force at once, written to the local cache and a pending queue,
+  then pushed with `POST /v1/me/settings` (`wx.request` has no PATCH). Offline
+  changes are pushed when the network returns or at the next launch. At launch,
+  after an invite login and on return to the foreground (at most every 30 s),
+  the account's settings are pulled: keys with a pending local change keep the
+  local value, the rest take the account's (as the CLI does for
+  `explanationLang`). Read them with the typed getters (`accent()`,
+  `readingMode()`, …) or `currentSettings()`; `watchSettings` reports changes.
 - **Errors** branch on `error.code` only; no network → 需要联网.
-- **Theme** follows the system (`theme.json` for native chrome, CSS variables
-  switched by a root class for pages, which works under Skyline and WebView).
+- **Theme** (外观): 跟随系统 follows the phone; 跟随时间 is light from
+  `themeDayStart` (07:00) to `themeNightStart` (19:00), re-evaluated by a timer
+  at each boundary and on return to the foreground; 固定 keeps 浅色 or 深色.
+  Pages switch through CSS variables on a root class (works under Skyline and
+  WebView); `theme.json` styles the native chrome for the system theme, and
+  `services/theme.ts` overrides it when the resolved look differs (tab bar APIs
+  only work on tab pages, so the next tab page's show applies a change made
+  elsewhere). Only the 宣纸 paper ships (light 宣纸, dark 墨夜).
+- **阅读模式** and its 字号 (`readingMode`, `readingFontStep`) are settings;
+  `lib/appearance.ts` `readingType()` gives the type sizes for reading pages.
 - **Skyline**: pages use `navigationStyle: custom` + `disableScroll` with a
   `scroll-view` body, as Skyline requires. Clients without Skyline fall back to
   WebView automatically; to force WebView everywhere, remove `renderer`,

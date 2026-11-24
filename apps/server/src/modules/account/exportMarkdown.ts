@@ -18,7 +18,7 @@ export const EXPORT_PAGE_SIZE = 500;
 
 const TASK_TITLES = { translate: 'Translation', check: 'Grammar Check' } as const;
 const SOURCE_LABELS = { cli: 'CLI', mp: 'mini-program' } as const;
-const TYPE_TITLES = { word: 'Words', phrase: 'Phrases', grammar: 'Grammar' } as const;
+const TYPE_TITLES = { word: 'Words', phrase: 'Phrases', grammar: 'Grammar', sentence: 'Sentences' } as const;
 
 const Example = z.object({ en: z.string(), zh: z.string() });
 const WordContent = z.object({
@@ -97,6 +97,11 @@ function renderContent(type: ItemRow['type'], content: unknown): string[] {
       ...(c.examples.length ? ['', '**Examples**', '', bullet(c.examples.map((e) => `${e.en} — ${e.zh}`))] : []),
     ];
   }
+  if (type === 'sentence') {
+    // v2 sentence notes: { text, translation } (docs/api-v1.md, "v2 → Notes").
+    const translation = content && typeof content === 'object' && 'translation' in content ? content.translation : null;
+    return typeof translation === 'string' && translation.trim() ? [oneLine(translation)] : [];
+  }
   const parsed = GrammarContent.safeParse(content);
   if (!parsed.success) return [];
   const c = parsed.data;
@@ -129,7 +134,7 @@ async function* entryPages(db: Executor, userId: string): AsyncGenerator<EntryRo
   }
 }
 
-const TYPE_ORDER = sql`case ${items.type} when 'word' then 0 when 'phrase' then 1 else 2 end`;
+const TYPE_ORDER = sql`case ${items.type} when 'word' then 0 when 'phrase' then 1 when 'grammar' then 2 else 3 end`;
 
 async function* itemPages(db: Executor, userId: string): AsyncGenerator<ItemRow[]> {
   for (let offset = 0; ; offset += EXPORT_PAGE_SIZE) {

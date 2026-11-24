@@ -22,10 +22,11 @@ import {
   type SourceRow,
 } from '../../lib/item'
 import { LEVEL_LABELS, TYPE_LABELS } from '../../lib/library'
+import { speechPhase, type SpeechPhase, type SpeechStatus } from '../../lib/speaker'
 import { fetchItem } from '../../services/library'
 import { redirectIfInviteRequired } from '../../services/session'
-import { speakItem, stopSpeaking } from '../../services/speech'
-import { currentTheme, watchTheme, type Theme } from '../../services/theme'
+import { itemSpeechKey, speechStatus, stopSpeaking, toggleSpeech, watchSpeech } from '../../services/speech'
+import { bindPageLook, currentTheme, type Theme } from '../../services/theme'
 import { toast } from '../../services/ui'
 
 interface WordView {
@@ -67,7 +68,7 @@ interface ItemData {
   exercises: ExerciseView[]
   cards: CardRow[]
   sources: SourceRow[]
-  speaking: boolean
+  speakPhase: SpeechPhase
 }
 
 const initialData: ItemData = {
@@ -84,7 +85,7 @@ const initialData: ItemData = {
   exercises: [],
   cards: [],
   sources: [],
-  speaking: false,
+  speakPhase: 'idle',
 }
 
 /** An en space after the part of speech: margins do not apply to inline text under Skyline. */
@@ -146,17 +147,20 @@ Page({
   data: initialData,
   itemId: '',
   stopWatchingTheme: null as (() => void) | null,
+  stopWatchingSpeech: null as (() => void) | null,
 
   onLoad(query: Record<string, string | undefined>) {
-    this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme }))
+    this.stopWatchingTheme = bindPageLook(this)
     this.itemId = query['id'] ?? ''
-    this.setData({ theme: currentTheme() })
+    this.stopWatchingSpeech = watchSpeech((speech) => this.syncSpeech(speech))
+    this.setData({ theme: currentTheme(), speakPhase: this.phaseOf(speechStatus()) })
     void this.load()
   },
 
   onUnload() {
     this.stopWatchingTheme?.()
-    if (this.data.speaking) stopSpeaking()
+    this.stopWatchingSpeech?.()
+    if (this.phaseOf(speechStatus()) !== 'idle') stopSpeaking()
   },
 
   async load() {
@@ -181,11 +185,19 @@ Page({
   },
 
   onSpeak() {
-    if (this.data.speaking || this.itemId === '') return
-    this.setData({ speaking: true })
-    speakItem(this.itemId)
-      .catch((error: unknown) => toast(errorMessage(error)))
-      .finally(() => this.setData({ speaking: false }))
+    if (this.itemId === '') return
+    toggleSpeech({ itemId: this.itemId }, itemSpeechKey(this.itemId)).catch((error: unknown) =>
+      toast(errorMessage(error)),
+    )
+  },
+
+  phaseOf(speech: SpeechStatus): SpeechPhase {
+    return this.itemId === '' ? 'idle' : speechPhase(speech, itemSpeechKey(this.itemId))
+  },
+
+  syncSpeech(speech: SpeechStatus) {
+    const speakPhase = this.phaseOf(speech)
+    if (speakPhase !== this.data.speakPhase) this.setData({ speakPhase })
   },
 
   onReveal(event: WechatMiniprogram.BaseEvent<Record<string, never>, { index?: number }>) {

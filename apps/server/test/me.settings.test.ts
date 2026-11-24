@@ -81,6 +81,45 @@ describe('account settings: GET /v1/me and POST /v1/me/settings', { skip: skipWi
     assert.deepEqual(await storedSettings(account.userId), { explanationLang: 'en' });
   });
 
+  test('v2 keys: an update stores and shows every one; bad values are 400 and change nothing', async () => {
+    const account = await createAccount(t.db, { now: clock() });
+    const v2 = {
+      showDirection: true,
+      accent: 'pine',
+      themeMode: 'time',
+      themeFixed: 'dark',
+      themeDayStart: '06:30',
+      themeNightStart: '20:15',
+      readingMode: true,
+      readingFontStep: 3,
+      importanceReview: false,
+    };
+    const res = await update(account, v2);
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.json().data.settings, v2);
+    assert.deepEqual((await me(account)).json().data.settings, v2);
+
+    const invalid: Record<string, unknown>[] = [
+      { accent: 'red' },
+      { themeMode: 'auto' },
+      { themeFixed: 'sepia' },
+      { themeDayStart: '7:00' },
+      { themeNightStart: '24:00' },
+      { themeDayStart: '07:60' },
+      { readingFontStep: 4 },
+      { readingFontStep: 1.5 },
+      { showDirection: 'yes' },
+      { importanceReview: null },
+      { language: 'en' },
+    ];
+    for (const payload of invalid) {
+      const bad = await update(account, payload);
+      assert.equal(bad.statusCode, 400, JSON.stringify(payload));
+      assert.equal(bad.json().error.code, 'VALIDATION_FAILED');
+    }
+    assert.deepEqual(await storedSettings(account.userId), v2);
+  });
+
   test('keys the API does not know are kept in storage but never shown', async () => {
     const account = await createAccount(t.db, { now: clock() });
     await t.db.update(users).set({ settings: { legacy: { a: 1 }, explanationLang: 'fr' } }).where(eq(users.id, account.userId));

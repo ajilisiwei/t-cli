@@ -2,7 +2,13 @@
  * The navigation bar. Skyline pages have no native bar (`navigationStyle:
  * custom`), so this one sits below the status bar and lines up with the
  * capsule button: its height mirrors the capsule's vertical margins.
+ *
+ * Every page has one, so it also restyles the native chrome on each page
+ * show (status bar text, and the tab bar on tab pages) when the app's theme
+ * or accent differs from what theme.json gives (services/theme.ts).
  */
+import { syncPageChrome } from '../../services/theme'
+
 const DEFAULT_STATUS_BAR = 20
 const DEFAULT_BAR = 44
 
@@ -33,6 +39,12 @@ Component({
   lifetimes: {
     attached() {
       this.setData(measure())
+    },
+  },
+  pageLifetimes: {
+    // On show, not attach: during attach the new page may not be the current one yet.
+    show() {
+      syncPageChrome()
     },
   },
   methods: {

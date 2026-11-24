@@ -6,7 +6,7 @@ import { stateName, type CardStateName } from '../review/fsrs.ts';
 
 /** 词库 (docs/api-v1.md, "Library and stats"): learning units with their level. */
 
-export type ItemType = 'word' | 'phrase' | 'grammar';
+export type ItemType = 'word' | 'phrase' | 'grammar' | 'sentence';
 /** `new` = every card new (or no cards yet), `mastered` = every card mastered, otherwise `learning`. */
 export type ItemLevel = 'new' | 'learning' | 'mastered';
 
@@ -19,6 +19,8 @@ export interface ItemListEntry {
   lookupCount: number;
   errorCount: number;
   level: ItemLevel;
+  /** Highest star level of the item's live notes; 0 when not saved (docs/api-v1.md, v2). */
+  stars: number;
   lastSeenAt: string;
 }
 
@@ -33,14 +35,15 @@ export interface ItemDetail {
   firstSeenAt: string;
   lastSeenAt: string;
   level: ItemLevel;
+  stars: number;
   cards: { id: string; cardType: string; state: CardStateName; due: string; mastered: boolean; suspended: boolean }[];
   sources: { entryId: string; input: string; createdAt: string }[];
 }
 
 const cardOfItem = and(eq(cards.userId, items.userId), eq(cards.itemId, items.id));
 
-/** Aggregate over the item's cards (left join: an item without cards is `new`). */
-const LEVEL_SQL = sql<ItemLevel>`(case
+/** Aggregate over the item's cards (left join: an item without cards is `new`). Also used by the notebook. */
+export const LEVEL_SQL = sql<ItemLevel>`(case
   when count(${cards.id}) = 0 or bool_and(${cards.state} = 0) then 'new'
   when bool_and(${cards.mastered}) then 'mastered'
   else 'learning' end)`;
@@ -88,6 +91,7 @@ export async function listItems(
       errorCount: items.errorCount,
       lastSeenAt: items.lastSeenAt,
       level: LEVEL_SQL,
+      stars: items.stars,
     })
     .from(items)
     .leftJoin(cards, cardOfItem)
@@ -134,6 +138,7 @@ export async function getItemDetail(db: Executor, userId: string, itemId: string
     firstSeenAt: item.firstSeenAt.toISOString(),
     lastSeenAt: item.lastSeenAt.toISOString(),
     level: levelOf(cardRows),
+    stars: item.stars,
     cards: cardRows.map((card) => ({
       id: card.id,
       cardType: card.cardType,

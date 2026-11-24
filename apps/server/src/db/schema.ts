@@ -117,7 +117,14 @@ export const entries = pgTable(
     utcOffsetMinutes: smallint().notNull(),
     receivedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [primaryKey({ columns: [t.userId, t.id] }), uniqueIndex('entries_user_seq_idx').on(t.userId, t.seq)],
+  (t) => [
+    primaryKey({ columns: [t.userId, t.id] }),
+    uniqueIndex('entries_user_seq_idx').on(t.userId, t.seq),
+    // v2 record page: per-day counts and the `date` filter (docs/api-v1.md, "v2").
+    index('entries_user_created_idx').on(t.userId, t.createdAt),
+    // v2 record search `q` (pg_trgm, created by migration 0001).
+    index('entries_input_trgm_idx').using('gin', sql`${t.input} gin_trgm_ops`),
+  ],
 );
 
 /** Daily AI request counter per account (quota enforcement). */
@@ -141,18 +148,20 @@ export const aiUsage = pgTable(
 // ---------------------------------------------------------------------------
 
 /**
- * A learning unit ("Item") extracted from raw records: a word, a phrase
- * (reusable sentence pattern) or a grammar point. One row per
- * (user, type, normKey); each further source record bumps lookupCount.
- * `content` is the AI-generated detail, shaped per type (see the contract).
+ * A learning unit ("Item") extracted from raw records or saved as a note: a
+ * word, a phrase (reusable sentence pattern), a grammar point or (v2) a
+ * sentence. One row per (user, type, normKey); each further source record
+ * bumps lookupCount. `content` is the AI-generated detail, shaped per type
+ * (see the contract); a sentence's content is the note's text and
+ * translation, without AI.
  */
 export const items = pgTable(
   'items',
   {
     userId: text().notNull().references(() => users.id, { onDelete: 'cascade' }),
     id: text().notNull(),
-    type: text({ enum: ['word', 'phrase', 'grammar'] }).notNull(),
-    /** Dedup key: lowercased lemma / normalized phrase / grammar rule slug. */
+    type: text({ enum: ['word', 'phrase', 'grammar', 'sentence'] }).notNull(),
+    /** Dedup key: lowercased lemma / normalized phrase / grammar rule slug / SHA-256 of a normalized sentence. */
     normKey: text().notNull(),
     /** What lists show: the headword, the phrase, or the grammar point's title. */
     display: text().notNull(),
@@ -161,6 +170,12 @@ export const items = pgTable(
     lookupCount: integer().notNull().default(0),
     /** Source records that were grammar checks (mistakes) — weighs the item up. */
     errorCount: integer().notNull().default(0),
+    /**
+     * Importance (v2): the highest `stars` of the account's notes on this item
+     * that are not deleted, 0 when there is none. Updated in the same
+     * transaction as the note; drives the review retention and new-card order.
+     */
+    stars: smallint().notNull().default(0),
     firstSeenAt: timestamp({ withTimezone: true }).notNull(),
     lastSeenAt: timestamp({ withTimezone: true }).notNull(),
     model: text(),
@@ -200,7 +215,8 @@ export const cards = pgTable(
     userId: text().notNull().references(() => users.id, { onDelete: 'cascade' }),
     id: text().notNull(),
     itemId: text().notNull(),
-    cardType: text({ enum: ['recognize', 'produce', 'cloze', 'fix', 'dictation'] }).notNull(),
+    /** `recall` (v2): a sentence card, translation on the front, the sentence on the back. */
+    cardType: text({ enum: ['recognize', 'produce', 'cloze', 'fix', 'dictation', 'recall'] }).notNull(),
     front: jsonb().$type<Record<string, unknown>>().notNull(),
     back: jsonb().$type<Record<string, unknown>>().notNull(),
     /** FSRS state: 0 new, 1 learning, 2 review, 3 relearning. */
@@ -286,3 +302,79 @@ export const jobRuns = pgTable('job_runs', {
   lastRunAt: timestamp({ withTimezone: true }),
   lastError: text(),
 });
+
+// ---------------------------------------------------------------------------
+// v2: notes (the notebook) and the shared lexicon cache (docs/api-v1.md, "v2").
+// ---------------------------------------------------------------------------
+
+/**
+ * A note: a word, phrase or sentence the user saved, with an importance of
+ * 1–4 stars. The id is a client ULID, so a repeated PUT never creates a
+ * second row. Deleting is soft (`deletedAt`) so incremental sync can carry it.
+ *
+ * `seq` orders the account's note changes for `GET /v1/notes/changes`: every
+ * write (create, update, delete) assigns the note a new seq, allocated as
+ * max(seq) + 1 while holding the account row's lock (as entries do), so seq
+ * order equals commit order and an `after` cursor never skips a change.
+ * `entryId` is the record it was saved from, kept as sent (the record may not
+ * have been pushed yet); `itemId` the learning unit it feeds.
+ */
+export const notes = pgTable(
+  'notes',
+  {
+    userId: text().notNull().references(() => users.id, { onDelete: 'cascade' }),
+    id: text().notNull(),
+    kind: text({ enum: ['word', 'phrase', 'sentence'] }).notNull(),
+    /** The learning-language side (English), whichever side the user typed. */
+    text: text().notNull(),
+    /** The other side (the explanation language); null when unknown. */
+    translation: text(),
+    /** BCP 47 code of `text`; only `en` in v2. */
+    lang: text().notNull(),
+    /** 1–4. */
+    stars: smallint().notNull(),
+    /** Word and phrase notes: the lexicon lemma `POST /v1/lookup` returned. */
+    lemma: text(),
+    entryId: text(),
+    itemId: text(),
+    seq: bigint({ mode: 'number' }).notNull(),
+    ...timestamps,
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.id] }),
+    // Incremental sync (`after` cursor) and the next seq (max + 1).
+    uniqueIndex('notes_user_seq_idx').on(t.userId, t.seq),
+    // The notebook list: newest first (ULID order) within a kind, live notes only.
+    index('notes_user_kind_idx').on(t.userId, t.kind, t.id).where(sql`deleted_at is null`),
+    // Recomputing items.stars from the notes of one item.
+    index('notes_user_item_idx').on(t.userId, t.itemId),
+  ],
+);
+
+/**
+ * Shared word-detail cache (lexicon entries, the "LexiconEntry" JSON of the
+ * contract). Deliberately NOT per user — the one exception to "every table
+ * carries user_id": it holds no user id and no user sentence, only a lemma
+ * and AI-written dictionary content, so sharing it leaks nothing.
+ * `lemma` is the normalized key (see modules/lookup/lexicon.ts); `version`
+ * is the content format, so a format change never serves stale shapes.
+ */
+export const lexicon = pgTable(
+  'lexicon',
+  {
+    /** Learning language of the lemma (BCP 47), `en` in v2. */
+    lang: text().notNull(),
+    /** Language of glosses and notes: the account's explanationLang (zh / en). */
+    explainLang: text().notNull(),
+    lemma: text().notNull(),
+    version: integer().notNull(),
+    content: jsonb().$type<Record<string, unknown>>().notNull(),
+    model: text(),
+    /** Cache hits served (lookups that found this row), for the hit-rate metric. */
+    hits: integer().notNull().default(0),
+    ...timestamps,
+  },
+  (t) => [primaryKey({ columns: [t.lang, t.explainLang, t.lemma, t.version] })],
+);

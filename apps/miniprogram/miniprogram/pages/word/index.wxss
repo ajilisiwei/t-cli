@@ -1,0 +1,373 @@
+/* Layout only; buttons, icons and stars come from app.wxss and the components
+ * (README "Design system"). Rounded boxes use one border colour. */
+
+.headword {
+  display: block;
+  font-size: 76rpx;
+  line-height: 1.15;
+  word-break: break-word;
+}
+
+/* ---- skeleton ---- */
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+  padding-top: 16rpx;
+}
+
+.bone {
+  height: 28rpx;
+  border-radius: 14rpx;
+  background-color: var(--rule);
+  animation-name: pulse;
+  animation-duration: 1.2s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+
+.bone-short {
+  width: 40%;
+}
+
+.bone-mid {
+  width: 70%;
+}
+
+.bone-block {
+  height: 140rpx;
+  margin: 16rpx 0;
+  border-radius: 28rpx;
+}
+
+@keyframes pulse {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.45;
+  }
+}
+
+.failed {
+  padding-top: 16rpx;
+}
+
+/* ---- header ---- */
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+  padding-top: 16rpx;
+}
+
+.head-line {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24rpx;
+}
+
+.headword-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.ipa-line {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 32rpx;
+}
+
+.ipa-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.ipa-label {
+  color: var(--muted);
+  font-size: 24rpx;
+}
+
+.ipa-text {
+  color: var(--ink-soft);
+  font-size: 30rpx;
+}
+
+.save-line {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.save-btn {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 40rpx;
+}
+
+/* ---- sections ---- */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  margin-top: 44rpx;
+}
+
+.sec-title {
+  display: block;
+  color: var(--muted);
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+/* 在本句中 */
+.context {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+  margin-top: 44rpx;
+  padding: 24rpx 28rpx;
+  border-radius: 28rpx;
+  background-color: var(--accent-soft);
+}
+
+.context-title {
+  color: var(--accent);
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.context-sentence {
+  color: var(--ink-soft);
+  font-size: 30rpx;
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+.context-hit {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.context-meaning {
+  font-size: 30rpx;
+  line-height: 1.55;
+}
+
+.context-phrase {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 16rpx;
+  font-size: 28rpx;
+}
+
+.context-phrase-label {
+  color: var(--accent);
+  font-size: 24rpx;
+}
+
+/* 释义 */
+.sense {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.sense-line {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 20rpx;
+  font-size: 32rpx;
+  line-height: 1.6;
+}
+
+.pos {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.sense-gloss {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.sense-def {
+  color: var(--muted);
+  font-size: 28rpx;
+  line-height: 1.55;
+}
+
+/* 词形变化: two columns */
+.forms {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  font-size: 28rpx;
+}
+
+.form {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 16rpx;
+  width: 50%;
+  padding: 6rpx 24rpx 6rpx 0;
+  box-sizing: border-box;
+}
+
+.form-label {
+  flex-shrink: 0;
+}
+
+/* 常用搭配 (option B) */
+.colloc {
+  display: flex;
+  flex-direction: column;
+}
+
+.colloc-line {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.colloc-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 20rpx;
+  font-size: 30rpx;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.colloc-save {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 36rpx;
+}
+
+/* The first star's target starts at the text's edge. */
+.colloc-stars {
+  display: flex;
+  flex-direction: row;
+  margin-left: -14rpx;
+}
+
+/* 双语例句: a thin bar instead of a one-sided border */
+.example {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 20rpx;
+}
+
+.example-mark {
+  flex-shrink: 0;
+  align-self: stretch;
+  width: 4rpx;
+  border-radius: 2rpx;
+  background-color: var(--rule);
+}
+
+.example-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.example-text {
+  font-size: 30rpx;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.example-gloss {
+  color: var(--muted);
+  font-size: 26rpx;
+}
+
+/* 近义辨析 */
+.contrast {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 20rpx;
+  font-size: 28rpx;
+  line-height: 1.55;
+}
+
+.contrast-word {
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.contrast-note {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.memory {
+  font-size: 28rpx;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+/* 我的记录 */
+.record {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+  margin-top: 44rpx;
+  padding: 24rpx 28rpx;
+  border-radius: 28rpx;
+  background-color: var(--surface);
+  border: 1px solid var(--rule);
+}
+
+.record-line {
+  font-size: 28rpx;
+}
+
+.record-soft {
+  color: var(--ink-soft);
+}
+
+.record-link {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4rpx;
+  padding: 8rpx 0;
+  color: var(--accent);
+  font-size: 28rpx;
+}
+
+.footnote {
+  display: block;
+  margin-top: 32rpx;
+  color: var(--muted);
+  font-size: 24rpx;
+  text-align: center;
+}

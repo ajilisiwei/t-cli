@@ -15,6 +15,13 @@
       "when": 1795167965906,
       "tag": "0001_learning",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795514204244,
+      "tag": "0002_v2_notes_lexicon",
+      "breakpoints": true
     }
   ]
 }

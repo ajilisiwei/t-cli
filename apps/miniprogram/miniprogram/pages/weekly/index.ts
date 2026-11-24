@@ -17,7 +17,7 @@ import {
 } from '../../lib/weekly'
 import { fetchWeekly, fetchWeeklyDates } from '../../services/library'
 import { redirectIfInviteRequired } from '../../services/session'
-import { currentTheme, watchTheme, type Theme } from '../../services/theme'
+import { bindPageLook, currentTheme, type Theme } from '../../services/theme'
 import { toast } from '../../services/ui'
 
 interface TotalView {
@@ -95,7 +95,7 @@ Page({
   stopWatchingTheme: null as (() => void) | null,
 
   onLoad(query: Record<string, string | undefined>) {
-    this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme }))
+    this.stopWatchingTheme = bindPageLook(this)
     this.setData({ theme: currentTheme() })
     const date = query['date']
     void this.loadDates()

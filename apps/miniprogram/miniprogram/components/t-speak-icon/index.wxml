@@ -1,0 +1,12 @@
+<image
+  wx:if="{{phase !== 'loading' && phase !== 'playing'}}"
+  class="icon"
+  src="{{src}}"
+  mode="aspectFit"
+  style="width: {{size}}rpx; height: {{size}}rpx;"
+/>
+<view wx:else class="bars" style="{{boxStyle}}">
+  <view class="bar {{phase}} {{phase}}-1" style="{{barStyle}}" />
+  <view class="bar {{phase}} {{phase}}-2" style="{{barStyle}}" />
+  <view class="bar {{phase}} {{phase}}-3" style="{{barStyle}}" />
+</view>

@@ -89,7 +89,7 @@ describe('library: materials, items, entries of a day', { skip: skipWithoutDb },
       ['mastered phrase', 'mastered'],
       ['pending grammar', 'new'],
     ]);
-    assert.deepEqual(all.items[0], { id: fresh.itemId, type: 'word', display: 'fresh', lookupCount: 1, errorCount: 0, level: 'new', lastSeenAt: at(5).toISOString() });
+    assert.deepEqual(all.items[0], { id: fresh.itemId, type: 'word', display: 'fresh', lookupCount: 1, errorCount: 0, level: 'new', stars: 0, lastSeenAt: at(5).toISOString() });
     assert.equal(all.nextOffset, null);
 
     const ids = async (query: string) => (await get(account, `/v1/items${query}`)).json().data.items.map((item: { id: string }) => item.id);
@@ -98,6 +98,8 @@ describe('library: materials, items, entries of a day', { skip: skipWithoutDb },
     assert.deepEqual(await ids('?level=mastered'), [mastered.itemId]);
     assert.deepEqual(await ids('?level=learning&type=word'), [learning.itemId]);
     assert.deepEqual(await ids('?type=grammar&level=mastered'), []);
+    // v2: sentence items are a type filter of their own (none seeded here).
+    assert.deepEqual(await ids('?type=sentence'), []);
 
     const first = (await get(account, '/v1/items?limit=3')).json().data;
     assert.equal(first.items.length, 3);

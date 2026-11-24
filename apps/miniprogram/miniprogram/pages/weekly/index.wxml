@@ -1,4 +1,4 @@
-<view class="page theme-{{theme}}">
+<view class="page theme-{{theme}} {{accentClass}}">
   <nav-bar title="周报" back />
   <view wx:if="{{loaded && !empty}}" class="weeknav">
     <view

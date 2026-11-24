@@ -1,14 +1,15 @@
 /*
  * The design system (see README "Design system").
  *
- * Paper-like and quiet: off-white ground, ink text, one indigo accent; thin
- * rules and whitespace instead of shadows. English results use a serif,
- * everything else the system font.
+ * Paper-like and quiet: off-white ground (宣纸), ink text, one accent (主题色:
+ * indigo by default); thin rules and whitespace instead of shadows. English
+ * results use a serif, everything else the system font.
  *
- * Colours are CSS variables on the page root (`theme-light` / `theme-dark`,
- * set from the system theme in JS) so they work the same under Skyline and
- * WebView; lib/palette.ts mirrors them for icons and gradients. Secondary
- * text meets 4.5:1 against the ground in both themes.
+ * Colours are CSS variables on the page root (`theme-light` / `theme-dark`
+ * plus `accent-<accent>-<theme>`, resolved from the settings in
+ * services/theme.ts) so they work the same under Skyline and WebView;
+ * lib/palette.ts mirrors them for icons and gradients. Secondary text and
+ * every accent meet 4.5:1 against the ground in both themes.
  *
  * Skyline limits shape the components below: a rounded box takes one border
  * colour for all four sides, there is no currentColor, and text glyphs such
@@ -39,6 +40,73 @@
   --accent-ink: #131312;
   --surface: #1c1c1a;
   --danger: #e59a8c;
+}
+
+/*
+ * Accent colours (主题色): the page root carries `accent-<accent>-<theme>`
+ * after `theme-<theme>` (services/theme.ts → `accentClass`). Declared after
+ * the theme blocks, so they win; one flat class per pair, no compound
+ * selectors. Light values from the design; dark ones keep ≥ 4.5:1 on the dark
+ * ground. lib/palette.ts (ACCENT_COLORS) mirrors them.
+ */
+.accent-indigo-light {
+  --accent: #2f3e7a;
+  --accent-soft: rgba(47, 62, 122, 0.12);
+  --accent-ink: #ffffff;
+}
+
+.accent-indigo-dark {
+  --accent: #9fb0ee;
+  --accent-soft: rgba(159, 176, 238, 0.16);
+  --accent-ink: #131312;
+}
+
+.accent-pine-light {
+  --accent: #2e5e46;
+  --accent-soft: rgba(46, 94, 70, 0.12);
+  --accent-ink: #ffffff;
+}
+
+.accent-pine-dark {
+  --accent: #86c2a0;
+  --accent-soft: rgba(134, 194, 160, 0.16);
+  --accent-ink: #131312;
+}
+
+.accent-plum-light {
+  --accent: #553c7b;
+  --accent-soft: rgba(85, 60, 123, 0.12);
+  --accent-ink: #ffffff;
+}
+
+.accent-plum-dark {
+  --accent: #c2a6ec;
+  --accent-soft: rgba(194, 166, 236, 0.16);
+  --accent-ink: #131312;
+}
+
+.accent-ochre-light {
+  --accent: #8a4b1f;
+  --accent-soft: rgba(138, 75, 31, 0.12);
+  --accent-ink: #ffffff;
+}
+
+.accent-ochre-dark {
+  --accent: #e3a774;
+  --accent-soft: rgba(227, 167, 116, 0.16);
+  --accent-ink: #131312;
+}
+
+.accent-ink-light {
+  --accent: #1d1c1a;
+  --accent-soft: rgba(29, 28, 26, 0.12);
+  --accent-ink: #ffffff;
+}
+
+.accent-ink-dark {
+  --accent: #ebe8e1;
+  --accent-soft: rgba(235, 232, 225, 0.16);
+  --accent-ink: #131312;
 }
 
 .page {
@@ -388,11 +456,6 @@
   background-color: var(--accent-soft);
 }
 
-/* Working (e.g. audio loading): dimmed, still tappable. */
-.icon-btn-busy {
-  opacity: 0.45;
-}
-
 .icon-btn-off {
   opacity: 0.3;
 }
@@ -418,6 +481,53 @@
   flex-direction: row;
   align-items: center;
   gap: 4rpx;
+}
+
+/* A label with a hint line under it (settings rows). */
+.row-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: 4rpx;
+  padding: 20rpx 24rpx 20rpx 0;
+}
+
+.row-hint {
+  color: var(--muted);
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+
+/* ---- switch: drawn, so it follows the theme and accent (the native one does not) ----
+ * <view class="switch {{on ? 'switch-on' : ''}}"><view class="knob {{on ? 'knob-on' : ''}}"></view></view>
+ * inside a row with aria-role="switch" and aria-checked. */
+.switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 84rpx;
+  height: 48rpx;
+  border-radius: 24rpx;
+  background-color: var(--rule);
+}
+
+.switch-on {
+  background-color: var(--accent);
+}
+
+.knob {
+  position: absolute;
+  top: 4rpx;
+  left: 4rpx;
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 20rpx;
+  background-color: var(--muted);
+}
+
+.knob-on {
+  left: 40rpx;
+  background-color: var(--accent-ink);
 }
 
 /* ---- progress ----

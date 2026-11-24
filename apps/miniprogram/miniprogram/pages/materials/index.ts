@@ -1,11 +1,11 @@
 /**
  * 每日材料: one day's material, switched by section (概览 · 单词 · 句型 · 语法 ·
- * 短文 · 易错) and paged by date (‹ older, › newer). ▶ reads a word or phrase
+ * 短文 · 易错) and paged by date (‹ older, › newer). 朗读 reads a word or phrase
  * (TTS by item) or the story (TTS by material); grammar exercises show their
  * answer on tap. Opens on `?date=YYYY-MM-DD`, or on the latest material.
  */
 import { errorMessage } from '../../lib/api'
-import { fingerprint } from '../../lib/review-card'
+import { fingerprint, storySpeechKey } from '../../lib/review-card'
 import { formatDateLabel } from '../../lib/review-format'
 import {
   dateNeighbours,
@@ -22,10 +22,11 @@ import {
   type StorySegment,
 } from '../../lib/review-material'
 import type { DailyMaterialResponse, MaterialMistake, MaterialWord } from '../../lib/review-types'
+import { SPEECH_IDLE, type SpeechStatus } from '../../lib/speaker'
 import { fetchDailyMaterial, fetchMaterialDates } from '../../services/review'
 import { redirectIfInviteRequired } from '../../services/session'
-import { speakSource, stopSourceSpeech, type ReviewSpeechSource } from '../../services/speech'
-import { currentTheme, watchTheme, type Theme } from '../../services/theme'
+import { speechStatus, stopSpeaking, toggleSpeech, watchSpeech, type SpeechSource } from '../../services/speech'
+import { bindPageLook, currentTheme, type Theme } from '../../services/theme'
 import { toast } from '../../services/ui'
 
 type Phase = 'loading' | 'ready' | 'none' | 'error'
@@ -74,8 +75,8 @@ interface MaterialsData {
   mistakes: MaterialMistake[]
   revealed: Record<string, boolean>
   showStoryZh: boolean
-  /** Speech key of what is playing; '' when nothing. */
-  playing: string
+  /** What sounds; a button compares its key with `speech.key` (never '' for a key). */
+  speech: SpeechStatus
   anchor: string
 }
 
@@ -99,7 +100,7 @@ const initialData: MaterialsData = {
   mistakes: [],
   revealed: {},
   showStoryZh: false,
-  playing: '',
+  speech: SPEECH_IDLE,
   anchor: '',
 }
 
@@ -122,11 +123,12 @@ Page({
   cache: null as Map<string, DailyMaterialResponse> | null,
   /** Counts loads, so a slow answer for a date the user left is ignored. */
   loads: 0,
-  plays: 0,
+  stopWatchingSpeech: null as (() => void) | null,
 
   onLoad(options: Record<string, string | undefined>) {
-    this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme }))
-    this.setData({ theme: currentTheme() })
+    this.stopWatchingTheme = bindPageLook(this)
+    this.stopWatchingSpeech = watchSpeech((speech) => this.setData({ speech }))
+    this.setData({ theme: currentTheme(), speech: speechStatus() })
     this.cache = new Map()
     this.dates = []
     const requested = options['date']
@@ -135,12 +137,13 @@ Page({
   },
 
   onHide() {
-    this.stopPlaying()
+    stopSpeaking()
   },
 
   onUnload() {
     this.stopWatchingTheme?.()
-    stopSourceSpeech()
+    this.stopWatchingSpeech?.()
+    stopSpeaking()
   },
 
   async loadDates(): Promise<void> {
@@ -163,7 +166,7 @@ Page({
   async show(date?: string): Promise<void> {
     this.loads += 1
     const load = this.loads
-    this.stopPlaying()
+    stopSpeaking()
     const cached = date === undefined ? undefined : this.cache?.get(date)
     if (cached === undefined) this.setData({ phase: 'loading', errorText: '' })
     try {
@@ -216,7 +219,7 @@ Page({
               title: story.title,
               segments: storySegments(story.text, story.words),
               zh: story.zh,
-              key: `s-${material.date}-${fingerprint(story.text)}`,
+              key: storySpeechKey(material.date, story.text),
             },
       mistakes: [...content.mistakes],
       revealed: {},
@@ -246,7 +249,7 @@ Page({
   onSection(event: WechatMiniprogram.BaseEvent<Record<string, never>, { id?: SectionId }>) {
     const id = event.currentTarget.dataset.id
     if (id === undefined || id === this.data.section) return
-    this.stopPlaying()
+    stopSpeaking()
     this.setData({ section: id })
     this.scrollToTop()
   },
@@ -273,25 +276,8 @@ Page({
     this.play({ material: { kind: 'daily', date: this.data.date, section: 'story' } }, story.key)
   },
 
-  /** Plays `source`; tapping what is playing stops it. */
-  play(source: ReviewSpeechSource, key: string) {
-    if (this.data.playing === key) {
-      this.stopPlaying()
-      return
-    }
-    this.plays += 1
-    const mine = this.plays
-    this.setData({ playing: key })
-    speakSource(source, key)
-      .catch((error: unknown) => toast(errorMessage(error)))
-      .finally(() => {
-        if (mine === this.plays) this.setData({ playing: '' })
-      })
-  },
-
-  stopPlaying() {
-    this.plays += 1
-    stopSourceSpeech()
-    if (this.data.playing !== '') this.setData({ playing: '' })
+  /** Plays `source`; tapping what loads or plays stops it. */
+  play(source: SpeechSource, key: string) {
+    toggleSpeech(source, key).catch((error: unknown) => toast(errorMessage(error)))
   },
 })

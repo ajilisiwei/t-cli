@@ -22,7 +22,7 @@ import {
 } from '../../lib/stats'
 import { fetchStats } from '../../services/library'
 import { redirectIfInviteRequired } from '../../services/session'
-import { currentTheme, watchTheme, type Theme } from '../../services/theme'
+import { bindPageLook, currentTheme, type Theme } from '../../services/theme'
 
 interface StatsData {
   theme: Theme
@@ -85,7 +85,7 @@ Page({
   stopWatchingTheme: null as (() => void) | null,
 
   onLoad() {
-    this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme }))
+    this.stopWatchingTheme = bindPageLook(this)
     this.setData({ theme: currentTheme() })
     void this.load()
   },

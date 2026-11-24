@@ -25,7 +25,7 @@ import {
 } from '../../lib/library'
 import { fetchItems } from '../../services/library'
 import { redirectIfInviteRequired } from '../../services/session'
-import { currentTheme, watchTheme, type Theme } from '../../services/theme'
+import { bindPageLook, currentTheme, type Theme } from '../../services/theme'
 
 interface LibraryData {
   theme: Theme
@@ -82,7 +82,7 @@ Page({
   stopWatchingTheme: null as (() => void) | null,
 
   onLoad(query: Record<string, string | undefined>) {
-    this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme }))
+    this.stopWatchingTheme = bindPageLook(this)
     const q = normalizeQuery(decodeParam(query['q']))
     const type = chipType(query['type'])
     this.filter = { q, type, level: null }

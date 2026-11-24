@@ -1,0 +1,252 @@
+/* Layout only; the pieces come from app.wxss (README "Design system"). */
+
+/* ---- preview: colours inline (it may show the other theme) ---- */
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+  margin-top: 8rpx;
+  padding: 28rpx 32rpx 32rpx;
+  border: 1px solid var(--rule);
+  border-radius: 36rpx;
+}
+
+.preview-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.preview-name {
+  font-size: 24rpx;
+}
+
+.chips {
+  display: flex;
+  flex-direction: row;
+  gap: 8rpx;
+  padding: 4rpx;
+  border-radius: 20rpx;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  height: 52rpx;
+  padding: 0 20rpx;
+  border-radius: 16rpx;
+  font-size: 24rpx;
+}
+
+.preview-headline {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 20rpx;
+}
+
+.preview-word {
+  line-height: 1.2;
+}
+
+.preview-ipa {
+  font-size: 30rpx;
+}
+
+.preview-line {
+  display: block;
+}
+
+.preview-pos {
+  font-style: italic;
+}
+
+.preview-mark {
+  font-weight: 600;
+}
+
+.preview-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 16rpx;
+}
+
+.preview-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 68rpx;
+  height: 68rpx;
+  border-radius: 34rpx;
+}
+
+.preview-glyph {
+  width: 30rpx;
+  height: 30rpx;
+}
+
+/* ---- 什么时候切换: three equal tabs on a tinted track ---- */
+.mode-tabs {
+  display: flex;
+  flex-direction: row;
+  margin-top: 16rpx;
+  padding: 6rpx;
+  border-radius: 24rpx;
+  background-color: var(--rule);
+}
+
+.mode-tab {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  height: 68rpx;
+  border-radius: 18rpx;
+  color: var(--muted);
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.mode-tab-on {
+  background-color: var(--surface);
+  color: var(--ink);
+}
+
+/* ---- 跟随时间 ---- */
+.panel {
+  margin-top: 20rpx;
+  padding: 28rpx 28rpx 12rpx;
+  border: 1px solid var(--rule);
+  border-radius: 28rpx;
+  background-color: var(--surface);
+}
+
+.day-bar-box {
+  position: relative;
+  height: 68rpx;
+}
+
+.day-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 24rpx;
+  display: flex;
+  flex-direction: row;
+  height: 24rpx;
+  border: 1px solid var(--rule);
+  border-radius: 12rpx;
+  overflow: hidden;
+}
+
+.day-segment {
+  height: 100%;
+}
+
+/* The marker is centred on its `left` by a negative margin of half its width. */
+.now {
+  position: absolute;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 56rpx;
+  margin-left: -28rpx;
+}
+
+.now-label {
+  color: var(--accent);
+  font-size: 20rpx;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.now-line {
+  width: 4rpx;
+  height: 40rpx;
+  background-color: var(--accent);
+}
+
+.day-scale {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  margin-top: 8rpx;
+  color: var(--muted);
+  font-size: 22rpx;
+}
+
+.panel-row {
+  min-height: 92rpx;
+}
+
+.panel-row-last {
+  border-bottom-width: 0;
+}
+
+.hint-text {
+  display: block;
+  margin-top: 16rpx;
+  padding-bottom: 8rpx;
+  color: var(--muted);
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+
+/* ---- 字号 ---- */
+.row-off {
+  opacity: 0.4;
+}
+
+.steps {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12rpx;
+}
+
+/* A 36 px round target; px so it keeps its size on every screen. */
+.step-btn {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--rule);
+  border-radius: 18px;
+  background-color: var(--surface);
+  color: var(--accent);
+}
+
+.step-btn-off {
+  opacity: 0.4;
+}
+
+.step-a-small {
+  font-size: 26rpx;
+}
+
+.step-a-large {
+  font-size: 38rpx;
+}
+
+.dots {
+  display: flex;
+  flex-direction: row;
+  gap: 12rpx;
+  padding: 0 8rpx;
+}
+
+.dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 8rpx;
+  background-color: var(--rule);
+}
+
+.dot-on {
+  background-color: var(--accent);
+}

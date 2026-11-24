@@ -20,6 +20,7 @@ import { mergeSettings, SettingsPatch } from './settings.ts';
 import { toTokenPair } from './tokenPair.ts';
 import { normalizeInviteCode } from './tokens.ts';
 import { WechatLoginError } from './wechat.ts';
+import { rescheduleAccount } from '../review/cards.ts';
 
 /** Per client IP, per endpoint, for the unauthenticated auth endpoints. */
 export const AUTH_IP_LIMIT_PER_MINUTE = 30;
@@ -268,6 +269,11 @@ export async function registerAuthRoutes(app: FastifyInstance, deps: AppDeps): P
       const patch = SettingsPatch.parse(request.body);
       const settings = await mergeSettings(db, userId, patch);
       if (!settings) throw unauthorized('account not found');
+      // Review by importance changes every card's retention: re-derive the stored schedules now.
+      if (patch.importanceReview !== undefined) {
+        const cards = await rescheduleAccount(db, userId, config.MASTERED_DAYS);
+        request.log.info({ userId, cards }, 'review schedules re-derived');
+      }
       request.log.info({ userId, keys: Object.keys(patch) }, 'settings updated');
       return ok({ settings });
     }),

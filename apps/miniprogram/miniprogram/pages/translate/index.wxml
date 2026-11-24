@@ -1,26 +1,103 @@
-<view class="page theme-{{theme}}">
+<!-- 朗读 / 复制 / 收藏 (+ stars), inline under the result or docked at the bottom. -->
+<template name="actions">
+  <view class="tr-icons">
+    <view wx:if="{{busy}}" class="icon-btn icon-btn-tonal" bindtap="onStop" aria-role="button" aria-label="停止">
+      <t-icon name="stop" tone="accent" size="32" />
+    </view>
+    <block wx:else>
+      <view
+        wx:if="{{showSpeak}}"
+        class="icon-btn icon-btn-tonal {{canSpeak ? '' : 'icon-btn-off'}}"
+        bindtap="onSpeak"
+        aria-role="button"
+        aria-label="{{speakPhase === 'idle' ? '朗读' : '停止朗读'}}"
+      >
+        <t-speak-icon phase="{{speakPhase}}" tone="accent" size="32" />
+      </view>
+      <text wx:if="{{progress}}" class="tr-progress">{{progress}}</text>
+      <view class="icon-btn icon-btn-tonal {{canCopy ? '' : 'icon-btn-off'}}" bindtap="onCopy" aria-role="button" aria-label="{{copyLabel}}">
+        <t-icon name="copy" tone="accent" size="32" />
+      </view>
+      <view
+        wx:if="{{canNote}}"
+        class="icon-btn icon-btn-tonal"
+        bindtap="onResultNote"
+        aria-role="button"
+        aria-label="{{noteStars ? '取消收藏' : '收藏到笔记本'}}"
+      >
+        <t-icon name="{{noteStars ? 'bookmark-filled' : 'bookmark'}}" tone="accent" size="32" />
+      </view>
+      <t-stars wx:if="{{canNote && noteStars}}" level="{{noteStars}}" size="36" bind:change="onResultStars" />
+    </block>
+  </view>
+  <view wx:if="{{docked}}" class="icon-btn tr-top" bindtap="onBackToTop" aria-role="button" aria-label="回到顶部">
+    <t-icon name="arrow-up" tone="muted" size="32" />
+  </view>
+</template>
+
+<!-- The English side as tappable words. One line per <text> on purpose: whitespace inside <text> is rendered. -->
+<template name="tokens">
+  <view id="{{boxId}}" class="tokens serif {{boxClass}}">
+    <block wx:for="{{tokens}}" wx:for-item="chip" wx:for-index="c" wx:key="c">
+      <view class="chip">
+        <text wx:for="{{chip.parts}}" wx:for-item="part" wx:for-index="p" wx:key="p" id="{{part.word >= 0 ? 'w' + part.word : 'x' + c + '-' + p}}" class="{{part.word >= 0 && lookupOn ? 'tok-word' : ''}} {{part.on ? 'tok-on' : ''}}" data-w="{{part.word}}" bindtap="onWordTap">{{part.text}}</text>
+      </view>
+      <view wx:if="{{chip.breaks > 0}}" class="tok-break {{chip.breaks > 1 ? 'tok-para' : ''}}" />
+    </block>
+  </view>
+</template>
+
+<view class="page tr-page theme-{{theme}} {{accentClass}}">
   <nav-bar title="翻译" />
-  <scroll-view class="body" scroll-y type="list" show-scrollbar="{{false}}">
-    <view class="content">
+  <scroll-view
+    id="body"
+    class="body"
+    scroll-y
+    enhanced
+    type="list"
+    show-scrollbar="{{false}}"
+    scroll-top="{{scrollTop}}"
+    scroll-with-animation
+  >
+    <view id="content" class="content">
       <view class="composer {{focused ? 'composer-focused' : ''}}">
-        <textarea
-          class="composer-input"
-          value="{{input}}"
-          focus="{{focus}}"
-          auto-height
-          maxlength="2000"
-          confirm-type="send"
-          show-confirm-bar="{{false}}"
-          adjust-position
-          placeholder="输入中文或外语"
-          placeholder-class="placeholder"
-          bindinput="onInput"
-          bindconfirm="onSubmit"
-          bindfocus="onFocus"
-          bindblur="onBlur"
-        />
+        <view wx:if="{{collapsed && input}}" class="tr-preview" bindtap="onExpandComposer" aria-role="button" aria-label="展开原文继续编辑">
+          <text class="tr-preview-text {{inputEnglish ? 'serif' : ''}}" max-lines="2" overflow="ellipsis">{{input}}</text>
+        </view>
+        <view wx:else class="tr-field">
+          <textarea
+            class="composer-input tr-input {{inputEnglish ? 'serif' : ''}} {{tall ? 'tr-input-tall' : ''}}"
+            value="{{input}}"
+            focus="{{focus}}"
+            auto-height="{{!tall}}"
+            maxlength="2000"
+            confirm-type="send"
+            show-confirm-bar="{{false}}"
+            adjust-position
+            placeholder=""
+            bindinput="onInput"
+            bindconfirm="onSubmit"
+            bindfocus="onFocus"
+            bindblur="onBlur"
+            bindlinechange="onLineChange"
+          />
+          <view wx:if="{{!input}}" class="tr-hint" bindtap="onHintTap">
+            <text class="tr-hint-text">输入或</text>
+            <view class="btn btn-tonal btn-sm tr-paste" catchtap="onPaste" aria-role="button" aria-label="粘贴剪贴板里的文字">
+              <text>粘贴</text>
+            </view>
+            <text class="tr-hint-text">要翻译或纠错的文字</text>
+          </view>
+        </view>
         <view class="composer-bar">
-          <text wx:if="{{!input}}" class="composer-hint">中文译英文 · 外语译中文</text>
+          <view class="tr-bar-left">
+            <view wx:if="{{showDirection}}" class="btn btn-tonal btn-sm tr-dir" bindtap="onFlipDirection" aria-role="button" aria-label="{{dirAria}}">
+              <text>{{dirFrom}}</text>
+              <t-icon name="swap" tone="accent" size="28" />
+              <text>{{dirTo}}</text>
+            </view>
+            <text wx:if="{{counter}}" class="tr-counter">{{counter}}</text>
+          </view>
           <view class="composer-actions">
             <view wx:if="{{input}}" class="icon-btn" bindtap="onClear" aria-role="button" aria-label="清空">
               <t-icon name="close" tone="muted" size="32" />
@@ -36,7 +113,16 @@
             >
               <t-icon name="mic" tone="{{recording ? 'accent' : 'muted'}}" size="36" />
             </view>
-            <view class="btn btn-primary btn-sm {{input ? '' : 'btn-disabled'}}" bindtap="onSend" aria-role="button" aria-label="翻译">
+            <view
+              class="btn btn-secondary btn-sm {{canCheck ? '' : 'btn-disabled'}} {{task === 'check' && status !== 'idle' ? 'tr-current' : ''}}"
+              bindtap="onCheck"
+              aria-role="button"
+              aria-label="纠错"
+              aria-disabled="{{!canCheck}}"
+            >
+              <text>纠错</text>
+            </view>
+            <view class="btn btn-primary btn-sm {{canSubmit ? '' : 'btn-disabled'}}" bindtap="onTranslate" aria-role="button" aria-label="翻译">
               <text>翻译</text>
             </view>
           </view>
@@ -44,43 +130,186 @@
         <text wx:if="{{recording}}" class="hint">正在听，松开即翻译</text>
       </view>
 
-      <view wx:if="{{status !== 'idle'}}" class="result">
-        <view wx:if="{{label}}" class="direction" bindtap="onFlip" aria-role="button" aria-label="反向翻译">
-          <text>{{label}}</text>
-          <text wx:if="{{!busy}}" class="direction-flip">　反向</text>
-        </view>
+      <view wx:if="{{status !== 'idle'}}" class="result tr-result">
+        <text wx:if="{{meta}}" class="tr-meta">{{meta}}</text>
 
-        <block wx:if="{{headline}}">
-          <view class="headline">
-            <text class="head serif" user-select>{{headline.head}}</text>
+        <!-- 纠错 -->
+        <block wx:if="{{task === 'check'}}">
+          <!-- One line on purpose: whitespace inside <text> is rendered. -->
+          <text wx:if="{{corrected}}" class="output output-en serif tr-check" user-select><block wx:for="{{segments}}" wx:key="index"><text class="diff-{{item.op}}">{{item.text}}</text><text wx:if="{{item.mark}}" class="tr-mark">{{item.mark}}</text></block></text>
+          <text wx:elif="{{pending}}" class="output output-en serif">{{pending}}</text>
+
+          <view wx:if="{{rows.length}}" class="tr-rows">
+            <view wx:for="{{rows}}" wx:key="index" class="tr-row">
+              <view wx:if="{{item.no}}" class="tr-badge"><text>{{item.no}}</text></view>
+              <view wx:else class="tr-badge-space" />
+              <view class="tr-row-body">
+                <text wx:if="{{item.no}}" class="tr-change serif"><text wx:if="{{item.before}}" class="tr-before">{{item.before}}</text><text wx:if="{{item.before && item.after}}" class="muted"> → </text><text wx:if="{{!item.before}}" class="muted">补上 </text><text wx:if="{{item.after}}" class="tr-after">{{item.after}}</text><text wx:if="{{!item.after}}" class="muted"> 删去</text></text>
+                <text wx:if="{{item.why}}" class="tr-why {{item.heading ? 'tr-why-heading' : ''}}" user-select>{{item.why}}</text>
+              </view>
+            </view>
+          </view>
+          <view wx:if="{{rowsCollapsible}}" class="tr-more" bindtap="onToggleRows" aria-role="button" aria-expanded="{{rowsExpanded}}">
+            <text>{{rowsExpanded ? '收起' : '展开其余 ' + hiddenRows + ' 条解释'}}</text>
+            <view class="tr-chevron {{rowsExpanded ? 'tr-chevron-up' : ''}}"><t-icon name="chevron-right" tone="accent" size="28" /></view>
+          </view>
+        </block>
+
+        <!-- 单词 -->
+        <block wx:elif="{{headline}}">
+          <view class="tr-headline">
+            <text class="head serif tr-head tr-head-{{headSize}}" user-select>{{headline.head}}</text>
             <text class="ipa">/{{headline.ipa}}/</text>
+            <view
+              class="icon-btn icon-btn-sm icon-btn-tonal {{bar.canSpeak ? '' : 'icon-btn-off'}}"
+              bindtap="onSpeak"
+              aria-role="button"
+              aria-label="{{bar.speakPhase === 'idle' ? '朗读' : '停止朗读'}}"
+            >
+              <t-speak-icon phase="{{bar.speakPhase}}" tone="accent" size="30" />
+            </view>
           </view>
           <text wx:if="{{headline.gloss}}" class="gloss" user-select>{{headline.gloss}}</text>
           <text wx:if="{{headline.rest}}" class="explanation" user-select>{{headline.rest}}</text>
+          <view wx:if="{{wordLink}}" class="tr-more" bindtap="onWordLink" aria-role="link">
+            <text>完整释义：词形、搭配、近义辨析</text>
+            <t-icon name="chevron-right" tone="accent" size="28" />
+          </view>
         </block>
-        <text wx:elif="{{text}}" class="output {{english ? 'serif output-en' : ''}}" user-select>{{text}}</text>
 
-        <text wx:if="{{status === 'waiting'}}" class="muted">翻译中…</text>
+        <!-- 句子 / 段落 -->
+        <block wx:else>
+          <block wx:if="{{outputTokens}}">
+            <template is="tokens" data="{{tokens, lookupOn, boxId: 'output-words', boxClass: 'tokens-big'}}" />
+            <text wx:if="{{lookupOn}}" class="tr-label tr-label-after">点单词查释义，再点相邻的词选词组</text>
+          </block>
+          <text wx:elif="{{text}}" class="output {{english ? 'serif output-en' : ''}}" user-select>{{text}}</text>
+
+          <view wx:if="{{sourceTokens}}" class="tr-source">
+            <text class="tr-label">{{lookupOn ? '原文 · 点单词查释义，再点相邻的词选词组' : '原文'}}</text>
+            <view class="tr-source-box {{sourceClamped ? 'tr-source-clamped' : ''}}">
+              <template is="tokens" data="{{tokens, lookupOn, boxId: 'source-words', boxClass: ''}}" />
+            </view>
+            <view wx:if="{{sourceCollapsible && sourceClamped}}" class="tr-fold" bindtap="onExpandSource" aria-role="button">
+              <text class="tr-fold-text">原文 {{sourceLines}} 行，已折叠</text>
+              <view class="tr-fold-link">
+                <text>{{lookupOn ? '展开原文点词查词' : '展开原文'}}</text>
+                <view class="tr-chevron"><t-icon name="chevron-right" tone="accent" size="28" /></view>
+              </view>
+            </view>
+          </view>
+        </block>
+
+        <text wx:if="{{status === 'waiting'}}" class="muted">{{task === 'check' ? '检查中…' : '翻译中…'}}</text>
         <text wx:if="{{status === 'stopped'}}" class="muted">已停止</text>
         <text wx:if="{{errorText}}" class="error">{{errorText}}</text>
 
-        <view class="actions">
-          <view wx:if="{{busy}}" class="btn btn-tonal btn-sm btn-icon-first" bindtap="onStop" aria-role="button">
-            <t-icon name="stop" tone="accent" size="32" />
-            <text>停止</text>
-          </view>
-          <block wx:else>
-            <view class="btn btn-tonal btn-sm btn-icon-first {{canSpeak ? '' : 'btn-disabled'}}" bindtap="onSpeak" aria-role="button">
-              <t-icon name="speaker" tone="accent" size="32" />
-              <text>朗读</text>
-            </view>
-            <view class="btn btn-tonal btn-sm btn-icon-first {{text ? '' : 'btn-disabled'}}" bindtap="onCopy" aria-role="button">
-              <t-icon name="copy" tone="accent" size="32" />
-              <text>复制</text>
-            </view>
-          </block>
+        <view wx:if="{{!docked}}" class="actions tr-actions">
+          <template is="actions" data="{{...bar}}" />
         </view>
       </view>
+
+      <!-- Room to scroll the tapped word above the sheet. -->
+      <view wx:if="{{sheetOpen}}" style="height: {{sheetHeight}}px;" />
     </view>
   </scroll-view>
+
+  <view wx:if="{{docked && status !== 'idle'}}" class="tr-dock" aria-role="toolbar" aria-label="结果操作">
+    <template is="actions" data="{{...bar}}" />
+  </view>
+
+  <!-- 点词查词: header fixed, body scrolls; at most 60% of the window. -->
+  <view wx:if="{{sheetOpen}}" class="tr-sheet" style="height: {{sheetHeight}}px;" aria-role="dialog" aria-label="单词释义">
+    <view class="tr-grip" />
+    <view class="tr-sheet-head">
+      <view class="tr-sheet-title">
+        <view class="tr-sheet-word">
+          <text class="tr-sheet-lemma serif">{{sheet.title}}</text>
+          <text wx:if="{{sheet.ipa}}" class="tr-sheet-ipa">{{sheet.ipa}}</text>
+        </view>
+        <text wx:if="{{sheet.asWritten}}" class="tr-sheet-sub">原文中是 {{sheet.asWritten}}</text>
+      </view>
+      <view class="icon-btn" bindtap="onSheetClose" aria-role="button" aria-label="关闭释义">
+        <t-icon name="close" tone="muted" size="32" />
+      </view>
+    </view>
+    <view wx:if="{{sheet.state === 'ready'}}" class="tr-sheet-actions">
+      <view
+        class="icon-btn icon-btn-tonal"
+        bindtap="onSheetSpeak"
+        aria-role="button"
+        aria-label="{{sheetSpeakPhase === 'idle' ? '朗读这个词' : '停止朗读'}}"
+      >
+        <t-speak-icon phase="{{sheetSpeakPhase}}" tone="accent" size="32" />
+      </view>
+      <block wx:if="{{sheet.headNote}}">
+        <view
+          class="icon-btn icon-btn-tonal"
+          bindtap="onHeadNote"
+          aria-role="button"
+          aria-label="{{sheet.headStars ? '取消收藏' : '收藏到笔记本'}}"
+        >
+          <t-icon name="{{sheet.headStars ? 'bookmark-filled' : 'bookmark'}}" tone="accent" size="32" />
+        </view>
+        <t-stars wx:if="{{sheet.headStars}}" level="{{sheet.headStars}}" size="36" bind:change="onHeadStars" />
+      </block>
+    </view>
+
+    <scroll-view class="tr-sheet-body" scroll-y type="list" show-scrollbar="{{false}}">
+      <view class="tr-sheet-inner">
+        <view wx:if="{{sheet.state === 'loading'}}" class="tr-skeleton" aria-label="释义加载中">
+          <view class="tr-skel tr-skel-block" />
+          <view class="tr-skel tr-skel-line tr-skel-80" />
+          <view class="tr-skel tr-skel-line tr-skel-64" />
+          <view class="tr-skel tr-skel-line tr-skel-72" />
+        </view>
+
+        <view wx:elif="{{sheet.state === 'error'}}" class="tr-sheet-error">
+          <text class="error">{{sheet.errorText}}</text>
+          <view wx:if="{{sheet.canRetry}}" class="link link-strong" bindtap="onSheetRetry" aria-role="button"><text>重试</text></view>
+        </view>
+
+        <block wx:else>
+          <view wx:if="{{sheet.meaning}}" class="tr-context">
+            <text class="tr-context-label">在本句中</text>
+            <text class="tr-context-text" user-select>{{sheet.meaning}}</text>
+          </view>
+
+          <view wx:if="{{sheet.phrase}}" class="tr-phrase">
+            <view class="tr-phrase-row">
+              <view class="tr-phrase-text">
+                <text class="tr-phrase-label">词组</text>
+                <text class="tr-phrase-en serif" user-select>{{sheet.phrase.text}}</text>
+                <text class="tr-phrase-gloss" user-select>{{sheet.phrase.gloss}}</text>
+              </view>
+              <view
+                wx:if="{{sheet.phraseNote}}"
+                class="icon-btn icon-btn-tonal"
+                bindtap="onPhraseNote"
+                aria-role="button"
+                aria-label="{{sheet.phraseStars ? '取消收藏词组' : '收藏词组到笔记本'}}"
+              >
+                <t-icon name="{{sheet.phraseStars ? 'bookmark-filled' : 'bookmark'}}" tone="accent" size="30" />
+              </view>
+            </view>
+            <view wx:if="{{sheet.phraseNote && sheet.phraseStars}}" class="tr-phrase-stars">
+              <t-stars level="{{sheet.phraseStars}}" size="32" bind:change="onPhraseStars" />
+            </view>
+          </view>
+
+          <view class="tr-senses">
+            <view wx:for="{{sheet.senses}}" wx:key="index" class="tr-sense">
+              <text class="tr-pos serif">{{item.pos}}</text>
+              <text class="tr-sense-gloss" user-select>{{item.gloss}}</text>
+            </view>
+          </view>
+
+          <view class="tr-more" bindtap="onSheetMore" aria-role="link">
+            <text>完整释义</text>
+            <t-icon name="chevron-right" tone="accent" size="28" />
+          </view>
+        </block>
+      </view>
+    </scroll-view>
+  </view>
 </view>

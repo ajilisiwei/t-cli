@@ -57,8 +57,15 @@ export const CONTENT_SCHEMAS = {
   grammar: GrammarContentSchema,
 } as const;
 
-/** Stored content of an item, re-validated on read (null when it does not fit its type's shape). */
-export function parseStoredContent(type: ItemType, content: unknown): ItemContent | null {
+/** Every `items.type`: the AI-generated types plus v2 sentences (content `{ text, translation }`, no AI). */
+export type StoredItemType = ItemType | 'sentence';
+
+/**
+ * Stored content of an item, re-validated on read (null when it does not fit
+ * its type's shape, and for sentences, which have no AI content).
+ */
+export function parseStoredContent(type: StoredItemType, content: unknown): ItemContent | null {
+  if (type === 'sentence') return null;
   if (type === 'word') {
     const parsed = WordContentSchema.safeParse(content);
     return parsed.success ? { type, content: parsed.data } : null;

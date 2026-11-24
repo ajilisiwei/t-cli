@@ -1,4 +1,4 @@
-<view class="page theme-{{theme}}">
+<view class="page theme-{{theme}} {{accentClass}}">
   <nav-bar title="学习单元" back />
   <scroll-view class="body" scroll-y type="list" show-scrollbar="{{false}}">
     <view class="content">
@@ -15,8 +15,8 @@
         <view class="headline">
           <text class="head serif" user-select>{{word.headword}}</text>
           <text wx:if="{{word.ipa}}" class="ipa serif">/{{word.ipa}}/</text>
-          <view class="icon-btn icon-btn-sm icon-btn-tonal speak {{speaking ? 'icon-btn-busy' : ''}}" bindtap="onSpeak" aria-role="button" aria-label="朗读 {{word.headword}}">
-            <t-icon name="speaker" tone="accent" size="30" />
+          <view class="icon-btn icon-btn-sm icon-btn-tonal speak" bindtap="onSpeak" aria-role="button" aria-label="{{speakPhase === 'idle' ? '朗读 ' + word.headword : '停止朗读'}}">
+            <t-speak-icon phase="{{speakPhase}}" tone="accent" size="30" />
           </view>
         </view>
         <text class="meta">{{meta}}</text>
@@ -57,8 +57,8 @@
       <view wx:if="{{phrase}}" class="hero">
         <view class="headline">
           <text class="phrase-text serif" user-select>{{phrase.phrase}}</text>
-          <view class="icon-btn icon-btn-sm icon-btn-tonal speak {{speaking ? 'icon-btn-busy' : ''}}" bindtap="onSpeak" aria-role="button" aria-label="朗读 {{phrase.phrase}}">
-            <t-icon name="speaker" tone="accent" size="30" />
+          <view class="icon-btn icon-btn-sm icon-btn-tonal speak" bindtap="onSpeak" aria-role="button" aria-label="{{speakPhase === 'idle' ? '朗读 ' + phrase.phrase : '停止朗读'}}">
+            <t-speak-icon phase="{{speakPhase}}" tone="accent" size="30" />
           </view>
         </view>
         <text wx:if="{{phrase.zh}}" class="gloss">{{phrase.zh}}</text>
@@ -97,8 +97,8 @@
           <view wx:if="{{grammar.right}}" class="contrast-line contrast-right" aria-label="正确：{{grammar.right}}">
             <view class="mark-icon"><t-icon name="check" tone="accent" size="30" /></view>
             <text class="right serif" user-select>{{grammar.right}}</text>
-            <view class="icon-btn icon-btn-sm icon-btn-tonal speak {{speaking ? 'icon-btn-busy' : ''}}" bindtap="onSpeak" aria-role="button" aria-label="朗读正确的句子">
-              <t-icon name="speaker" tone="accent" size="30" />
+            <view class="icon-btn icon-btn-sm icon-btn-tonal speak" bindtap="onSpeak" aria-role="button" aria-label="{{speakPhase === 'idle' ? '朗读正确的句子' : '停止朗读'}}">
+              <t-speak-icon phase="{{speakPhase}}" tone="accent" size="30" />
             </view>
           </view>
         </view>
