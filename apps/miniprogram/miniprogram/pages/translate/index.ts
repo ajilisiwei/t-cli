@@ -42,7 +42,6 @@ import {
 import type { Direction, LookupResult } from '../../lib/types'
 import { diffWords, displaySegments } from '../../lib/word-diff'
 import { lookupWord } from '../../services/endpoints'
-import { takeTranslationHandOff } from '../../services/handoff'
 import { canSaveNote, flushNotes } from '../../services/notes'
 import { utcOffsetMinutes } from '../../services/platform'
 import { createResultRunner, type ResultRunner, type RunnerView } from '../../services/result-runner'
@@ -136,11 +135,6 @@ Page({
     syncSavedNotes()
       .then(() => this.refreshNoteStates())
       .catch(() => undefined)
-    const handedOff = takeTranslationHandOff()
-    if (handedOff !== null) {
-      this.setInput(handedOff)
-      this.submit('translate', handedOff)
-    }
   },
 
   onUnload() {

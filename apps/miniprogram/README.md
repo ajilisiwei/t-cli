@@ -46,9 +46,19 @@ apps/miniprogram/
       appearance.ts          深浅模式 (system / time / fixed), the day bar, 阅读模式 type sizes, labels
       palette.ts             theme and accent colours for JS (icons, tab bar, ring gradient), icon and tab icon paths
       wire.ts                shape checks for API responses: settings, lookup, notes, entry days, TTS part headers
+      tokens.ts              English word tokens for tap-to-look-up; extending a selection to a phrase
+      lookup-view.ts         the lookup sheet's content, the word-page URL, scroll-into-view math
+      check-changes.ts       纠错: numbered changes in the corrected text and their explanation rows
+      composer.ts            input counter, paste clipping, paragraph count
+      copy.ts                what 复制 copies (translation only; a word's gloss line; corrected text)
+      note-outbox.ts         offline queue of note changes, one per note
+      notebook.ts            笔记本 rows and filters, 单词详情 view, the saved-notes index
+      history-days.ts        查询记录 day groups, day strip and labels
     services/                wx-bound glue: request transport, session, stream, TTS, voice, theme,
-                             settings, review (queue, ratings outbox, badge, reminders), library, account
-    pages/                   translate, check, me, history, devices, authorize, invite,
+                             settings, review (queue, ratings outbox, badge, reminders), library, account,
+                             notes (saves with an offline outbox), saved-index (the account's notes, shared
+                             by the 翻译 and word pages so a note is never saved twice)
+    pages/                   translate (翻译 and 纠错 in one page), me, history, devices, authorize, invite,
                              review (tab), review-session, materials, library, item, stats, weekly, account,
                              notebook (tab), word, appearance (v2)
     components/nav-bar/      custom navigation bar (Skyline pages have no native one)
@@ -88,8 +98,8 @@ is stale. After changing such a module in `packages/core`:
 npm run sync:core -w @t-cli/miniprogram
 ```
 
-Only `detect.js` is vendored (the 纠错 tab uses `detectSourceLang` to send
-non-English input to 翻译). The translate direction comes from the server's
+Only `detect.js` is vendored (the 翻译 page uses `detectSourceLang` to turn
+纠错 off for Chinese input and to label the direction). The translate direction comes from the server's
 `meta` line, and TTS text selection happens on the server.
 
 ## Design system
