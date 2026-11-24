@@ -34,3 +34,17 @@ export function watchTheme(listener: ThemeListener): () => void {
     listeners.delete(listener)
   }
 }
+
+/** Theme subscriptions of mounted components (component instances take no typed custom fields). */
+const followers = new WeakMap<object, () => void>()
+
+/** For components: calls `listener` on theme changes until `unfollowTheme(owner)` (in `detached`). */
+export function followTheme(owner: object, listener: ThemeListener): void {
+  followers.get(owner)?.()
+  followers.set(owner, watchTheme(listener))
+}
+
+export function unfollowTheme(owner: object): void {
+  followers.get(owner)?.()
+  followers.delete(owner)
+}

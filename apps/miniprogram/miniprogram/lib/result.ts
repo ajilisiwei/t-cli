@@ -70,6 +70,11 @@ export function stopResult(state: ResultState): ResultState {
   return state
 }
 
+/** The entry 朗读 reads: the finished result's id, '' until there is one. */
+export function speechKey(state: ResultState): string {
+  return state.status === 'done' && state.entryId !== null ? state.entryId : ''
+}
+
 export function isBusy(state: ResultState): boolean {
   return state.status === 'waiting' || state.status === 'streaming'
 }

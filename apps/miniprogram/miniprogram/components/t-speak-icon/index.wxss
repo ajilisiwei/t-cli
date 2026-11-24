@@ -1,0 +1,80 @@
+/*
+ * Motion uses transform and opacity only (cheap on Skyline's render thread),
+ * longhand animation properties (Skyline reads the longhands), and keyframes
+ * declared here (Skyline scopes @keyframes to the component).
+ */
+.icon {
+  display: block;
+  flex-shrink: 0;
+}
+
+.bars {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.bar {
+  flex-shrink: 0;
+}
+
+/* Loading: three dots light up in turn. */
+.loading {
+  opacity: 0.3;
+  animation-name: speak-pulse;
+  animation-duration: 0.45s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+
+.loading-2 {
+  animation-delay: 0.15s;
+}
+
+.loading-3 {
+  animation-delay: 0.3s;
+}
+
+/* Playing: three bars bounce out of step, from the centre line. */
+.playing {
+  transform: scaleY(0.35);
+  animation-name: speak-bounce;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+
+.playing-1 {
+  animation-duration: 0.42s;
+}
+
+.playing-2 {
+  animation-duration: 0.56s;
+  animation-delay: 0.12s;
+}
+
+.playing-3 {
+  animation-duration: 0.48s;
+  animation-delay: 0.24s;
+}
+
+@keyframes speak-pulse {
+  0% {
+    opacity: 0.3;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes speak-bounce {
+  0% {
+    transform: scaleY(0.35);
+  }
+  100% {
+    transform: scaleY(1);
+  }
+}

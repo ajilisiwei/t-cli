@@ -5,10 +5,7 @@
  * the tappable parent carries the aria-label.
  */
 import { iconPath, type Theme } from '../../lib/palette'
-import { currentTheme, watchTheme } from '../../services/theme'
-
-/** Theme subscriptions per mounted icon, dropped when it detaches. */
-const subscriptions = new WeakMap<object, () => void>()
+import { currentTheme, followTheme, unfollowTheme } from '../../services/theme'
 
 Component({
   properties: {
@@ -28,15 +25,11 @@ Component({
   },
   lifetimes: {
     attached() {
-      subscriptions.set(
-        this,
-        watchTheme((theme) => this.refresh(theme)),
-      )
+      followTheme(this, (theme) => this.refresh(theme))
       this.refresh(currentTheme())
     },
     detached() {
-      subscriptions.get(this)?.()
-      subscriptions.delete(this)
+      unfollowTheme(this)
     },
   },
   methods: {

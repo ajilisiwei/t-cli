@@ -33,6 +33,7 @@ apps/miniprogram/
       history.ts             history paging, row and time formatting
       env.ts                 API base URL and dev login by envVersion
       tts-cache.ts           audio file naming and eviction
+      speaker.ts             朗读 state: one sound at a time, idle / loading / playing per key
       review-*.ts            复习: session state machine, rating outbox, client ULIDs, interval
                              labels, card-face rendering, swipe, home ring/badge, material view,
                              response validation (review-types.ts: shared types)
@@ -46,6 +47,7 @@ apps/miniprogram/
                              review (tab), review-session, materials, library, item, stats, weekly, account
     components/nav-bar/      custom navigation bar (Skyline pages have no native one)
     components/t-icon/       <t-icon name tone size>: one generated SVG in the current theme
+    components/t-speak-icon/ <t-speak-icon phase tone size>: the speaker, or loading dots / playing bars
     assets/icons/            GENERATED: <theme>/<name>-<tone>.svg
     vendor/core/detect.js    GENERATED copy of packages/core/src/detect.js
 ```
@@ -91,8 +93,9 @@ of page-local look-alikes; a page's own wxss only lays things out.
 | --- | --- | --- |
 | Colour | `--bg --surface --ink --ink-soft --muted --rule --accent --accent-soft --accent-ink --danger` | CSS variables on the page root (`theme-light` / `theme-dark`); `lib/palette.ts` mirrors them for JS |
 | Button | `.btn` + `.btn-primary` / `.btn-secondary` / `.btn-tonal` / `.btn-danger`, sizes `.btn-sm` / `.btn-lg`, `.btn-block`, `.btn-disabled` | Pill. One primary per screen; tonal for inline actions (朗读, 复制, 停止); an icon comes first, with `.btn-icon-first` on a small pill |
-| Icon button | `.icon-btn` (+ `.icon-btn-sm`, `.icon-btn-tonal`, `.icon-btn-busy`, `.icon-btn-off`) | A round target around one icon: the ▶ next to a word, clear, date steppers |
+| Icon button | `.icon-btn` (+ `.icon-btn-sm`, `.icon-btn-tonal`, `.icon-btn-off`) | A round target around one icon: 朗读 next to a word, clear, date steppers |
 | Icon | `<t-icon name tone size>` | `name`: speaker, stop, copy, close, check, chevron-left, chevron-right, mic. `tone`: ink, muted, accent, danger, accentInk (= `--accent-ink`, only on an accent fill). `size` in rpx |
+| 朗读 | `<t-speak-icon phase tone size>` inside a `.icon-btn` or a tonal `.btn` | The one speaker icon. `phase` (idle / loading / playing) comes from `services/speech.ts`: idle draws the speaker, loading three dots pulsing in turn, playing three bouncing bars. The label reads 朗读 when idle and 停止 otherwise; the tap is `toggleSpeech`, so tapping what sounds stops it |
 | Link | `.link` (+ `.link-strong`, `.link-danger`) | A quiet action inside a line (撤销) |
 | Row | `.row`, `.row-label`, `.row-value`, `.row-trail` | List rows; a trailing value plus `chevron-right` |
 | Marks | `.mark-line` + `.mark-icon` | ✓ / ✗ in front of a sentence (check accent, close danger) |
@@ -108,6 +111,9 @@ Rules that come from Skyline (they are why the pieces look the way they do):
   supports.
 - **No `currentColor`.** Hence one SVG file per tone and theme.
 - SVG files: no percentages, no `<style>` (Skyline's image limits).
+- **Motion** animates `transform` and `opacity` only, with longhand
+  `animation-*` properties and `@keyframes` in the component's own wxss
+  (Skyline scopes keyframes to the component).
 
 Adding an icon: add its shape to `scripts/icons.mjs` and its name to
 `ICON_NAMES` in `lib/palette.ts`, then `npm run icons -w @t-cli/miniprogram`.

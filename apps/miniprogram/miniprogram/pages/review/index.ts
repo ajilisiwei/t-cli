@@ -4,17 +4,18 @@
  * Every show re-reads the summary, which also refreshes the tab badge.
  */
 import { errorMessage } from '../../lib/api'
-import { fingerprint } from '../../lib/review-card'
+import { storySpeechKey } from '../../lib/review-card'
 import { formatDateLabel, materialTitle } from '../../lib/review-format'
 import { homeView, ringStyle, type HomeView, type RingStyle } from '../../lib/review-home'
 import { materialCounts } from '../../lib/review-material'
 import type { DailyMaterialResponse } from '../../lib/review-types'
 import { localDateKey } from '../../lib/history'
 import { PALETTES } from '../../lib/palette'
+import { speechPhase, type SpeechPhase, type SpeechStatus } from '../../lib/speaker'
 import { askForReminderThen, fetchDailyMaterial, loadReminderConfig, loadSummary } from '../../services/review'
 import { redirectIfInviteRequired } from '../../services/session'
 import { reminderHour } from '../../services/settings'
-import { speakSource, stopSourceSpeech } from '../../services/speech'
+import { speechStatus, stopSpeaking, toggleSpeech, watchSpeech } from '../../services/speech'
 import { currentTheme, watchTheme, type Theme } from '../../services/theme'
 import { toast } from '../../services/ui'
 
@@ -39,7 +40,7 @@ interface ReviewHomeData {
   material: MaterialCard | null
   /** The latest material was looked up and there is none yet. */
   materialMissing: boolean
-  playingStory: boolean
+  storyPhase: SpeechPhase
 }
 
 const EMPTY_VIEW: HomeView = homeView({
@@ -65,7 +66,7 @@ const initialData: ReviewHomeData = {
   refreshing: false,
   material: null,
   materialMissing: false,
-  playingStory: false,
+  storyPhase: 'idle',
 }
 
 const materialCard = (material: DailyMaterialResponse, today: string): MaterialCard => ({
@@ -78,15 +79,15 @@ const materialCard = (material: DailyMaterialResponse, today: string): MaterialC
 Page({
   data: initialData,
   stopWatchingTheme: null as (() => void) | null,
-  /** The latest material's story text: its audio cache key. */
-  storyText: '',
-  /** Counts story playbacks, so a stale one does not clear a newer one's state. */
-  storyPlays: 0,
+  stopWatchingSpeech: null as (() => void) | null,
+  /** The audio key of the latest material's story; '' without one. */
+  storyKey: '',
   /** 开始复习 was tapped and the session page is opening (no double navigation). */
   starting: false,
 
   onLoad() {
     this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme, ring: ringFor(this.data.view, theme) }))
+    this.stopWatchingSpeech = watchSpeech((speech) => this.syncSpeech(speech))
     const theme = currentTheme()
     this.setData({ theme, ring: ringFor(this.data.view, theme) })
   },
@@ -97,12 +98,17 @@ Page({
   },
 
   onHide() {
-    stopSourceSpeech()
-    this.setData({ playingStory: false })
+    stopSpeaking()
   },
 
   onUnload() {
     this.stopWatchingTheme?.()
+    this.stopWatchingSpeech?.()
+  },
+
+  syncSpeech(speech: SpeechStatus) {
+    const storyPhase = speechPhase(speech, this.storyKey)
+    if (storyPhase !== this.data.storyPhase) this.setData({ storyPhase })
   },
 
   async onRefresh() {
@@ -133,10 +139,12 @@ Page({
   async loadMaterial(): Promise<void> {
     try {
       const material = await fetchDailyMaterial()
-      this.storyText = material?.content.story?.text ?? ''
+      const story = material?.content.story ?? null
+      this.storyKey = material === null || story === null ? '' : storySpeechKey(material.date, story.text)
       this.setData({
         material: material === null ? null : materialCard(material, localDateKey(new Date())),
         materialMissing: material === null,
+        storyPhase: speechPhase(speechStatus(), this.storyKey),
       })
     } catch (error: unknown) {
       // The summary reports being offline; the material block just stays as it was.
@@ -165,23 +173,10 @@ Page({
 
   onPlayStory() {
     const material = this.data.material
-    if (material === null || this.storyText === '') return
-    if (this.data.playingStory) {
-      stopSourceSpeech()
-      this.setData({ playingStory: false })
-      return
-    }
-    this.storyPlays += 1
-    const play = this.storyPlays
-    this.setData({ playingStory: true })
-    speakSource(
-      { material: { kind: 'daily', date: material.date, section: 'story' } },
-      `s-${material.date}-${fingerprint(this.storyText)}`,
+    if (material === null || this.storyKey === '') return
+    toggleSpeech({ material: { kind: 'daily', date: material.date, section: 'story' } }, this.storyKey).catch(
+      (error: unknown) => toast(errorMessage(error)),
     )
-      .catch((error: unknown) => toast(errorMessage(error)))
-      .finally(() => {
-        if (play === this.storyPlays) this.setData({ playingStory: false })
-      })
   },
 
   onLibrary() {

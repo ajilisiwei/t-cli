@@ -68,6 +68,11 @@ export type IconName = (typeof ICON_NAMES)[number]
 const isIconName = (name: string): name is IconName => (ICON_NAMES as readonly string[]).includes(name)
 const isIconTone = (tone: string): tone is IconTone => (ICON_TONES as readonly string[]).includes(tone)
 
+/** The colour of `tone` in `theme`; an unknown tone is ink. */
+export function toneColor(tone: string, theme: Theme): string {
+  return PALETTES[theme][isIconTone(tone) ? tone : 'ink']
+}
+
 /**
  * Package path of a generated icon. Unknown names give '' (nothing is drawn);
  * an unknown tone falls back to ink.

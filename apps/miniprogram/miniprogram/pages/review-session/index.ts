@@ -11,6 +11,7 @@
  */
 import { errorMessage } from '../../lib/api'
 import { cardSpeechKey, cardView, type CardView, type FaceView } from '../../lib/review-card'
+import { speechPhase, type SpeechPhase, type SpeechStatus } from '../../lib/speaker'
 import { RATING_LABELS, durationParts, gradeButtons, percent, type GradeButton } from '../../lib/review-format'
 import {
   UNDO_WINDOW_MS,
@@ -40,7 +41,7 @@ import {
 } from '../../services/review'
 import { redirectIfInviteRequired } from '../../services/session'
 import { autoSpeakOnFlip } from '../../services/settings'
-import { prefetchSource, speakSource, stopSourceSpeech } from '../../services/speech'
+import { prefetchSpeech, speak, speechStatus, stopSpeaking, toggleSpeech, watchSpeech } from '../../services/speech'
 import { currentTheme, watchTheme, type Theme } from '../../services/theme'
 import { toast } from '../../services/ui'
 
@@ -69,6 +70,7 @@ interface SessionData {
   back: FaceView | null
   flipped: boolean
   speakSlot: SpeakSlot
+  speakPhase: SpeechPhase
   buttons: GradeButton[]
   position: number
   total: number
@@ -100,6 +102,7 @@ const initialData: SessionData = {
   back: null,
   flipped: false,
   speakSlot: 'line',
+  speakPhase: 'idle',
   buttons: [],
   position: 0,
   total: 0,
@@ -164,9 +167,11 @@ Page({
   undoBusy: false,
   touch: null as TouchStart | null,
   stopWatchingTheme: null as (() => void) | null,
+  stopWatchingSpeech: null as (() => void) | null,
 
   onLoad() {
     this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme }))
+    this.stopWatchingSpeech = watchSpeech((speech) => this.syncSpeech(speech))
     this.setData({ theme: currentTheme(), safeBottom: safeBottomInset() })
     void this.start()
   },
@@ -183,13 +188,14 @@ Page({
 
   onHide() {
     if (this.session !== null) this.session = pause(this.session, Date.now())
-    stopSourceSpeech()
+    stopSpeaking()
   },
 
   onUnload() {
     this.stopWatchingTheme?.()
+    this.stopWatchingSpeech?.()
     this.clearUndoTimer()
-    stopSourceSpeech()
+    stopSpeaking()
   },
 
   async start(): Promise<void> {
@@ -234,6 +240,7 @@ Page({
       back: view?.back ?? null,
       flipped: state.flipped,
       speakSlot: view === null ? 'line' : speakSlot(view),
+      speakPhase: speechPhase(speechStatus(), card === null ? '' : cardSpeechKey(card)),
       buttons: card === null ? [] : gradeButtons(card.intervals),
       position,
       total,
@@ -252,16 +259,26 @@ Page({
   prefetchCurrent() {
     const card = this.session === null ? null : currentCard(this.session)
     if (card === null || !autoSpeakOnFlip()) return
-    prefetchSource({ cardId: card.id }, cardSpeechKey(card)).catch(() => undefined)
+    prefetchSpeech({ cardId: card.id }, cardSpeechKey(card)).catch(() => undefined)
   },
 
+  /** Reads the current card: a tap toggles, the automatic reading after a flip only starts. */
   speakCurrent(manual: boolean) {
     const card = this.session === null ? null : currentCard(this.session)
     if (card === null) return
-    speakSource({ cardId: card.id }, cardSpeechKey(card)).catch((error: unknown) => {
+    const source = { cardId: card.id }
+    const key = cardSpeechKey(card)
+    const reading = manual ? toggleSpeech(source, key) : speak(source, key)
+    reading.catch((error: unknown) => {
       if (manual) toast(errorMessage(error))
       else console.warn('[review] reading the card aloud failed', error)
     })
+  },
+
+  syncSpeech(speech: SpeechStatus) {
+    const card = this.session === null ? null : currentCard(this.session)
+    const speakPhase = speechPhase(speech, card === null ? '' : cardSpeechKey(card))
+    if (speakPhase !== this.data.speakPhase) this.setData({ speakPhase })
   },
 
   flipCard() {
@@ -297,7 +314,7 @@ Page({
     const now = Date.now()
     const result = rate(this.session, rating, newLogId(now), now)
     if (result === null) return false
-    stopSourceSpeech()
+    stopSpeaking()
     recordReview(result.log)
     this.session = result.state
     this.armUndoTimer(result.log.id)
@@ -326,7 +343,7 @@ Page({
     if (undo === null || this.undoBusy) return
     this.undoBusy = true
     this.clearUndoTimer()
-    stopSourceSpeech()
+    stopSpeaking()
     this.setData({ undoing: true })
     try {
       const outcome = await undoReview(undo.logId)
@@ -368,7 +385,7 @@ Page({
       return
     }
     if (this.session === null) return
-    stopSourceSpeech()
+    stopSpeaking()
     this.session = dropItem(this.session, card.itemId, Date.now())
     this.render()
     this.prefetchCurrent()

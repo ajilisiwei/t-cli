@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { ICON_NAMES, ICON_TONES, PALETTES, iconPath, type Palette, type Theme } from '../miniprogram/lib/palette.ts'
+import { ICON_NAMES, ICON_TONES, PALETTES, iconPath, toneColor, type Palette, type Theme } from '../miniprogram/lib/palette.ts'
 import { ICON_DIR, iconFiles } from '../scripts/icons.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -42,6 +42,12 @@ test('iconPath: theme folder, tone suffix; unknown names draw nothing', () => {
   assert.equal(iconPath('chevron-right', 'muted', 'light'), '/assets/icons/light/chevron-right-muted.svg')
   assert.equal(iconPath('speaker', 'neon', 'light'), '/assets/icons/light/speaker-ink.svg', 'unknown tone → ink')
   assert.equal(iconPath('rocket', 'accent', 'light'), '')
+})
+
+test('toneColor: the palette entry of the tone; unknown tones are ink', () => {
+  assert.equal(toneColor('accent', 'light'), PALETTES.light.accent)
+  assert.equal(toneColor('danger', 'dark'), PALETTES.dark.danger)
+  assert.equal(toneColor('neon', 'dark'), PALETTES.dark.ink)
 })
 
 test('the generated icon files are present and current (npm run icons)', () => {

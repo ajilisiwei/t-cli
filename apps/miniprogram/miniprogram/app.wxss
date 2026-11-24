@@ -388,11 +388,6 @@
   background-color: var(--accent-soft);
 }
 
-/* Working (e.g. audio loading): dimmed, still tappable. */
-.icon-btn-busy {
-  opacity: 0.45;
-}
-
 .icon-btn-off {
   opacity: 0.3;
 }

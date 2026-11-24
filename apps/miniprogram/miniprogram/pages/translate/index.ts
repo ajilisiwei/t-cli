@@ -12,15 +12,17 @@ import {
   flipDirection,
   isBusy,
   outputIsEnglish,
+  speechKey,
   type ResultState,
   type ResultStatus,
 } from '../../lib/result'
+import { speechPhase, type SpeechPhase, type SpeechStatus } from '../../lib/speaker'
 import type { Direction } from '../../lib/types'
 import { takeTranslationHandOff } from '../../services/handoff'
 import { utcOffsetMinutes } from '../../services/platform'
 import { createResultRunner, type ResultRunner, type RunnerView } from '../../services/result-runner'
 import { autoSpeakWord, explanationLang } from '../../services/settings'
-import { speakEntry } from '../../services/speech'
+import { speak, speechStatus, toggleSpeech, watchSpeech } from '../../services/speech'
 import { currentTheme, watchTheme, type Theme } from '../../services/theme'
 import { toast } from '../../services/ui'
 import { startVoice, stopVoice, voiceAvailable } from '../../services/voice'
@@ -35,6 +37,7 @@ interface ResultView {
   english: boolean
   busy: boolean
   canSpeak: boolean
+  speakPhase: SpeechPhase
   errorText: string
 }
 
@@ -49,14 +52,15 @@ interface TranslateData extends ResultView {
   recording: boolean
 }
 
-const resultView = ({ state, errorText }: RunnerView): ResultView => ({
+const resultView = ({ state, errorText }: RunnerView, speech: SpeechStatus): ResultView => ({
   status: state.status,
   text: state.text,
   label: directionLabel(state.srcLang),
   headline: state.kind === 'word' ? parseWordHeadline(state.text) : null,
   english: outputIsEnglish(state.srcLang),
   busy: isBusy(state),
-  canSpeak: state.status === 'done' && state.entryId !== null,
+  canSpeak: speechKey(state) !== '',
+  speakPhase: speechPhase(speech, speechKey(state)),
   errorText,
 })
 
@@ -74,6 +78,7 @@ const initialData: TranslateData = {
   english: false,
   busy: false,
   canSpeak: false,
+  speakPhase: 'idle',
   errorText: '',
 }
 
@@ -85,13 +90,15 @@ Page({
   /** The word result already read aloud automatically (each one once). */
   autoSpokenId: '',
   stopWatchingTheme: null as (() => void) | null,
+  stopWatchingSpeech: null as (() => void) | null,
 
   onLoad() {
     this.runner = createResultRunner((view) => {
-      this.setData(resultView(view))
+      this.setData(resultView(view, speechStatus()))
       this.autoSpeak(view.state)
     })
     this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme }))
+    this.stopWatchingSpeech = watchSpeech((speech) => this.syncSpeech(speech))
     this.setData({ theme: currentTheme(), voiceEnabled: voiceAvailable() })
   },
 
@@ -105,6 +112,7 @@ Page({
 
   onUnload() {
     this.stopWatchingTheme?.()
+    this.stopWatchingSpeech?.()
     this.runner?.reset()
   },
 
@@ -145,8 +153,15 @@ Page({
 
   onSpeak() {
     const state = this.runner?.current().state
-    if (state === undefined || state.status !== 'done' || state.entryId === null) return
-    speakEntry(state.entryId).catch((error: unknown) => toast(errorMessage(error)))
+    const key = state === undefined ? '' : speechKey(state)
+    if (key === '') return
+    toggleSpeech({ entryId: key }, key).catch((error: unknown) => toast(errorMessage(error)))
+  },
+
+  syncSpeech(speech: SpeechStatus) {
+    const state = this.runner?.current().state
+    const speakPhase = speechPhase(speech, state === undefined ? '' : speechKey(state))
+    if (speakPhase !== this.data.speakPhase) this.setData({ speakPhase })
   },
 
   /** 单词自动朗读: a finished word lookup is read aloud once, when the setting is on. */
@@ -154,7 +169,9 @@ Page({
     if (state.status !== 'done' || state.kind !== 'word' || state.entryId === null) return
     if (state.entryId === this.autoSpokenId || !autoSpeakWord()) return
     this.autoSpokenId = state.entryId
-    speakEntry(state.entryId).catch((error: unknown) => console.warn('[translate] auto speak failed', error))
+    speak({ entryId: state.entryId }, state.entryId).catch((error: unknown) =>
+      console.warn('[translate] auto speak failed', error),
+    )
   },
 
   onCopy() {

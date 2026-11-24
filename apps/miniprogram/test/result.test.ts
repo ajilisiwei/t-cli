@@ -10,6 +10,7 @@ import {
   flipDirection,
   isBusy,
   outputIsEnglish,
+  speechKey,
   stopResult,
   type ResultState,
 } from '../miniprogram/lib/result.ts'
@@ -79,4 +80,12 @@ test('direction label and flip follow the meta srcLang', () => {
   assert.equal(flipDirection('other'), 'toEn')
   assert.equal(outputIsEnglish('zh'), true)
   assert.equal(outputIsEnglish('other'), false)
+})
+
+test('speechKey: the entry id once the result is done, else empty', () => {
+  const done = { ...IDLE_RESULT, status: 'done' as const, entryId: 'E1' }
+  assert.equal(speechKey(done), 'E1')
+  assert.equal(speechKey({ ...done, entryId: null }), '')
+  assert.equal(speechKey({ ...done, status: 'streaming' }), '')
+  assert.equal(speechKey(IDLE_RESULT), '')
 })

@@ -6,13 +6,14 @@
  */
 import { errorMessage } from '../../lib/api'
 import { cleanMarkdown, codePointLength, splitFirstLine } from '../../lib/output'
-import { isBusy, type ResultStatus } from '../../lib/result'
+import { isBusy, speechKey, type ResultStatus } from '../../lib/result'
+import { speechPhase, type SpeechPhase, type SpeechStatus } from '../../lib/speaker'
 import { diffWords, displaySegments, hasChanges, type DiffSegment } from '../../lib/word-diff'
 import { handOffToTranslate } from '../../services/handoff'
 import { utcOffsetMinutes } from '../../services/platform'
 import { createResultRunner, type ResultRunner, type RunnerView } from '../../services/result-runner'
 import { explanationLang } from '../../services/settings'
-import { speakEntry } from '../../services/speech'
+import { speechStatus, toggleSpeech, watchSpeech } from '../../services/speech'
 import { currentTheme, watchTheme, type Theme } from '../../services/theme'
 import { toast } from '../../services/ui'
 import { startVoice, stopVoice, voiceAvailable } from '../../services/voice'
@@ -31,6 +32,7 @@ interface CheckView {
   explanation: string
   busy: boolean
   canSpeak: boolean
+  speakPhase: SpeechPhase
   errorText: string
 }
 
@@ -50,7 +52,7 @@ interface CheckData extends CheckView {
 // A complete first line: some content followed by a line break.
 const FIRST_LINE_DONE_RE = /\S[^\n]*\n/
 
-const checkView = ({ state, errorText }: RunnerView, submitted: string): CheckView => {
+const checkView = ({ state, errorText }: RunnerView, submitted: string, speech: SpeechStatus): CheckView => {
   const { first, rest } = splitFirstLine(state.text)
   const firstReady = first !== '' && (state.status === 'done' || FIRST_LINE_DONE_RE.test(state.text))
   const segments = firstReady ? displaySegments(diffWords(submitted, first)) : []
@@ -62,7 +64,8 @@ const checkView = ({ state, errorText }: RunnerView, submitted: string): CheckVi
     pending: firstReady ? '' : first,
     explanation: cleanMarkdown(rest),
     busy: isBusy(state),
-    canSpeak: state.status === 'done' && state.entryId !== null,
+    canSpeak: speechKey(state) !== '',
+    speakPhase: speechPhase(speech, speechKey(state)),
     errorText,
   }
 }
@@ -83,6 +86,7 @@ const initialData: CheckData = {
   explanation: '',
   busy: false,
   canSpeak: false,
+  speakPhase: 'idle',
   errorText: '',
 }
 
@@ -92,10 +96,12 @@ Page({
   /** The text the shown result corrects (the diff's left side). */
   submitted: '',
   stopWatchingTheme: null as (() => void) | null,
+  stopWatchingSpeech: null as (() => void) | null,
 
   onLoad() {
-    this.runner = createResultRunner((view) => this.setData(checkView(view, this.submitted)))
+    this.runner = createResultRunner((view) => this.setData(checkView(view, this.submitted, speechStatus())))
     this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme }))
+    this.stopWatchingSpeech = watchSpeech((speech) => this.syncSpeech(speech))
     this.setData({ theme: currentTheme(), voiceEnabled: voiceAvailable() })
   },
 
@@ -106,6 +112,7 @@ Page({
 
   onUnload() {
     this.stopWatchingTheme?.()
+    this.stopWatchingSpeech?.()
     this.runner?.reset()
   },
 
@@ -147,8 +154,15 @@ Page({
 
   onSpeak() {
     const state = this.runner?.current().state
-    if (state === undefined || state.status !== 'done' || state.entryId === null) return
-    speakEntry(state.entryId).catch((error: unknown) => toast(errorMessage(error)))
+    const key = state === undefined ? '' : speechKey(state)
+    if (key === '') return
+    toggleSpeech({ entryId: key }, key).catch((error: unknown) => toast(errorMessage(error)))
+  },
+
+  syncSpeech(speech: SpeechStatus) {
+    const state = this.runner?.current().state
+    const speakPhase = speechPhase(speech, state === undefined ? '' : speechKey(state))
+    if (speakPhase !== this.data.speakPhase) this.setData({ speakPhase })
   },
 
   onCopyCorrected() {
