@@ -23,7 +23,7 @@ const MaterialListQuery = z.object({
 const ItemsQuery = z.object({
   // An empty search box means "no search".
   q: z.string().trim().max(SEARCH_MAX_CHARS).optional().transform((value) => (value === '' ? undefined : value)),
-  type: z.enum(['word', 'phrase', 'grammar']).optional(),
+  type: z.enum(['word', 'phrase', 'grammar', 'sentence']).optional(),
   level: z.enum(['new', 'learning', 'mastered']).optional(),
   offset: z.coerce.number().int().min(0).max(OFFSET_MAX).default(0),
   limit: z.coerce.number().int().min(1).max(ITEMS_MAX_LIMIT).default(20),

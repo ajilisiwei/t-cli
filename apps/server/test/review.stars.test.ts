@@ -172,4 +172,18 @@ describe('review by importance (stars)', { skip: skipWithoutDb }, () => {
     assert.deepEqual(scheduleOf(await storedCard(account.userId, four.cardIds[0]!)), scheduleOf(before[0]!));
     assert.deepEqual(scheduleOf(await storedCard(account.userId, zero.cardIds[0]!)), scheduleOf(before[1]!));
   });
+
+  test('POST /v1/me/settings with importanceReview re-derives the stored schedules itself', async (ctx) => {
+    const { app, account, clock } = await setup(ctx);
+    const four = await seedItem(t.db, account.userId, { type: 'phrase', display: 'route four', stars: 4 });
+    await rate(app, account, clock, four.cardIds[0]!, 4);
+    const cardId = four.cardIds[0]!;
+    const before = await storedCard(account.userId, cardId);
+
+    await setImportanceReview(app, account, false);
+    assert.equal((await storedCard(account.userId, cardId)).due.getTime(), (await replayed(account.userId, cardId, 0.9)).due.getTime());
+
+    await setImportanceReview(app, account, true);
+    assert.deepEqual(scheduleOf(await storedCard(account.userId, cardId)), scheduleOf(before));
+  });
 });

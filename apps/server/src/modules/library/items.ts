@@ -19,6 +19,8 @@ export interface ItemListEntry {
   lookupCount: number;
   errorCount: number;
   level: ItemLevel;
+  /** Highest star level of the item's live notes; 0 when not saved (docs/api-v1.md, v2). */
+  stars: number;
   lastSeenAt: string;
 }
 
@@ -33,6 +35,7 @@ export interface ItemDetail {
   firstSeenAt: string;
   lastSeenAt: string;
   level: ItemLevel;
+  stars: number;
   cards: { id: string; cardType: string; state: CardStateName; due: string; mastered: boolean; suspended: boolean }[];
   sources: { entryId: string; input: string; createdAt: string }[];
 }
@@ -88,6 +91,7 @@ export async function listItems(
       errorCount: items.errorCount,
       lastSeenAt: items.lastSeenAt,
       level: LEVEL_SQL,
+      stars: items.stars,
     })
     .from(items)
     .leftJoin(cards, cardOfItem)
@@ -134,6 +138,7 @@ export async function getItemDetail(db: Executor, userId: string, itemId: string
     firstSeenAt: item.firstSeenAt.toISOString(),
     lastSeenAt: item.lastSeenAt.toISOString(),
     level: levelOf(cardRows),
+    stars: item.stars,
     cards: cardRows.map((card) => ({
       id: card.id,
       cardType: card.cardType,
