@@ -1,20 +1,53 @@
-import { createEmptyCard, fsrs, generatorParameters, Rating, type Card, type Grade } from 'ts-fsrs';
+import { createEmptyCard, fsrs, generatorParameters, Rating, type Card, type FSRS, type FSRSParameters, type Grade } from 'ts-fsrs';
 
 /**
- * FSRS scheduling (docs/api-v1.md, "Scheduling (FSRS)").
+ * FSRS scheduling (docs/api-v1.md, "Scheduling (FSRS)" and "Review by
+ * importance").
  *
  * A card's state is never edited in place: it is the replay of its review
  * logs in (reviewed_at, id) order, starting from an empty card. With fuzz off
  * FSRS is deterministic, so two devices reviewing offline both count and the
  * result does not depend on which push arrived first.
+ *
+ * The replay uses the retention of the card's item as it is now (from its
+ * stars), so changing a note's stars re-derives the schedule from the same
+ * logs: the intervals change, the progress (reps, lapses, stability) is kept.
  */
-export const FSRS_PARAMETERS = generatorParameters({
-  request_retention: 0.9,
-  maximum_interval: 36_500,
-  enable_fuzz: false,
-});
 
-const scheduler = fsrs(FSRS_PARAMETERS);
+/** Target retention when importance is ignored (settings.importanceReview = false), and of the v1 contract. */
+export const DEFAULT_RETENTION = 0.9;
+
+/** Target retention by `items.stars` (0 = not saved as a note, 1–4 stars). */
+export const RETENTION_BY_STARS: readonly number[] = [0.85, 0.9, 0.92, 0.94, 0.95];
+
+/** The parameters every scheduler shares; only `request_retention` differs. */
+export function fsrsParameters(retention: number): FSRSParameters {
+  return generatorParameters({ request_retention: retention, maximum_interval: 36_500, enable_fuzz: false });
+}
+
+/** The v1 parameters (retention 0.9), kept for reference and tests. */
+export const FSRS_PARAMETERS = fsrsParameters(DEFAULT_RETENTION);
+
+/**
+ * A card's retention from its item's stars. Stars outside 0–4 are clamped;
+ * with `importanceReview` off every card uses DEFAULT_RETENTION.
+ */
+export function retentionFor(stars: number, importanceReview: boolean): number {
+  if (!importanceReview) return DEFAULT_RETENTION;
+  const index = Math.min(RETENTION_BY_STARS.length - 1, Math.max(0, Math.trunc(stars)));
+  return RETENTION_BY_STARS[index] ?? DEFAULT_RETENTION;
+}
+
+/** One scheduler per retention (at most one per RETENTION_BY_STARS value plus the default in practice). */
+const schedulers = new Map<number, FSRS>();
+
+export function schedulerFor(retention: number): FSRS {
+  const cached = schedulers.get(retention);
+  if (cached) return cached;
+  const scheduler = fsrs(fsrsParameters(retention));
+  schedulers.set(retention, scheduler);
+  return scheduler;
+}
 
 /** 1 忘记 (Again), 2 困难 (Hard), 3 记得 (Good), 4 简单 (Easy). */
 export type RatingValue = 1 | 2 | 3 | 4;
@@ -44,8 +77,12 @@ export function compareReplayOrder(a: ReplayLog, b: ReplayLog): number {
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
-/** The FSRS card after replaying `logs` (any order) on an empty card created at `createdAt`. */
-export function replayCard(createdAt: Date, logs: readonly ReplayLog[]): Card {
+/**
+ * The FSRS card after replaying `logs` (any order) on an empty card created
+ * at `createdAt`, scheduled for `retention` (the card's current one).
+ */
+export function replayCard(createdAt: Date, logs: readonly ReplayLog[], retention: number): Card {
+  const scheduler = schedulerFor(retention);
   return [...logs]
     .sort(compareReplayOrder)
     .reduce<Card>((card, log) => scheduler.next(card, log.reviewedAt, GRADES[log.rating]).card, createEmptyCard(createdAt));
@@ -59,8 +96,8 @@ export interface Intervals {
   '4': number;
 }
 
-export function previewIntervals(card: Card, now: Date): Intervals {
-  const preview = scheduler.repeat(card, now);
+export function previewIntervals(card: Card, now: Date, retention: number): Intervals {
+  const preview = schedulerFor(retention).repeat(card, now);
   const seconds = (rating: RatingValue): number =>
     Math.max(0, Math.round((preview[GRADES[rating]].card.due.getTime() - now.getTime()) / 1000));
   return { '1': seconds(1), '2': seconds(2), '3': seconds(3), '4': seconds(4) };

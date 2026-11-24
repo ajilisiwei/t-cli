@@ -1,12 +1,14 @@
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { Database, Executor } from '../../db/client.ts';
 import { cards, items, reviewLogs } from '../../db/schema.ts';
-import { replayCard, stateName, toSchedule, type CardStateName, type RatingValue, type ReplayLog } from './fsrs.ts';
+import { DEFAULT_RETENTION, replayCard, stateName, toSchedule, type CardStateName, type RatingValue, type ReplayLog } from './fsrs.ts';
+import { retentionByItem } from './retention.ts';
 
 /**
  * Card state persistence. Every write takes the card rows' locks first (in id
  * order, so concurrent batches never deadlock) and re-derives the card from
- * all of its logs, so the stored columns always equal the replay.
+ * all of its logs, with the retention of its item's current stars, so the
+ * stored columns always equal the replay.
  */
 
 /** A card's scheduling state as review responses show it. */
@@ -33,16 +35,31 @@ export interface PushRejection {
 
 interface LockedCard {
   id: string;
+  itemId: string;
   createdAt: Date;
 }
+
+const lockedColumns = { id: cards.id, itemId: cards.itemId, createdAt: cards.createdAt };
 
 /** Lock the account's cards among `ids` (id order). Missing or foreign ids are simply absent. */
 async function lockCards(tx: Executor, userId: string, ids: readonly string[]): Promise<Map<string, LockedCard>> {
   if (ids.length === 0) return new Map();
   const rows = await tx
-    .select({ id: cards.id, createdAt: cards.createdAt })
+    .select(lockedColumns)
     .from(cards)
     .where(and(eq(cards.userId, userId), inArray(cards.id, [...ids])))
+    .orderBy(asc(cards.id))
+    .for('update');
+  return new Map(rows.map((row) => [row.id, row]));
+}
+
+/** Lock every card of the account's items among `itemIds` (card id order, as `lockCards`). */
+async function lockCardsOfItems(tx: Executor, userId: string, itemIds: readonly string[]): Promise<Map<string, LockedCard>> {
+  if (itemIds.length === 0) return new Map();
+  const rows = await tx
+    .select(lockedColumns)
+    .from(cards)
+    .where(and(eq(cards.userId, userId), inArray(cards.itemId, [...itemIds])))
     .orderBy(asc(cards.id))
     .for('update');
   return new Map(rows.map((row) => [row.id, row]));
@@ -62,7 +79,12 @@ export async function logsOfCards(db: Executor, userId: string, cardIds: readonl
   return grouped;
 }
 
-/** Replay each locked card from its logs and store the result. */
+/**
+ * Replay each locked card from its logs, with the retention of its item as it
+ * is now, and store the result. The stars are read after the locks are held,
+ * so a concurrent star change has either committed (and is seen here) or
+ * waits for these locks and then replays the cards itself.
+ */
 async function replayAndStore(
   tx: Executor,
   userId: string,
@@ -71,10 +93,12 @@ async function replayAndStore(
 ): Promise<CardStateView[]> {
   const ids = [...locked.keys()];
   const logs = await logsOfCards(tx, userId, ids);
+  const retention = await retentionByItem(tx, userId, [...locked.values()].map((card) => card.itemId));
   const views: CardStateView[] = [];
   for (const id of ids) {
     const card = locked.get(id)!;
-    const schedule = toSchedule(replayCard(card.createdAt, logs.get(id) ?? []), masteredDays);
+    const cardRetention = retention.get(card.itemId) ?? DEFAULT_RETENTION;
+    const schedule = toSchedule(replayCard(card.createdAt, logs.get(id) ?? [], cardRetention), masteredDays);
     await tx
       .update(cards)
       .set(schedule)
@@ -82,6 +106,30 @@ async function replayAndStore(
     views.push({ id, state: stateName(schedule.state), due: schedule.due.toISOString(), mastered: schedule.mastered });
   }
   return views;
+}
+
+/**
+ * Re-derive the stored schedule of every card of `itemIds`, inside the
+ * caller's transaction, after their items' stars changed. The logs stay; only
+ * the retention of the replay differs, so progress is kept.
+ */
+export async function rescheduleItems(tx: Executor, userId: string, itemIds: readonly string[], masteredDays: number): Promise<CardStateView[]> {
+  const locked = await lockCardsOfItems(tx, userId, itemIds);
+  return replayAndStore(tx, userId, locked, masteredDays);
+}
+
+/**
+ * Re-derive the stored schedule of every rated card of the account (a card
+ * without logs does not depend on the retention), e.g. after
+ * settings.importanceReview changed. Returns how many cards were replayed.
+ */
+export async function rescheduleAccount(db: Database, userId: string, masteredDays: number): Promise<number> {
+  return db.transaction(async (tx) => {
+    const rated = await tx.selectDistinct({ cardId: reviewLogs.cardId }).from(reviewLogs).where(eq(reviewLogs.userId, userId));
+    const locked = await lockCards(tx, userId, rated.map((row) => row.cardId).sort());
+    await replayAndStore(tx, userId, locked, masteredDays);
+    return locked.size;
+  });
 }
 
 /**

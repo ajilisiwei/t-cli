@@ -6,6 +6,7 @@ import { registerAccountRoutes } from './modules/account/routes.ts';
 import { registerAiRoutes } from './modules/ai/routes.ts';
 import { registerAuthRoutes } from './modules/auth/routes.ts';
 import { registerLibraryRoutes } from './modules/library/routes.ts';
+import { registerNotesRoutes } from './modules/notes/routes.ts';
 import { registerReviewRoutes } from './modules/review/routes.ts';
 import { registerSyncRoutes } from './modules/sync/routes.ts';
 import { registerTtsRoutes } from './modules/tts/routes.ts';
@@ -47,6 +48,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await registerReviewRoutes(app, deps);
   await registerLibraryRoutes(app, deps);
   await registerAccountRoutes(app, deps);
+  await registerNotesRoutes(app, deps);
 
   return app;
 }
