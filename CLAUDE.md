@@ -85,11 +85,13 @@ This app is an **Ink (React for terminals) TUI that owns `stdin` in raw mode**. 
 - Input text directly for auto-detected translation (ZH ↔ EN).
 - Use `/check <text>` for English grammar checking and polishing.
 - Toggle between `simple` and `detail` modes via `/mode <s|d>`.
-- Switch explanation language via `/lang <en|zh>` (logged in: also saved to the account; the account's value is applied at startup).
+- Switch explanation language via `/lang <en|zh>` (default `zh`, as on the server and the mini-program; logged in: also saved to the account; the account's value is applied at startup).
 - Use `/history [today|YYYY-MM-DD]` to browse raw translation/check records; when logged in, that day's mini-program records are merged in by time, marked "(phone)".
 - Use `/notes [today|YYYY-MM-DD]` to read that day's daily material from your account (logged in), or else to generate (or view) a local AI-curated note. Use `/notes regen today` to force a local regeneration. `/notes` lists both.
 - Use `/review` (logged in) to review due cards: Enter/space flips, `1`–`4` rate (忘记/困难/记得/简单, each with its next interval), `u` undoes the last rating (5 minutes), `q` ends with a summary.
 - Use `/weekly [YYYY-MM-DD]` (logged in) for the latest weekly report, or the one for that date's week.
+- Use `/note [1-4]` (logged in) to save the last result to your notebook with 1–4 stars (default 1): a word lookup becomes a word note (the English head word and its gloss), a sentence or paragraph a sentence note (English side + translation), a grammar check a sentence note with the corrected text. `/note <n>` again on the same result changes its stars (same note).
+- Use `/notebook [word|phrase|sentence]` (logged in) to list your notes, newest first (20), with their stars.
 - Single-word input (English token, or Chinese term of 1-4 chars) is treated as a word lookup: the English result includes its American IPA transcription.
 - Use `/say` to read the last translation aloud; `/say stop` cancels playback.
 - Use `/login` to link the CLI to an account (6-digit code + QR, approved in the mini-program; `/login cancel` aborts), `/logout` to unlink, `/sync status` to inspect sync and `/sync now` to push immediately.

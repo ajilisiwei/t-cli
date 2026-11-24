@@ -39,15 +39,16 @@ test('readOutbox: missing file is an empty outbox', () => {
 test('recordLiveEntry: appends a valid entry and sets liveSince once', () => {
   withTempConfig(() => {
     const first = recordLiveEntry({ ...LIVE, createdAt: new Date('2026-11-17T10:00:05+08:00') });
-    assert.deepEqual(first, { ok: true });
+    assert.equal(first.ok, true);
     const since = getLiveSince();
     assert.equal(Date.parse(since), Date.parse('2026-11-17T10:00:05+08:00'));
 
-    recordLiveEntry({ ...LIVE, task: 'check', input: 'She don\'t like it.', createdAt: new Date('2026-11-17T11:00:00+08:00') });
+    const second = recordLiveEntry({ ...LIVE, task: 'check', input: 'She don\'t like it.', createdAt: new Date('2026-11-17T11:00:00+08:00') });
     assert.equal(getLiveSince(), since, 'liveSince must not move forward');
 
     const { entries, invalidLines } = readOutbox();
     assert.equal(invalidLines, 0);
+    assert.deepEqual([first.entryId, second.entryId], entries.map((e) => e.id), 'entryId is the written record\'s id');
     assert.deepEqual(entries.map((e) => [e.source, e.task, e.kind]), [
       ['cli', 'translate', 'word'],
       ['cli', 'check', 'sentence'],

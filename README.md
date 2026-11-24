@@ -6,7 +6,7 @@ A minimalist, stateless CLI tool powered by the DeepSeek API for interactive Eng
 1. **Ready to Use**: Launch globally via command, enter dialogue mode instantly.
 2. **Auto EN/ZH Translation**: Automatically detects the input language. Translates Chinese into natural American English, and English into fluent Chinese.
 3. **Grammar Check (`/check`)**: Points out grammar and phrasing errors in English sentences, providing 2-3 native, authentic alternatives.
-4. **Explanation Language Toggle (`/lang`)**: Toggle AI explanations between English (default) and Chinese using `/lang en` or `/lang zh`.
+4. **Explanation Language Toggle (`/lang`)**: Toggle AI explanations between Chinese (default) and English using `/lang zh` or `/lang en`. A saved `/lang` choice is kept.
 5. **Mode Toggle (`/mode`)**: Switch between detail mode (default) and simple mode (`/mode simple`). Simple mode only outputs the direct translation or correction without any extra explanation.
 6. **Word Lookup with IPA**: When the input is a single word or short term, the English result includes its American IPA transcription (e.g. `apple /ˈæp.əl/`).
 7. **Text-to-Speech (`/say`)**: Reads the last translation (or the corrected sentence after `/check`) aloud with Microsoft Edge neural voices (`msedge-tts`), falling back to the local `say` command when offline. Use `/say stop` to cancel.
@@ -15,6 +15,7 @@ A minimalist, stateless CLI tool powered by the DeepSeek API for interactive Eng
 10. **Input History (`↑`/`↓`)**: Recall previously entered text and commands with the arrow keys, readline-style. Pressing `↓` past the newest entry restores your unsubmitted draft.
 11. **Record Sync (`/login`, `/sync`, `/logout`)**: Optionally push every translation / grammar check to your own t-cli sync server (see [Record Sync](#record-sync)).
 12. **Review and Learning Material (`/review`, `/notes`, `/weekly`)**: When logged in, review the cards your account generates from your records, read the nightly daily material and the weekly report, and see your phone's records in `/history` (see [Learning](#learning)).
+13. **Notebook (`/note`, `/notebook`)**: When logged in, save the last result to your notebook with 1–4 stars and list your notes (see [Learning](#learning)).
 
 ## Installation
 
@@ -126,6 +127,8 @@ These commands use your account on the sync server (`/login` first). The server 
 | `/review` | Reviews the cards due now. The card front is shown; `Enter` or `space` flips it; `1` 忘记 · `2` 困难 · `3` 记得 · `4` 简单 rate it (the status line shows each option's next interval, e.g. `10 分钟`, `3 天`, `2 个月`); `u` undoes the last rating (within 5 minutes); `q` ends. The end summary shows cards reviewed, the share remembered (rated 2–4) and the time. While reviewing, keys go to the card, not to the input box. |
 | `/notes [today\|YYYY-MM-DD]` | Shows that day's daily material from your account (words, phrases, grammar, a short story, mistakes). With no cloud material for the day, offline or logged out, it falls back to the local AI note (generated from that day's local history). `/notes regen <date>` always regenerates the local note; `/notes` lists both. |
 | `/weekly [YYYY-MM-DD]` | Shows the latest weekly report, or the report of the week containing that date. |
+| `/note [1-4]` | Saves the last result of this session to your notebook with 1–4 stars (default 1). A word lookup becomes a word note (the English head word, spelling corrected, with its gloss); a sentence or paragraph becomes a sentence note (the English side with its translation); a grammar check becomes a sentence note with the corrected text. Running `/note <n>` again on the same result changes its stars instead of adding a note. Starred notes are reviewed more carefully (more stars, higher retention). |
+| `/notebook [word\|phrase\|sentence]` | Lists your 20 newest notes (all kinds, or one kind) with their stars. The whole notebook is in the mini-program (笔记本). |
 | `/history <date>` | Also shows that day's mini-program records, merged by time and marked `(phone)`. |
 | `/lang <en\|zh>` | Also saves the explanation language to your account. At startup the account's value is applied; a change made offline stays local and is sent on the next start. |
 
