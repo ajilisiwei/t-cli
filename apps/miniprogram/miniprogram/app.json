@@ -2,7 +2,6 @@
   "entryPagePath": "pages/translate/index",
   "pages": [
     "pages/translate/index",
-    "pages/check/index",
     "pages/me/index",
     "pages/history/index",
     "pages/devices/index",
