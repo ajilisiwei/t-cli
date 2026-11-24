@@ -8,6 +8,7 @@ import { noteKey, type NoteTarget } from '../../lib/note-outbox'
 import type { LookupResult, NoteStars } from '../../lib/types'
 import { lookupGloss } from '../../lib/lookup-view'
 import { canSaveNote, newNoteId, removeNote, saveNote, setNoteStars } from '../../services/notes'
+import { rememberSaved, savedNoteFor } from '../../services/saved-index'
 import { toast } from '../../services/ui'
 
 interface SavedNote {
@@ -27,15 +28,34 @@ export interface SavedNotes {
 
 const isStars = (value: number): value is NoteStars => value === 1 || value === 2 || value === 3 || value === 4
 
+/** The key the shared index files a target under: a word by its lemma. */
+const indexText = (target: NoteTarget): string => (target.kind === 'word' ? (target.lemma ?? target.text) : target.text)
+
 export function createSavedNotes(): SavedNotes {
   let notes: ReadonlyMap<string, SavedNote> = new Map()
   const remember = (target: NoteTarget, note: SavedNote): void => {
     notes = new Map(notes).set(noteKey(target), note)
+    // Shared with the word page, so neither saves a note the other already has.
+    rememberSaved({
+      id: note.id,
+      kind: target.kind,
+      text: indexText(target),
+      stars: isStars(note.stars) ? note.stars : 1,
+      live: note.stars > 0,
+      itemId: null,
+    })
+  }
+  /** This page's own state first, else a note synced from the account (笔记本). */
+  const knownOf = (target: NoteTarget): SavedNote | undefined => {
+    const local = notes.get(noteKey(target))
+    if (local !== undefined) return local
+    const synced = savedNoteFor(target.kind, indexText(target))
+    return synced === null ? undefined : { id: synced.id, stars: synced.live ? synced.stars : 0 }
   }
   return {
-    starsOf: (target) => notes.get(noteKey(target))?.stars ?? 0,
+    starsOf: (target) => knownOf(target)?.stars ?? 0,
     toggle(target) {
-      const known = notes.get(noteKey(target))
+      const known = knownOf(target)
       if (known !== undefined && known.stars > 0) {
         removeNote(known.id)
         remember(target, { id: known.id, stars: 0 })
@@ -50,7 +70,7 @@ export function createSavedNotes(): SavedNotes {
       return 1
     },
     setStars(target, level) {
-      const known = notes.get(noteKey(target))
+      const known = knownOf(target)
       if (known === undefined || known.stars === 0) return 0
       const stars = Number(level)
       if (!isStars(stars)) return known.stars

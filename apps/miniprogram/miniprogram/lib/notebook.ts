@@ -320,13 +320,15 @@ export interface SavedNote {
   readonly itemId: string | null
 }
 
-/** Word and phrase notes by kind and lemma key, deleted ones included (re-saving revives the same id). */
+/**
+ * Notes by kind and key (a word by its lemma, a phrase or sentence by its
+ * text), deleted ones included: re-saving revives the same id.
+ */
 export type SavedIndex = Readonly<Record<string, SavedNote>>
 
 export const savedKey = (kind: NoteKind, text: string): string => `${kind}:${lemmaKey(text)}`
 
-const indexKeyOf = (note: Note): string | null =>
-  note.kind === 'sentence' ? null : savedKey(note.kind, note.kind === 'word' ? noteLemma(note) : note.text)
+const indexKeyOf = (note: Note): string => savedKey(note.kind, note.kind === 'word' ? noteLemma(note) : note.text)
 
 export function toSavedNote(note: Note): SavedNote {
   return {
@@ -344,7 +346,6 @@ export function indexNotes(index: SavedIndex, notes: readonly Note[]): SavedInde
   const next: Record<string, SavedNote> = { ...index }
   for (const note of notes) {
     const key = indexKeyOf(note)
-    if (key === null) continue
     const saved = toSavedNote(note)
     const current = next[key]
     if (current !== undefined && current.id !== saved.id && current.live && !saved.live) continue

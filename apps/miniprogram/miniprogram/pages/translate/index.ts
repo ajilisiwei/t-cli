@@ -49,7 +49,9 @@ import { createResultRunner, type ResultRunner, type RunnerView } from '../../se
 import { redirectIfInviteRequired } from '../../services/session'
 import { autoSpeakWord, explanationLang } from '../../services/settings'
 import { speak, speechStatus, toggleSpeech, watchSpeech } from '../../services/speech'
-import { currentTheme, watchTheme } from '../../services/theme'
+import { bindPageLook, currentTheme } from '../../services/theme'
+import { syncSavedNotes } from '../../services/saved-index'
+import { lexiconSpeechKey } from '../../lib/notebook'
 import { toast } from '../../services/ui'
 import { startVoice, stopVoice, voiceAvailable } from '../../services/voice'
 import { detectSourceLang } from '../../vendor/core/detect'
@@ -107,11 +109,13 @@ Page({
   lastMeasure: 0,
   stopWatchingTheme: null as (() => void) | null,
   stopWatchingSpeech: null as (() => void) | null,
+  /** Speech key of the sheet's word (单词释义 朗读), shared with the word page's 美 button. */
+  sheetSpeakKey: '',
 
   onLoad() {
     this.saved = createSavedNotes()
     this.runner = createResultRunner((view) => this.render(view))
-    this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme }))
+    this.stopWatchingTheme = bindPageLook(this)
     this.stopWatchingSpeech = watchSpeech((speech) => this.syncSpeech(speech))
     this.setData({
       theme: currentTheme(),
@@ -128,6 +132,10 @@ Page({
       this.setData({ showDirection, ...this.directionFor(this.data.input) })
     }
     void flushNotes()
+    // Notes saved elsewhere (笔记本, the word page, the CLI) show as saved here too.
+    syncSavedNotes()
+      .then(() => this.refreshNoteStates())
+      .catch(() => undefined)
     const handedOff = takeTranslationHandOff()
     if (handedOff !== null) {
       this.setInput(handedOff)
@@ -515,6 +523,24 @@ Page({
     if (speakPhase !== this.data.bar.speakPhase || progress !== this.data.bar.progress) {
       this.setData({ 'bar.speakPhase': speakPhase, 'bar.progress': progress })
     }
+    const sheetSpeakPhase = speechPhase(speech, this.sheetSpeakKey)
+    if (sheetSpeakPhase !== this.data.sheetSpeakPhase) this.setData({ sheetSpeakPhase })
+  },
+
+  /** 单词释义 朗读: reads the looked-up word from the shared lexicon. */
+  onSheetSpeak() {
+    const lemma = this.lookup?.lemma ?? ''
+    if (lemma === '') return
+    this.sheetSpeakKey = lexiconSpeechKey(lemma, 'us')
+    toggleSpeech({ lexicon: { lemma } }, this.sheetSpeakKey).catch((error: unknown) => toast(errorMessage(error)))
+  },
+
+  /** Bookmarks after the account's notes synced: a note saved elsewhere shows as saved. */
+  refreshNoteStates() {
+    const state = this.runner?.current().state
+    const target = state === undefined ? null : this.resultTarget(state)
+    if (target !== null) this.setData({ 'bar.noteStars': this.saved?.starsOf(target) ?? 0 })
+    if (this.data.sheetOpen) this.refreshSheetNotes()
   },
 
   /** 单词自动朗读: a finished word lookup is read aloud once, when the setting is on. */

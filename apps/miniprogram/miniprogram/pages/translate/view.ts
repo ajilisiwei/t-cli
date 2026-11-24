@@ -128,6 +128,8 @@ export interface TranslateData extends ResultData {
   sheetOpen: boolean
   sheetHeight: number
   sheet: SheetData
+  /** 单词释义 朗读 button (the word read from the shared lexicon). */
+  sheetSpeakPhase: SpeechPhase
   scrollTop: number
 }
 
@@ -248,5 +250,6 @@ export const initialData: TranslateData = {
   sheetOpen: false,
   sheetHeight: 0,
   sheet: EMPTY_SHEET,
+  sheetSpeakPhase: 'idle',
   scrollTop: 0,
 }

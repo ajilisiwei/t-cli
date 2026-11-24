@@ -273,7 +273,7 @@ test('lemmaKey matches the server: quotes straightened, spaces collapsed, lowerc
   assert.equal(lemmaKey('“Quoted”'), '"quoted"')
 })
 
-test('saved index: word by lemma, phrase by text, deleted kept for revival, live wins', () => {
+test('saved index: word by lemma, phrase and sentence by text, deleted kept for revival, live wins', () => {
   const word = note('W1', { text: 'Decision', lemma: 'decision', stars: 3, seq: 1 })
   const phrase = note('P1', { kind: 'phrase', text: 'make a decision', lemma: null, stars: 2, seq: 2 })
   const sentence = note('S1', { kind: 'sentence', text: 'A sentence.', seq: 3 })
@@ -281,7 +281,9 @@ test('saved index: word by lemma, phrase by text, deleted kept for revival, live
   assert.equal(savedStars(index, 'word', 'DECISION'), 3)
   assert.equal(savedStars(index, 'phrase', 'Make  a decision'), 2)
   assert.equal(savedStars(index, 'phrase', 'decision'), 0)
-  assert.equal(Object.keys(index).length, 2)
+  // Sentences are indexed too, so the 翻译 page never saves the same sentence twice.
+  assert.equal(findSaved(index, 'sentence', 'A  sentence.')?.id, 'S1')
+  assert.equal(Object.keys(index).length, 3)
 
   index = indexNotes(index, [{ ...phrase, deletedAt: '2026-11-24T05:00:00Z', seq: 4 }])
   assert.equal(savedStars(index, 'phrase', 'make a decision'), 0)

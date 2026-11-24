@@ -18,7 +18,6 @@ import {
   chipStars,
   collocationRows,
   findSaved,
-  indexNotes,
   lemmaKey,
   lexiconSpeechKey,
   myRecordView,
@@ -26,7 +25,6 @@ import {
   savedStars,
   starsInput,
   toSavedNote,
-  withSaved,
   wordNoteInput,
   wordView,
   type CollocationRow,
@@ -39,7 +37,8 @@ import {
 import { ULID_ENTROPY_BYTES, ulid } from '../../lib/review-ulid'
 import type { SpeechPhase, SpeechStatus } from '../../lib/speaker'
 import type { LookupRequest, LookupResult, Note, NoteInput, NoteKind, NoteStars } from '../../lib/types'
-import { deleteNote, fetchNoteChanges, lookupWord, saveNote } from '../../services/endpoints'
+import { deleteNote, lookupWord, saveNote } from '../../services/endpoints'
+import { rememberNote, rememberSaved, savedIndex, syncSavedNotes } from '../../services/saved-index'
 import { fetchItem, fetchItems } from '../../services/library'
 import { utcOffsetMinutes } from '../../services/platform'
 import { redirectIfInviteRequired } from '../../services/session'
@@ -48,42 +47,6 @@ import { bindPageLook, currentTheme, type Theme } from '../../services/theme'
 import { toast } from '../../services/ui'
 
 const HISTORY_PAGE = '/pages/history/index'
-const CHANGES_PAGE_LIMIT = 500
-/** Safety stop for the first sync (500 notes a page). */
-const MAX_CHANGE_PAGES = 40
-
-// ---- saved notes, kept for the app session
-
-let savedIndex: SavedIndex = {}
-let savedCursor = 0
-let savedSync: Promise<SavedIndex> | null = null
-
-/** Folds `/v1/notes/changes` since the last sync into the index (single-flight). */
-const syncSaved = (): Promise<SavedIndex> => {
-  savedSync ??= (async () => {
-    try {
-      for (let pages = 0; pages < MAX_CHANGE_PAGES; pages += 1) {
-        const changes = await fetchNoteChanges(savedCursor, CHANGES_PAGE_LIMIT)
-        savedIndex = indexNotes(savedIndex, changes.notes)
-        savedCursor = Math.max(savedCursor, changes.nextAfter)
-        if (!changes.hasMore) break
-      }
-      return savedIndex
-    } finally {
-      savedSync = null
-    }
-  })()
-  return savedSync
-}
-
-const rememberNote = (note: Note): void => {
-  savedIndex = indexNotes(savedIndex, [note])
-}
-
-const rememberSaved = (saved: SavedNote): void => {
-  savedIndex = withSaved(savedIndex, saved)
-}
-
 /** A ULID for a new note; `Math.random` is enough for an idempotency key. */
 const newNoteId = (): string =>
   ulid(
@@ -187,7 +150,7 @@ Page({
     }
     this.setData({ loading: true, errorText: '' })
     // Saved state loads beside the lookup; failing it only hides the marks.
-    const saved = syncSaved().catch(() => savedIndex)
+    const saved = syncSavedNotes().catch(() => savedIndex())
     this.savedReady = saved
     try {
       const result = await this.lookup()
@@ -200,7 +163,7 @@ Page({
         keyUs: lexiconSpeechKey(result.lemma, 'us'),
         keyUk: lexiconSpeechKey(result.lemma, 'uk'),
       })
-      this.showSaved(savedIndex)
+      this.showSaved(savedIndex())
       this.showSaved(await saved)
       this.setData({ savedKnown: true })
       void this.loadRecord()
@@ -245,7 +208,7 @@ Page({
   async loadRecord() {
     const { result } = this
     if (result === null) return
-    const saved = findSaved(savedIndex, 'word', result.lemma)
+    const saved = findSaved(savedIndex(), 'word', result.lemma)
     let unit: UnitRecord | null = null
     try {
       let itemId = saved?.itemId ?? null
@@ -275,7 +238,7 @@ Page({
   /** Saves (or revives) a note, or deletes it; returns the stars now shown (0 = not saved). */
   async toggleNote(kind: NoteKind, text: string, input: (stars: NoteStars) => NoteInput): Promise<number> {
     await this.savedReady
-    const saved = findSaved(savedIndex, kind, text)
+    const saved = findSaved(savedIndex(), kind, text)
     if (saved !== null && saved.live) {
       try {
         await deleteNote(saved.id)
@@ -293,7 +256,7 @@ Page({
   },
 
   async setStars(kind: NoteKind, text: string, stars: NoteStars): Promise<number> {
-    const saved = findSaved(savedIndex, kind, text)
+    const saved = findSaved(savedIndex(), kind, text)
     if (saved === null || !saved.live) return 0
     const note = await saveNote(saved.id, starsInput(saved, stars))
     rememberSaved(toSavedNote(note))

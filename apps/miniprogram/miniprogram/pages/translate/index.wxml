@@ -47,7 +47,7 @@
   </view>
 </template>
 
-<view class="page tr-page theme-{{theme}}">
+<view class="page tr-page theme-{{theme}} {{accentClass}}">
   <nav-bar title="翻译" />
   <scroll-view
     id="body"
@@ -233,16 +233,26 @@
         <t-icon name="close" tone="muted" size="32" />
       </view>
     </view>
-    <view wx:if="{{sheet.state === 'ready' && sheet.headNote}}" class="tr-sheet-actions">
+    <view wx:if="{{sheet.state === 'ready'}}" class="tr-sheet-actions">
       <view
         class="icon-btn icon-btn-tonal"
-        bindtap="onHeadNote"
+        bindtap="onSheetSpeak"
         aria-role="button"
-        aria-label="{{sheet.headStars ? '取消收藏' : '收藏到笔记本'}}"
+        aria-label="{{sheetSpeakPhase === 'idle' ? '朗读这个词' : '停止朗读'}}"
       >
-        <t-icon name="{{sheet.headStars ? 'bookmark-filled' : 'bookmark'}}" tone="accent" size="32" />
+        <t-speak-icon phase="{{sheetSpeakPhase}}" tone="accent" size="32" />
       </view>
-      <t-stars wx:if="{{sheet.headStars}}" level="{{sheet.headStars}}" size="36" bind:change="onHeadStars" />
+      <block wx:if="{{sheet.headNote}}">
+        <view
+          class="icon-btn icon-btn-tonal"
+          bindtap="onHeadNote"
+          aria-role="button"
+          aria-label="{{sheet.headStars ? '取消收藏' : '收藏到笔记本'}}"
+        >
+          <t-icon name="{{sheet.headStars ? 'bookmark-filled' : 'bookmark'}}" tone="accent" size="32" />
+        </view>
+        <t-stars wx:if="{{sheet.headStars}}" level="{{sheet.headStars}}" size="36" bind:change="onHeadStars" />
+      </block>
     </view>
 
     <scroll-view class="tr-sheet-body" scroll-y type="list" show-scrollbar="{{false}}">
