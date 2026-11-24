@@ -11,7 +11,8 @@
     "./entry": "./src/entry.js",
     "./ulid": "./src/ulid.js",
     "./spelling": "./src/spelling.js",
-    "./ssml": "./src/ssml.js"
+    "./ssml": "./src/ssml.js",
+    "./speechParts": "./src/speechParts.js"
   },
   "files": [
     "src"
