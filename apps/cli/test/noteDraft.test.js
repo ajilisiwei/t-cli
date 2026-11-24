@@ -63,9 +63,10 @@ test('draftNote: Chinese word lookup → the English head term, translated by wh
     draftNote(result({ input: '苹果', output: 'apple /ˈæp.əl/', srcLang: 'zh' })),
     note('word', 'apple', '苹果'),
   );
+  // Several English words are a phrase note.
   assert.deepEqual(
     draftNote(result({ input: ' 期待 ', output: 'look forward to /lʊk ˈfɔːr.wɚd tuː/\n\n1. look forward to — 最常用', srcLang: 'zh', simple: false })),
-    note('word', 'look forward to', '期待'),
+    note('phrase', 'look forward to', '期待'),
   );
   // Without the "term /ipa/" shape the first line, cleaned, is the English side.
   assert.deepEqual(

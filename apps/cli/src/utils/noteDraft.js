@@ -80,7 +80,9 @@ function wordNote(result, srcLang) {
     return fail('Could not find the English word in the last result, so there is nothing to save.');
   }
   const translation = srcLang === 'zh' ? input : glossOf(result.output);
-  return finish({ kind: 'word', text, translation: translation || null }, WORD_TEXT_MAX);
+  // A Chinese term can translate to several English words (期待 → look forward to): that is a phrase.
+  const kind = /\s/.test(text) ? 'phrase' : 'word';
+  return finish({ kind, text, translation: translation || null }, WORD_TEXT_MAX);
 }
 
 /**
