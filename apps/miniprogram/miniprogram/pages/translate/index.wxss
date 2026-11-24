@@ -321,7 +321,7 @@
   background-color: var(--surface);
 }
 
-/* 120rpx: DOCK_BAR_PX in index.ts. */
+/* 120rpx: DOCK_BAR_PX in view.ts. */
 .tr-dock {
   display: flex;
   flex-direction: row;

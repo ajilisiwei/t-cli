@@ -21,27 +21,15 @@ import {
   explanationRows,
   numberChanges,
   visibleRows,
-  type ExplanationRow,
-  type MarkedSegment,
   type NumberedDiff,
 } from '../../lib/check-changes'
 import { MAX_INPUT_CODE_POINTS, clipInput, inputCounter, paragraphCount } from '../../lib/composer'
 import { copyText } from '../../lib/copy'
-import {
-  SHEET_MAX_SHARE,
-  WORD_PAGE_SENTENCE_MAX,
-  isLookupDisabled,
-  lookupGloss,
-  revealScrollTop,
-  sheetView,
-  wordPageUrl,
-  type SheetPhrase,
-  type SheetSense,
-} from '../../lib/lookup-view'
-import { noteKey, type NoteTarget } from '../../lib/note-outbox'
-import { cleanMarkdown, codePointLength, parseWordHeadline, splitFirstLine, type WordHeadline } from '../../lib/output'
-import { directionLabel, isBusy, outputIsEnglish, speechKey, type ResultState, type ResultStatus } from '../../lib/result'
-import { speechPhase, speechProgress, type SpeechPhase, type SpeechStatus } from '../../lib/speaker'
+import { WORD_PAGE_SENTENCE_MAX, isLookupDisabled, revealScrollTop, sheetView, wordPageUrl } from '../../lib/lookup-view'
+import type { NoteTarget } from '../../lib/note-outbox'
+import { cleanMarkdown, codePointLength, parseWordHeadline, splitFirstLine } from '../../lib/output'
+import { directionLabel, isBusy, outputIsEnglish, speechKey, type ResultState } from '../../lib/result'
+import { speechPhase, speechProgress, type SpeechStatus } from '../../lib/speaker'
 import {
   isSelected,
   selectWord,
@@ -51,266 +39,52 @@ import {
   type LookupText,
   type Selection,
 } from '../../lib/tokens'
-import type { Direction, LookupResult, NoteStars } from '../../lib/types'
+import type { Direction, LookupResult } from '../../lib/types'
 import { diffWords, displaySegments } from '../../lib/word-diff'
 import { lookupWord } from '../../services/endpoints'
 import { takeTranslationHandOff } from '../../services/handoff'
-import { canSaveNote, flushNotes, newNoteId, removeNote, saveNote, setNoteStars } from '../../services/notes'
+import { canSaveNote, flushNotes } from '../../services/notes'
 import { utcOffsetMinutes } from '../../services/platform'
 import { createResultRunner, type ResultRunner, type RunnerView } from '../../services/result-runner'
 import { redirectIfInviteRequired } from '../../services/session'
-import { autoSpeakWord, cachedSettings, explanationLang } from '../../services/settings'
+import { autoSpeakWord, explanationLang } from '../../services/settings'
 import { speak, speechStatus, toggleSpeech, watchSpeech } from '../../services/speech'
-import { currentTheme, watchTheme, type Theme } from '../../services/theme'
+import { currentTheme, watchTheme } from '../../services/theme'
 import { toast } from '../../services/ui'
 import { startVoice, stopVoice, voiceAvailable } from '../../services/voice'
 import { detectSourceLang } from '../../vendor/core/detect'
-
-type Task = 'translate' | 'check'
-
-// A complete first line of a check: the corrected text can be diffed.
-const FIRST_LINE_DONE_RE = /\S[^\n]*\n/
-const COMPOSER_MAX_LINES = 8
-const SOURCE_MAX_LINES = 6
-/** The 原文 block's type (index.wxss .tokens): font size in rpx and line height. */
-const SOURCE_FONT_RPX = 34
-const SOURCE_LINE_HEIGHT = 1.7
-/** Space kept between a tapped word and the sheet. */
-const REVEAL_MARGIN_PX = 16
-/** Heights of the inline action row and the docked bar (index.wxss), for docking without flapping. */
-const INLINE_BAR_PX = 72
-const DOCK_BAR_PX = 60
-/** How often the dock is re-measured while a result streams. */
-const STREAM_MEASURE_MS = 800
+import {
+  COMPOSER_MAX_LINES,
+  DOCK_BAR_PX,
+  EMPTY_BAR,
+  EMPTY_RESULT,
+  EMPTY_SHEET,
+  FIRST_LINE_DONE_RE,
+  INLINE_BAR_PX,
+  REVEAL_MARGIN_PX,
+  SOURCE_MAX_LINES,
+  STREAM_MEASURE_MS,
+  autoDirection,
+  chipViews,
+  directionView,
+  headSizeOf,
+  initialData,
+  isScrollContext,
+  sheetHeightPx,
+  showDirectionSetting,
+  sourceLinePx,
+  windowInfo,
+  type BarView,
+  type Rect,
+  type ResultData,
+  type SheetData,
+  type Task,
+  type TranslateData,
+} from './view'
+import { createSavedNotes, sheetTargets, type SavedNotes, type SheetTargets } from './saved-notes'
 
 /** 503 LOOKUP_DISABLED switches tap-to-look-up off until the app restarts. */
 let lookupDisabled = false
-
-interface TokenPartView {
-  text: string
-  word: number
-  on: boolean
-}
-
-interface TokenChipView {
-  parts: TokenPartView[]
-  breaks: number
-}
-
-interface BarView {
-  busy: boolean
-  /** Word results carry their speaker next to the head word. */
-  showSpeak: boolean
-  canSpeak: boolean
-  speakPhase: SpeechPhase
-  /** "2/9" while a long text is read in parts. */
-  progress: string
-  canCopy: boolean
-  copyLabel: string
-  canNote: boolean
-  noteStars: number
-  docked: boolean
-}
-
-interface SheetData {
-  state: 'loading' | 'ready' | 'error'
-  title: string
-  ipa: string
-  asWritten: string
-  meaning: string
-  phrase: SheetPhrase | null
-  senses: SheetSense[]
-  errorText: string
-  canRetry: boolean
-  headNote: boolean
-  headStars: number
-  phraseNote: boolean
-  phraseStars: number
-}
-
-interface ResultData {
-  task: Task
-  status: ResultStatus
-  busy: boolean
-  errorText: string
-  /** "纠错 · 2 处修改", "英文 → 中文 · 3 段". */
-  meta: string
-  headline: WordHeadline | null
-  /** '' | 'long' | 'xlong': smaller type for long head words. */
-  headSize: string
-  wordLink: string
-  text: string
-  english: boolean
-  /** The English side, split for tap-to-look-up. */
-  tokens: TokenChipView[]
-  /** The tokens are the output (Chinese → English) or the 原文 block (English → Chinese). */
-  outputTokens: boolean
-  sourceTokens: boolean
-  lookupOn: boolean
-  sourceClamped: boolean
-  sourceCollapsible: boolean
-  sourceLines: number
-  corrected: string
-  pending: string
-  segments: MarkedSegment[]
-  rows: ExplanationRow[]
-  hiddenRows: number
-  rowsCollapsible: boolean
-  rowsExpanded: boolean
-}
-
-interface TranslateData extends ResultData {
-  theme: Theme
-  input: string
-  focus: boolean
-  focused: boolean
-  /** After a submit the composer shows two lines; a tap opens it again. */
-  collapsed: boolean
-  /** More than eight lines: the box stops growing and scrolls. */
-  tall: boolean
-  counter: string
-  canSubmit: boolean
-  canCheck: boolean
-  inputEnglish: boolean
-  showDirection: boolean
-  dirFrom: string
-  dirTo: string
-  dirAria: string
-  voiceEnabled: boolean
-  recording: boolean
-  bar: BarView
-  docked: boolean
-  sheetOpen: boolean
-  sheetHeight: number
-  sheet: SheetData
-  scrollTop: number
-}
-
-type Rect = WechatMiniprogram.BoundingClientRectCallbackResult
-
-const EMPTY_SHEET: SheetData = {
-  state: 'loading',
-  title: '',
-  ipa: '',
-  asWritten: '',
-  meaning: '',
-  phrase: null,
-  senses: [],
-  errorText: '',
-  canRetry: true,
-  headNote: false,
-  headStars: 0,
-  phraseNote: false,
-  phraseStars: 0,
-}
-
-const EMPTY_BAR: BarView = {
-  busy: false,
-  showSpeak: true,
-  canSpeak: false,
-  speakPhase: 'idle',
-  progress: '',
-  canCopy: false,
-  copyLabel: '复制',
-  canNote: false,
-  noteStars: 0,
-  docked: false,
-}
-
-/** Everything a result shows, cleared (the task stays). */
-const EMPTY_RESULT: Omit<ResultData, 'task' | 'status' | 'busy' | 'errorText' | 'rowsExpanded'> = {
-  meta: '',
-  headline: null,
-  headSize: '',
-  wordLink: '',
-  text: '',
-  english: false,
-  tokens: [],
-  outputTokens: false,
-  sourceTokens: false,
-  lookupOn: false,
-  sourceClamped: true,
-  sourceCollapsible: false,
-  sourceLines: 0,
-  corrected: '',
-  pending: '',
-  segments: [],
-  rows: [],
-  hiddenRows: 0,
-  rowsCollapsible: false,
-}
-
-const windowInfo = (): { width: number; height: number } => {
-  try {
-    const info = wx.getWindowInfo()
-    return { width: info.windowWidth, height: info.windowHeight }
-  } catch {
-    return { width: 375, height: 667 }
-  }
-}
-
-const sheetHeightPx = (): number => Math.round(windowInfo().height * SHEET_MAX_SHARE)
-const sourceLinePx = (): number => (SOURCE_FONT_RPX * SOURCE_LINE_HEIGHT * windowInfo().width) / 750
-const showDirectionSetting = (): boolean => cachedSettings().showDirection === true
-
-const headSizeOf = (head: string): string => (head.length > 24 ? 'xlong' : head.length > 14 ? 'long' : '')
-
-const chipViews = (lookup: LookupText): TokenChipView[] =>
-  lookup.chips.map((chip) => ({
-    parts: chip.parts.map((part) => ({ text: part.text, word: part.word, on: false })),
-    breaks: chip.breaks,
-  }))
-
-/** The translate direction of `input` when the user has not chosen one. Empty → 中文 to 英文. */
-const autoDirection = (input: string): Direction =>
-  input.trim() === '' || detectSourceLang(input) === 'zh' ? 'toEn' : 'toZh'
-
-const directionView = (input: string, direction: Direction): Pick<TranslateData, 'dirFrom' | 'dirTo' | 'dirAria'> =>
-  direction === 'toEn'
-    ? { dirFrom: '中文', dirTo: '英文', dirAria: '翻译方向：中文到英文，点按切换' }
-    : {
-        dirFrom: input.trim() !== '' && detectSourceLang(input) === 'other' ? '外语' : '英文',
-        dirTo: '中文',
-        dirAria: '翻译方向：译成中文，点按切换',
-      }
-
-const isScrollContext = (node: unknown): node is WechatMiniprogram.ScrollViewContext =>
-  typeof node === 'object' && node !== null && typeof (node as { scrollTo?: unknown }).scrollTo === 'function'
-
-const initialData: TranslateData = {
-  theme: currentTheme(),
-  input: '',
-  focus: true,
-  focused: false,
-  collapsed: false,
-  tall: false,
-  counter: '',
-  canSubmit: false,
-  canCheck: false,
-  inputEnglish: false,
-  showDirection: false,
-  ...directionView('', 'toEn'),
-  voiceEnabled: false,
-  recording: false,
-  task: 'translate',
-  status: 'idle',
-  busy: false,
-  errorText: '',
-  rowsExpanded: false,
-  ...EMPTY_RESULT,
-  bar: EMPTY_BAR,
-  docked: false,
-  sheetOpen: false,
-  sheetHeight: 0,
-  sheet: EMPTY_SHEET,
-  scrollTop: 0,
-}
-
-interface SavedNote {
-  readonly id: string
-  /** 0 after 取消收藏: the id is kept, so saving again revives the same note. */
-  readonly stars: number
-}
 
 Page({
   data: initialData,
@@ -323,8 +97,8 @@ Page({
   /** Bumped by every lookup and close: an answer counts only while it is the latest. */
   lookupGen: 0,
   lookup: null as LookupResult | null,
-  /** Notes saved from this page, by noteKey. */
-  notes: null as ReadonlyMap<string, SavedNote> | null,
+  /** Notes saved from this page: their ids and stars. */
+  saved: null as SavedNotes | null,
   diffCache: null as { readonly key: string; readonly diff: NumberedDiff } | null,
   /** The direction chosen with the chip; null = detected. */
   directionOverride: null as Direction | null,
@@ -335,7 +109,7 @@ Page({
   stopWatchingSpeech: null as (() => void) | null,
 
   onLoad() {
-    this.notes = new Map()
+    this.saved = createSavedNotes()
     this.runner = createResultRunner((view) => this.render(view))
     this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme }))
     this.stopWatchingSpeech = watchSpeech((speech) => this.syncSpeech(speech))
@@ -646,7 +420,7 @@ Page({
       canCopy: !busy && run !== null && copyText({ task: run.task, kind: state.kind, output: state.text }) !== '',
       copyLabel: run?.task === 'check' ? '复制修改后的句子' : word ? '复制释义' : '复制译文',
       canNote: target !== null,
-      noteStars: target === null ? 0 : this.starsOf(target),
+      noteStars: target === null ? 0 : (this.saved?.starsOf(target) ?? 0),
       docked: this.data.docked,
     }
   },
@@ -767,53 +541,18 @@ Page({
 
   // ---- 收藏 ----
 
-  starsOf(target: NoteTarget): number {
-    return this.notes?.get(noteKey(target))?.stars ?? 0
-  },
-
-  remember(target: NoteTarget, note: SavedNote) {
-    this.notes = new Map(this.notes ?? []).set(noteKey(target), note)
-  },
-
-  /** Bookmark tap: saves at one star, or removes the saved note. Returns the new stars (0 = not saved). */
-  toggleNote(target: NoteTarget): number {
-    const known = this.notes?.get(noteKey(target))
-    if (known !== undefined && known.stars > 0) {
-      removeNote(known.id)
-      this.remember(target, { id: known.id, stars: 0 })
-      return 0
-    }
-    const id = saveNote(target, 1, known?.id ?? newNoteId())
-    if (id === null) {
-      toast('无法收藏')
-      return 0
-    }
-    this.remember(target, { id, stars: 1 })
-    return 1
-  },
-
-  changeStars(target: NoteTarget, level: unknown): number {
-    const known = this.notes?.get(noteKey(target))
-    const stars = Number(level)
-    if (known === undefined || known.stars === 0) return 0
-    if (stars !== 1 && stars !== 2 && stars !== 3 && stars !== 4) return known.stars
-    setNoteStars(known.id, target, stars as NoteStars)
-    this.remember(target, { id: known.id, stars })
-    return stars
-  },
-
   onResultNote() {
     const state = this.runner?.current().state
     const target = state === undefined ? null : this.resultTarget(state)
     if (target === null) return
-    this.setData({ 'bar.noteStars': this.toggleNote(target) })
+    this.setData({ 'bar.noteStars': this.saved?.toggle(target) ?? 0 })
   },
 
   onResultStars(event: WechatMiniprogram.CustomEvent<{ level?: number }>) {
     const state = this.runner?.current().state
     const target = state === undefined ? null : this.resultTarget(state)
     if (target === null) return
-    this.setData({ 'bar.noteStars': this.changeStars(target, event.detail.level) })
+    this.setData({ 'bar.noteStars': this.saved?.setStars(target, event.detail.level) ?? 0 })
   },
 
   // ---- 点词查词 ----
@@ -945,33 +684,17 @@ Page({
   },
 
   /** The sheet's two notes: the looked-up word (or phrase) and the phrase it sits in. */
-  sheetTargets(): { readonly head: NoteTarget | null; readonly phrase: NoteTarget | null } {
-    const lookup = this.lookup
-    if (lookup === null) return { head: null, phrase: null }
-    const entryId = this.runner?.current().state.entryId ?? null
-    const head: NoteTarget = {
-      kind: /\s/.test(lookup.lemma.trim()) ? 'phrase' : 'word',
-      text: lookup.lemma,
-      lemma: lookup.lemma,
-      translation: lookupGloss(lookup),
-      entryId,
-    }
-    const context = lookup.context?.phrase ?? null
-    const phrase: NoteTarget | null =
-      context === null ? null : { kind: 'phrase', text: context.text, translation: context.gloss, entryId }
-    return {
-      head: canSaveNote(head) ? head : null,
-      phrase: phrase !== null && canSaveNote(phrase) ? phrase : null,
-    }
+  sheetTargets(): SheetTargets {
+    return sheetTargets(this.lookup, this.runner?.current().state.entryId ?? null)
   },
 
   sheetNotes(): Pick<SheetData, 'headNote' | 'headStars' | 'phraseNote' | 'phraseStars'> {
     const { head, phrase } = this.sheetTargets()
     return {
       headNote: head !== null,
-      headStars: head === null ? 0 : this.starsOf(head),
+      headStars: head === null ? 0 : (this.saved?.starsOf(head) ?? 0),
       phraseNote: phrase !== null,
-      phraseStars: phrase === null ? 0 : this.starsOf(phrase),
+      phraseStars: phrase === null ? 0 : (this.saved?.starsOf(phrase) ?? 0),
     }
   },
 
@@ -986,28 +709,28 @@ Page({
   onHeadNote() {
     const { head } = this.sheetTargets()
     if (head === null) return
-    this.toggleNote(head)
+    this.saved?.toggle(head)
     this.refreshSheetNotes()
   },
 
   onHeadStars(event: WechatMiniprogram.CustomEvent<{ level?: number }>) {
     const { head } = this.sheetTargets()
     if (head === null) return
-    this.changeStars(head, event.detail.level)
+    this.saved?.setStars(head, event.detail.level)
     this.refreshSheetNotes()
   },
 
   onPhraseNote() {
     const { phrase } = this.sheetTargets()
     if (phrase === null) return
-    this.toggleNote(phrase)
+    this.saved?.toggle(phrase)
     this.refreshSheetNotes()
   },
 
   onPhraseStars(event: WechatMiniprogram.CustomEvent<{ level?: number }>) {
     const { phrase } = this.sheetTargets()
     if (phrase === null) return
-    this.changeStars(phrase, event.detail.level)
+    this.saved?.setStars(phrase, event.detail.level)
     this.refreshSheetNotes()
   },
 })
