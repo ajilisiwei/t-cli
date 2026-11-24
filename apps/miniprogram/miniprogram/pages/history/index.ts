@@ -36,7 +36,7 @@ import { fetchEntryDays, fetchHistory } from '../../services/endpoints'
 import { utcOffsetMinutes } from '../../services/platform'
 import { redirectIfInviteRequired } from '../../services/session'
 import { STORAGE_KEYS, readStorage, writeStorage } from '../../services/storage'
-import { currentTheme, watchTheme, type Theme } from '../../services/theme'
+import { bindPageLook, currentTheme, type Theme } from '../../services/theme'
 
 interface HistoryData {
   theme: Theme
@@ -112,7 +112,7 @@ Page({
   stopWatchingTheme: null as (() => void) | null,
 
   onLoad(query: Record<string, string | undefined>) {
-    this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme }))
+    this.stopWatchingTheme = bindPageLook(this)
     this.offset = utcOffsetMinutes()
     const today = localDateAt(Date.now(), this.offset)
     const q = normalizeHistoryQuery(decodeParam(query['q']))

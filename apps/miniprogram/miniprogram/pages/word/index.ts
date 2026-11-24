@@ -44,7 +44,7 @@ import { fetchItem, fetchItems } from '../../services/library'
 import { utcOffsetMinutes } from '../../services/platform'
 import { redirectIfInviteRequired } from '../../services/session'
 import { speechStatus, stopSpeaking, toggleSpeech, watchSpeech } from '../../services/speech'
-import { currentTheme, watchTheme, type Theme } from '../../services/theme'
+import { bindPageLook, currentTheme, type Theme } from '../../services/theme'
 import { toast } from '../../services/ui'
 
 const HISTORY_PAGE = '/pages/history/index'
@@ -162,7 +162,7 @@ Page({
 
   onLoad(query: Record<string, string | undefined>) {
     this.busy = new Set<string>()
-    this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme }))
+    this.stopWatchingTheme = bindPageLook(this)
     this.stopWatchingSpeech = watchSpeech((speech) => this.syncSpeech(speech))
     this.asked = decodeParam(query['lemma'])
     this.sentence = decodeParam(query['sentence'])

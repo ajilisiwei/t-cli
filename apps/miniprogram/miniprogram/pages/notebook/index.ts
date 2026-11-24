@@ -40,7 +40,7 @@ import { deleteNote, fetchNoteChanges, fetchNotesSummary, listNotes, saveNote } 
 import { utcOffsetMinutes } from '../../services/platform'
 import { redirectIfInviteRequired } from '../../services/session'
 import { itemSpeechKey, speechStatus, stopSpeaking, toggleSpeech, watchSpeech } from '../../services/speech'
-import { currentTheme, watchTheme, type Theme } from '../../services/theme'
+import { bindPageLook, currentTheme, type Theme } from '../../services/theme'
 import { confirm, toast } from '../../services/ui'
 
 /** Pages of changes applied in place before a full reload is cheaper. */
@@ -102,7 +102,7 @@ Page({
 
   onLoad() {
     this.busy = new Set<string>()
-    this.stopWatchingTheme = watchTheme((theme) => this.setData({ theme }))
+    this.stopWatchingTheme = bindPageLook(this)
     this.stopWatchingSpeech = watchSpeech((speech) => this.syncSpeech(speech))
     this.setData({ theme: currentTheme() })
     this.syncSpeech(speechStatus())

@@ -1,4 +1,4 @@
-<view class="page theme-{{theme}}">
+<view class="page theme-{{theme}} {{accentClass}}">
   <nav-bar title="查询记录" back />
 
   <!-- Search, calendar, day strip and source filter stay above the list -->

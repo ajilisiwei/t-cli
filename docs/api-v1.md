@@ -141,7 +141,7 @@ The server picks the text (`speakableForEntry` in `packages/core/src/speakable.j
 - `translate`, `srcLang` `en` → the English source: `correctedInput ?? input`;
 - `translate`, `srcLang` `other` → the Chinese output.
 Voice: text containing CJK → a Chinese voice, otherwise an American English voice.
-Errors (JSON envelopes): `404 NOT_FOUND` (unknown entry or another account's), `422 NOTHING_TO_SPEAK` (empty text), `422 TEXT_TOO_LONG` (over 1000 code points), `429 RATE_LIMITED` (30 per account per minute), `502 TTS_UPSTREAM`, `503 TTS_UNAVAILABLE` (disabled by config).
+Errors (JSON envelopes): `404 NOT_FOUND` (unknown entry or another account's), `422 NOTHING_TO_SPEAK` (empty text), `422 PART_OUT_OF_RANGE` (v2: long texts are read in parts, see "Speech in parts"), `429 RATE_LIMITED` (30 per account per minute), `502 TTS_UPSTREAM`, `503 TTS_UNAVAILABLE` (disabled by config).
 Not counted against the AI daily quota. The server caches audio by voice and text in a bounded in-memory cache.
 
 ## Learning (M3–M5)
