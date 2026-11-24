@@ -19,6 +19,7 @@ import { useSync } from './sync/useSync.js';
 import { useReview } from './sync/useReview.js';
 import { useSettingsSync } from './sync/useSettingsSync.js';
 import { createLearningCommands } from './sync/learningCommands.js';
+import { createNotebookCommands } from './sync/notebookCommands.js';
 import { mergeDayHistory } from './utils/historyMerge.js';
 import * as tts from './tts.js';
 
@@ -58,6 +59,8 @@ function buildWelcomeMessages(lang, isSimpleMode) {
     makeMessage('/notes          Daily material from your account, or a local AI note', { color: 'green' }),
     makeMessage('/review         Review your due cards (Enter/space flip, 1-4 rate, u undo, q quit)', { color: 'green' }),
     makeMessage('/weekly [date]  Weekly report (latest, or the week of a date)', { color: 'green' }),
+    makeMessage('/note [1-4]     Save the last result to your notebook (stars, default 1)', { color: 'green' }),
+    makeMessage('/notebook [kind] Your notebook, newest first (kind: word, phrase, sentence)', { color: 'green' }),
     makeMessage('/say            Read the last result aloud (/say stop to cancel)', { color: 'green' }),
     makeMessage('/clear          Clear screen', { color: 'green' }),
     makeMessage('/quiz [days]    Active recall quiz from recent history', { color: 'green' }),
@@ -92,6 +95,8 @@ function App() {
   const [inputHistory, setInputHistory] = useState([]);
   const [inputEpoch, setInputEpoch] = useState(0);
   const lastSpeakableRef = useRef(null);
+  // The last translation / check, for /note (see utils/noteDraft.js LastResult).
+  const lastResultRef = useRef(null);
   const historyIndexRef = useRef(null);
   const draftRef = useRef('');
   const [messages, setMessages] = useState(() => buildWelcomeMessages(initialConfig.lang, initialConfig.isSimpleMode));
@@ -149,6 +154,14 @@ function App() {
     today: todayString
   });
 
+  // /note and /notebook (the notebook lives in the account).
+  const notebook = createNotebookCommands({
+    client: sync.client,
+    server: sync.server,
+    say: appendMessage,
+    withLoading
+  });
+
   const clearOutput = () => {
     setMessages(buildWelcomeMessages(currentLang, isSimpleMode));
     setActiveStream(null);
@@ -166,15 +179,24 @@ function App() {
   // Structured record for sync (outbox.jsonl). A failure must not break the
   // translation flow, so it is surfaced once per session, never via stdout.
   // A successful write triggers a background push (no-op when sync is off).
+  // Returns the new record's id, or null when it was not written.
   const entryLogWarnedRef = useRef(false);
   const recordEntry = (fields) => {
     const result = recordLiveEntry({ ...fields, mode: isSimpleMode ? 'simple' : 'detail' });
     if (result.ok) {
       sync.notifyRecorded();
-    } else if (!entryLogWarnedRef.current) {
+      return result.entryId;
+    }
+    if (!entryLogWarnedRef.current) {
       entryLogWarnedRef.current = true;
       appendMessage(`Warning: failed to write structured log (${result.error}). Markdown history is unaffected.`, { color: 'yellow' });
     }
+    return null;
+  };
+
+  // Remember a finished result for /note; a new result starts a new note.
+  const rememberResult = (fields, entryId) => {
+    lastResultRef.current = { ...fields, simple: isSimpleMode, entryId, noteId: null, stars: null };
   };
 
   const streamAndRender = async ({
@@ -227,7 +249,8 @@ function App() {
         // Both modes put the corrected text first (detail mode: alone on line 1).
         lastSpeakableRef.current = extractSpeakable(rawResponse, isSimpleMode);
         saveHistory('Grammar Check', textToCheck, rawResponse);
-        recordEntry({ task: 'check', input: textToCheck, output: rawResponse, srcLang: 'en' });
+        const fields = { task: 'check', input: textToCheck, output: rawResponse, srcLang: 'en' };
+        rememberResult(fields, recordEntry(fields));
       }
     });
   };
@@ -250,7 +273,8 @@ function App() {
           appendMessage(`${label}: ${text.trim()} → ${correction}`, { color: 'cyan' });
         }
         saveHistory('Translation', text, rawResponse);
-        recordEntry({ task: 'translate', input: text, output: rawResponse, srcLang: sourceLang });
+        const fields = { task: 'translate', input: text, output: rawResponse, srcLang: sourceLang };
+        rememberResult(fields, recordEntry(fields));
       }
     });
   };
@@ -382,6 +406,13 @@ function App() {
         }
       }
     });
+  };
+
+  const runNoteCommand = async (fullInput) => {
+    const target = lastResultRef.current;
+    const next = await notebook.runNote(parseCommandArg(fullInput, '/note'), target);
+    // Input is blocked while the save runs, but never overwrite a newer result.
+    if (lastResultRef.current === target) lastResultRef.current = next;
   };
 
   const runReviewCommand = async (fullInput) => {
@@ -577,6 +608,16 @@ function App() {
 
     if (lowerInput === '/notes' || lowerInput.startsWith('/notes ')) {
       await runNotesCommand(inputText);
+      return;
+    }
+
+    if (lowerInput === '/note' || lowerInput.startsWith('/note ')) {
+      await runNoteCommand(inputText);
+      return;
+    }
+
+    if (lowerInput === '/notebook' || lowerInput.startsWith('/notebook ')) {
+      await notebook.runNotebook(parseCommandArg(inputText, '/notebook'));
       return;
     }
 

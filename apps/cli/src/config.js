@@ -13,8 +13,10 @@ export function getConfigDir() {
 const configDir = getConfigDir();
 const configPath = path.join(configDir, 'config.json');
 
+// Explanation language defaults to zh, as on the server and in the
+// mini-program. A saved config.json keeps its own `lang`; it is never rewritten.
 const defaultConfig = {
-  lang: 'en',
+  lang: 'zh',
   isSimpleMode: false
 };
 
