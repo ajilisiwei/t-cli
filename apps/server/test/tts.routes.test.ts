@@ -4,7 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import type { Entry } from '@t-cli/core/entry';
 import { ulid } from '@t-cli/core/ulid';
 import { insertEntries } from '../src/db/entriesRepo.ts';
-import { TTS_TEXT_MAX_CHARS, TTS_VOICES } from '../src/modules/tts/routes.ts';
+import { TTS_VOICES } from '../src/modules/tts/routes.ts';
 import { captureLogs } from './helpers/auth.ts';
 import { buildTestApp, fakeAudio, fakeTts, fixedClock, testConfig, type FakeTts, type TestClock } from './helpers/app.ts';
 import { createTestDatabase, skipWithoutDb, type TestDatabase } from './helpers/db.ts';
@@ -71,6 +71,8 @@ describe('speech: POST /v1/tts', { skip: skipWithoutDb }, () => {
       assert.equal(res.statusCode, 200, text);
       assert.equal(res.headers['content-type'], 'audio/mpeg');
       assert.equal(res.headers['cache-control'], 'private, max-age=86400');
+      assert.equal(res.headers['x-speech-part'], '0', 'no part → part 0');
+      assert.equal(res.headers['x-speech-parts'], '1');
       assert.deepEqual(res.rawPayload, fakeAudio(text, voice), text);
       assert.deepEqual({ text: tts.calls.at(-1)?.text, voice: tts.calls.at(-1)?.voice }, { text, voice });
     }
@@ -112,7 +114,7 @@ describe('speech: POST /v1/tts', { skip: skipWithoutDb }, () => {
     assert.equal((await speak(app, other, { entryId: theirs.id })).statusCode, 200, 'the owner can read it');
   });
 
-  test('nothing to read → 422 NOTHING_TO_SPEAK; over the length limit → 422 TEXT_TOO_LONG', async (ctx) => {
+  test('nothing to read → 422 NOTHING_TO_SPEAK', async (ctx) => {
     const { app, account, tts } = await setup(ctx);
     for (const fields of [
       { input: '苹果', output: '', srcLang: 'zh' as const },
@@ -122,14 +124,7 @@ describe('speech: POST /v1/tts', { skip: skipWithoutDb }, () => {
       assert.equal(res.statusCode, 422);
       assert.equal(res.json().error.code, 'NOTHING_TO_SPEAK');
     }
-
-    const atLimit = 'é'.repeat(TTS_TEXT_MAX_CHARS);
-    const ok = await speak(app, account, { entryId: (await store(account, { input: atLimit, srcLang: 'en' })).id });
-    assert.equal(ok.statusCode, 200, 'the limit counts code points, not bytes');
-    const tooLong = await speak(app, account, { entryId: (await store(account, { input: `${atLimit}e`, srcLang: 'en' })).id });
-    assert.equal(tooLong.statusCode, 422);
-    assert.equal(tooLong.json().error.code, 'TEXT_TOO_LONG');
-    assert.equal(tts.calls.length, 1);
+    assert.equal(tts.calls.length, 0);
   });
 
   test('audio is cached by voice and text: the upstream is called once', async (ctx) => {

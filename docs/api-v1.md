@@ -401,6 +401,13 @@ Paging and the response are unchanged (seq descending, `nextBefore`).
 The server splits the speakable text into parts of at most 1000 code points: sentence ends are `.` `!` `?` `…` followed by whitespace, `。` `！` `？` `；`, and line breaks; consecutive sentences are packed greedily into a part; a sentence longer than 1000 code points is cut at its last whitespace before the limit, else at 1000. Parts are substrings of the text, trimmed; the split is deterministic, so clients fetch part 0, 1, … in turn. The voice is chosen once for the whole text, so every part sounds the same.
 Every `200` carries `X-Speech-Part` (the part served) and `X-Speech-Parts` (how many there are). `part` ≥ the count → `422 PART_OUT_OF_RANGE` with `details: { parts }`. `422 TEXT_TOO_LONG` no longer occurs. A client that sends no `part` gets part 0 — for texts up to 1000 code points that is the whole text, as before. Each part is one request against the per-minute limit and is cached on its own.
 
+### Speech targets
+
+`POST /v1/tts` still takes exactly one target (plus the optional `part`). New in v2:
+- `{ "itemId": "…" }` of a `sentence` item reads its `text` (its `display` while it has no content); a `recall` card reads its sentence (the back), as in the card table.
+- `{ "lexicon": { "lemma": string, "example"?: number } }` — the word page reads a word and its examples aloud. `lemma` (1–60 code points, as `POST /v1/lookup` returned it) is matched by its lemma key; `example` is a 0-based index into the entry's `examples`. The entry read is the cached one for `lang` `en`, the caller's explanation language and the current `LEXICON_VERSION`: without `example` its `lemma`, with `example` that example's `text`. Not cached, or no such example → `404 NOT_FOUND` (nothing is generated, `lexicon.hits` is not counted). Unknown keys (an accent, say) → `400`.
+Logs name a lexicon target by its `example` index only, never the lemma.
+
 ### Settings
 
 `Settings` (`GET /v1/me`, `POST /v1/me/settings`; strict, unknown keys → 400) gains these keys. Absent → the default, applied by clients. Clients save a change locally first and push it when online; at start-up a pending local change wins, otherwise the account's value applies (as the CLI already does for `explanationLang`).
