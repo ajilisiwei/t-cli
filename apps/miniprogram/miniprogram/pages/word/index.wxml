@@ -106,8 +106,8 @@
           <text class="sec-title">词形变化</text>
           <view class="forms">
             <view wx:for="{{view.forms}}" wx:key="key" class="form">
-              <text class="muted form-label">{{item.label}}</text>
-              <text class="serif" user-select>{{item.form}}</text>
+              <text class="form-label">{{item.label}}</text>
+              <text class="serif form-value" user-select>{{item.form}}</text>
             </view>
           </view>
         </view>

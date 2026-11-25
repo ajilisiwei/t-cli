@@ -210,26 +210,34 @@
   line-height: 1.55;
 }
 
-/* 词形变化: two columns */
+/* 词形变化: two columns, each cell a label over its form. Label and form side
+ * by side broke on Skyline: a long label ("present participle") left the form
+ * no room, and the baseline-aligned form was drawn over the next row. */
 .forms {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  font-size: 28rpx;
 }
 
 .form {
   display: flex;
-  flex-direction: row;
-  align-items: baseline;
-  gap: 16rpx;
+  flex-direction: column;
+  gap: 2rpx;
   width: 50%;
-  padding: 6rpx 24rpx 6rpx 0;
+  padding: 10rpx 24rpx 10rpx 0;
   box-sizing: border-box;
 }
 
 .form-label {
-  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 24rpx;
+  line-height: 1.4;
+}
+
+.form-value {
+  font-size: 32rpx;
+  line-height: 1.4;
+  word-break: break-word;
 }
 
 /* 常用搭配 (option B) */
