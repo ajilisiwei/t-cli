@@ -80,6 +80,12 @@ const ConfigSchema = z.object({
    * on JSON requests after 20 s, so the server must answer (or 502) before.
    */
   LOOKUP_TIMEOUT_MS: z.coerce.number().int().min(1000).max(19_000).default(18_000),
+
+  // ---- v3 (docs/api-v1.md, "v3 → PDF export") ----
+  /** The Typst binary (the image installs 0.13.1 on PATH); missing → 503 EXPORT_UNAVAILABLE. */
+  TYPST_BIN: z.string().min(1).default('typst'),
+  /** The only fonts Typst may use (system fonts are ignored); the image ships them here. */
+  TYPST_FONT_PATH: z.string().min(1).default('/usr/local/share/fonts/t-cli'),
 }).refine((config) => !(config.WECHAT_DEV_LOGIN && config.NODE_ENV === 'production'), {
   path: ['WECHAT_DEV_LOGIN'],
   message: 'WECHAT_DEV_LOGIN must not be enabled in production',

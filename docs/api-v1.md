@@ -580,13 +580,18 @@ type PdfExportRequest = {
   layout?: 'read' | 'practice';   // material only; default practice (answers in a last section after a cut line)
   ipa?: boolean;                  // default true
   large?: boolean;                // default false: larger type for handwriting
+  utcOffsetMinutes?: number;      // "Local day" (default 480): today, for file names and the checklist without materials
 };
 ```
-- `material`: each material becomes a section, in the given order (one material = 这一份, several = 合集).
-- `cards`: 单词卡 from the materials' words, phrases and extension items, 6 per A4 page.
-- `checklist`: 自测清单 from the materials' words and phrases; without `materials`, from the account's units due today and those forgotten ≥ 2 times in the last 30 days (≤ 24).
+- `material`: each material becomes a section, in the given order (one material = 这一份, several = 合集; each material starts on a new page). Daily and digest: 重点词 (words, then phrases: IPA, why it is there — "复习时忘了 N 次" in the last 30 days, "笔记本 · N 星", "查过 N 次" — meaning, an example the exercises do not use), 情景短文 (the material's words and phrases in bold), 练习 (`exercisesFor`: A 选词填空, B 中译英, C 改错), 易错提醒 (grammar points from corrections; units often forgotten; for a digest its `review`), and in the practice layout 自测清单. Only the parts in `settings.materialParts` are shown (易错 recaps always). Extension: reasons, 词汇, 短文, 语法 (practice: its examples become 改错). `practice`: no answers in place; a cut line, then 答案 for every material (with its date and title when several), story translations included. `read`: answers and translations in place, no checklist, no cut line.
+- `cards`: 单词卡 from the materials' words, phrases and extension items (each term once, in order), 6 per A4 page: front = word and IPA, back = meaning, example and its translation; solid lines are cut, the dashed middle line is folded back.
+- `checklist`: 自测清单 from the materials' words and phrases (extension items included); without `materials`, from the account's words and phrases with a non-new card due before the end of the local day (suspended and mastered cards do not count) and those rated 忘记 ≥ 2 times in the last 30 days, most forgotten first, then earliest due (≤ 24). Three tick boxes, the word, a dashed fold line, the meaning.
+- Nothing to list (no words in the materials, nothing due) is not an error: the PDF says so on its one page.
+- Every page has a header (material name and date) and the page number; no nickname, no mini-program code.
 
-→ `200 application/pdf` with `Content-Disposition: attachment; filename*=UTF-8''<name>.pdf` and `X-Pdf-Pages: <n>`. Names: `学习资料_MMDD.pdf`, `学习资料合集_MMDD-MMDD.pdf`, `单词卡_MMDD.pdf`, `自测清单_MMDD.pdf` (dates of the materials, or today). The PDF is never stored on the server. At most 10 exports per account per hour; at most 40 pages.
+→ `200 application/pdf` with `Content-Disposition: attachment; filename*=UTF-8''<name>.pdf` (percent-encoded UTF-8), `X-Pdf-Pages: <n>` and `Cache-Control: no-store`. Names: `学习资料_MMDD.pdf`, `学习资料合集_MMDD-MMDD.pdf` (first–last date), `单词卡_MMDD.pdf`, `自测清单_MMDD.pdf` (dates of the materials — `MMDD-MMDD` when they span several days — or today). The PDF is never stored on the server. At most 10 exports per account per hour (every validated request counts); at most 40 pages.
+Errors, checked in this order: `401`; `400 VALIDATION_FAILED` (also: `materials` missing for `material` / `cards`, or repeated); `429 RATE_LIMITED`; `404 NOT_FOUND` (a material that does not exist for the account, `details.missing: { kind, date }[]`); `503 EXPORT_UNAVAILABLE`; `502 EXPORT_FAILED`; `422 TOO_MANY_PAGES`.
+Rendering: Typst 0.13.1 with the fonts in `TYPST_FONT_PATH` only (env `TYPST_BIN`, default `typst`; `TYPST_FONT_PATH`, default `/usr/local/share/fonts/t-cli`, where the image installs them). User text reaches the templates only as data (`data.json`), never as markup. At most 2 renders at a time; a request waits at most 15 s for its turn and its render is killed after 15 s (→ 502). Logs carry the scope, counts, pages, timings and the outcome, never content.
 
 ### New error codes (v3)
 
