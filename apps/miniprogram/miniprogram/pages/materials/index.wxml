@@ -5,23 +5,23 @@
     <view class="content">
       <block wx:if="{{phase === 'ready'}}">
         <view class="mt-head">
-          <text class="mt-head-line">{{headLine}}</text>
-          <text class="mt-title">{{title}}</text>
+          <text class="t-caption">{{headLine}}</text>
+          <text class="t-title mt-title">{{title}}</text>
           <view wx:if="{{cells.length}}" class="mt-cells">
             <view wx:for="{{cells}}" wx:key="label" class="mt-cell">
-              <text class="mt-cell-value serif">{{item.value}}</text>
-              <text class="mt-cell-label">{{item.label}}</text>
+              <text class="t-heading">{{item.value}}</text>
+              <text class="t-caption">{{item.label}}</text>
             </view>
           </view>
         </view>
 
         <!-- 本周复习时忘过的 (digest) -->
         <view wx:if="{{recap.length}}" class="mt-section">
-          <text class="mt-section-title">本周复习时忘过的</text>
+          <view class="section-head"><text class="t-label">本周复习时忘过的</text></view>
           <view wx:for="{{recap}}" wx:key="itemId" class="mt-row">
             <view class="mt-row-main">
-              <text class="mt-word serif" user-select>{{item.display}}</text>
-              <text wx:if="{{item.gloss}}" class="mt-gloss">{{item.gloss}}</text>
+              <text class="serif mt-word" user-select>{{item.display}}</text>
+              <text wx:if="{{item.gloss}}" class="t-secondary">{{item.gloss}}</text>
             </view>
             <text wx:if="{{item.lapses}}" class="label-tag label-tag-danger">{{item.lapses}}</text>
           </view>
@@ -29,20 +29,23 @@
 
         <!-- 重点词 -->
         <view wx:if="{{show.words && words.length}}" class="mt-section">
-          <text class="mt-section-title">重点词</text>
+          <view class="section-head"><text class="t-label">重点词</text></view>
           <view wx:for="{{words}}" wx:key="itemId" class="mt-row">
             <view class="mt-row-main">
-              <view class="headline">
-                <text class="mt-word serif" user-select>{{item.text}}</text>
-                <text wx:if="{{item.ipa}}" class="mt-ipa">/{{item.ipa}}/</text>
+              <!-- Word and IPA: centred, never baseline-aligned (two fonts, two sizes). -->
+              <view class="mt-headline">
+                <text class="serif mt-word" user-select>{{item.text}}</text>
+                <text wx:if="{{item.ipa}}" class="t-caption">/{{item.ipa}}/</text>
               </view>
-              <text wx:if="{{item.gloss}}" class="mt-gloss">{{item.gloss}}</text>
+              <text wx:if="{{item.gloss}}" class="t-secondary">{{item.gloss}}</text>
               <text wx:if="{{item.why}}" class="label-tag mt-why {{item.whyTone === 'lapse' ? 'label-tag-danger-soft' : item.whyTone === 'star' ? 'label-tag-soft' : ''}}">{{item.why}}</text>
-              <text wx:if="{{item.exampleEn}}" class="mt-example serif" user-select>{{item.exampleEn}}</text>
-              <text wx:if="{{item.exampleZh}}" class="mt-example-zh">{{item.exampleZh}}</text>
+              <text wx:if="{{item.exampleEn}}" class="t-secondary serif mt-example" user-select>{{item.exampleEn}}</text>
+              <text wx:if="{{item.exampleZh}}" class="t-caption">{{item.exampleZh}}</text>
             </view>
             <view
               class="icon-btn icon-btn-sm icon-btn-tonal"
+              hover-class="pressed"
+              hover-stay-time="80"
               data-id="{{item.itemId}}"
               data-key="{{item.key}}"
               bindtap="onPlayItem"
@@ -56,17 +59,19 @@
 
         <!-- 词组与句型 -->
         <view wx:if="{{show.phrases && phrases.length}}" class="mt-section">
-          <text class="mt-section-title">词组与句型</text>
+          <view class="section-head"><text class="t-label">词组与句型</text></view>
           <view wx:for="{{phrases}}" wx:key="itemId" class="mt-row">
             <view class="mt-row-main">
-              <text class="mt-phrase serif" user-select>{{item.text}}</text>
-              <text wx:if="{{item.gloss}}" class="mt-gloss">{{item.gloss}}</text>
+              <text class="serif mt-word" user-select>{{item.text}}</text>
+              <text wx:if="{{item.gloss}}" class="t-secondary">{{item.gloss}}</text>
               <text wx:if="{{item.why}}" class="label-tag mt-why {{item.whyTone === 'lapse' ? 'label-tag-danger-soft' : item.whyTone === 'star' ? 'label-tag-soft' : ''}}">{{item.why}}</text>
-              <text wx:if="{{item.exampleEn}}" class="mt-example serif" user-select>{{item.exampleEn}}</text>
-              <text wx:if="{{item.exampleZh}}" class="mt-example-zh">{{item.exampleZh}}</text>
+              <text wx:if="{{item.exampleEn}}" class="t-secondary serif mt-example" user-select>{{item.exampleEn}}</text>
+              <text wx:if="{{item.exampleZh}}" class="t-caption">{{item.exampleZh}}</text>
             </view>
             <view
               class="icon-btn icon-btn-sm icon-btn-tonal"
+              hover-class="pressed"
+              hover-stay-time="80"
               data-id="{{item.itemId}}"
               data-key="{{item.key}}"
               bindtap="onPlayItem"
@@ -80,33 +85,44 @@
 
         <!-- 情景短文 -->
         <view wx:if="{{show.story && story}}" class="card-surface mt-story">
-          <view class="mt-story-head">
-            <text class="mt-section-title mt-flat">情景短文{{story.title ? ' · ' + story.title : ''}}</text>
-            <view wx:if="{{story.zh}}" class="btn btn-secondary btn-sm" bindtap="onToggleStoryZh" aria-role="button" aria-pressed="{{showStoryZh}}">
+          <view class="section-head">
+            <text class="t-label">情景短文{{story.title ? ' · ' + story.title : ''}}</text>
+            <view
+              wx:if="{{story.zh}}"
+              class="btn btn-secondary btn-sm"
+              hover-class="pressed"
+              hover-stay-time="80"
+              bindtap="onToggleStoryZh"
+              aria-role="button"
+              aria-pressed="{{showStoryZh}}"
+            >
               <text>{{showStoryZh ? '隐藏中文' : '看中文'}}</text>
             </view>
           </view>
           <!-- One line on purpose: whitespace inside <text> is rendered. -->
-          <text class="mt-story-text serif" user-select><text wx:for="{{story.segments}}" wx:key="index" class="{{item.word ? 'mt-story-word' : ''}}">{{item.text}}</text></text>
-          <text wx:if="{{showStoryZh}}" class="mt-story-zh">{{story.zh}}</text>
+          <text class="t-reading mt-story-text" user-select><text wx:for="{{story.segments}}" wx:key="index" class="{{item.word ? 'mt-story-word' : ''}}">{{item.text}}</text></text>
+          <text wx:if="{{showStoryZh}}" class="t-secondary mt-story-zh">{{story.zh}}</text>
         </view>
 
         <!-- 练习 -->
         <view wx:if="{{show.exercises && (cloze.length || translate.length || fix.length)}}" class="mt-section">
           <block wx:if="{{cloze.length}}">
-            <view class="mt-section-head">
-              <text class="mt-section-title mt-flat">练习 · 选词填空</text>
-              <text class="mt-score">{{score}}</text>
+            <view class="section-head">
+              <text class="t-label">练习 · 选词填空</text>
+              <text class="t-caption">{{score}}</text>
             </view>
             <view wx:for="{{cloze}}" wx:key="key" wx:for-item="q" class="mt-question">
               <!-- One line on purpose: whitespace inside <text> is rendered. -->
-              <text class="mt-question-text serif">{{q.n}}. {{q.before}}<text class="mt-blank mt-blank-{{q.state}}">{{q.fill || '______'}}</text>{{q.after}}</text>
+              <text class="t-body serif mt-question-text">{{q.n}}. {{q.before}}<text class="mt-blank mt-blank-{{q.state}}">{{q.fill || '______'}}</text>{{q.after}}</text>
               <view class="choice-chips mt-choices" aria-role="radiogroup" aria-label="{{q.aria}}">
+                <!-- Answered right: the chips no longer take a tap, so they do not dim. -->
                 <view
                   wx:for="{{q.choices}}"
                   wx:key="text"
                   wx:for-item="choice"
                   class="choice-chip serif {{choice.state === 'right' ? 'choice-chip-on' : choice.state === 'wrong' ? 'mt-chip-wrong' : ''}}"
+                  hover-class="{{q.state === 'right' ? 'none' : 'pressed'}}"
+                  hover-stay-time="80"
                   data-key="{{q.key}}"
                   data-text="{{choice.text}}"
                   bindtap="onChoose"
@@ -116,72 +132,97 @@
                   <text>{{choice.text}}</text>
                 </view>
               </view>
-              <text wx:if="{{q.zh}}" class="mt-example-zh">{{q.zh}}</text>
+              <text wx:if="{{q.zh}}" class="t-caption mt-question-zh">{{q.zh}}</text>
             </view>
           </block>
 
           <block wx:if="{{translate.length}}">
-            <text class="mt-section-title mt-sub">中译英</text>
-            <view wx:for="{{translate}}" wx:key="key" class="mt-reveal" data-key="{{item.key}}" bindtap="onReveal" aria-role="button">
-              <text class="mt-reveal-prompt">{{item.n}}. {{item.prompt}}</text>
+            <view class="section-head mt-sub"><text class="t-label">中译英</text></view>
+            <view
+              wx:for="{{translate}}"
+              wx:key="key"
+              class="mt-reveal"
+              hover-class="pressed"
+              hover-stay-time="80"
+              data-key="{{item.key}}"
+              bindtap="onReveal"
+              aria-role="button"
+            >
+              <text class="t-body mt-block">{{item.n}}. {{item.prompt}}</text>
               <view wx:if="{{revealed[item.key]}}" class="mark-line mt-reveal-answer">
                 <view class="mark-icon"><t-icon name="check" tone="accent" size="30" /></view>
-                <text class="mt-answer serif" user-select>{{item.answer}}</text>
+                <text class="t-body serif mt-answer" user-select>{{item.answer}}</text>
               </view>
-              <text wx:else class="mt-reveal-hint">轻点看答案</text>
+              <text wx:else class="t-caption mt-reveal-hint">轻点看答案</text>
             </view>
           </block>
 
           <block wx:if="{{fix.length}}">
-            <text class="mt-section-title mt-sub">改错</text>
-            <view wx:for="{{fix}}" wx:key="key" class="mt-reveal" data-key="{{item.key}}" bindtap="onReveal" aria-role="button">
-              <text class="mt-reveal-prompt serif">{{item.n}}. {{item.prompt}}</text>
+            <view class="section-head mt-sub"><text class="t-label">改错</text></view>
+            <view
+              wx:for="{{fix}}"
+              wx:key="key"
+              class="mt-reveal"
+              hover-class="pressed"
+              hover-stay-time="80"
+              data-key="{{item.key}}"
+              bindtap="onReveal"
+              aria-role="button"
+            >
+              <text class="t-body serif mt-block">{{item.n}}. {{item.prompt}}</text>
               <view wx:if="{{revealed[item.key]}}" class="mark-line mt-reveal-answer">
                 <view class="mark-icon"><t-icon name="check" tone="accent" size="30" /></view>
-                <text class="mt-answer serif" user-select>{{item.answer}}</text>
+                <text class="t-body serif mt-answer" user-select>{{item.answer}}</text>
               </view>
-              <text wx:else class="mt-reveal-hint">轻点看答案</text>
+              <text wx:else class="t-caption mt-reveal-hint">轻点看答案</text>
             </view>
           </block>
         </view>
 
         <!-- 语法与易错 -->
         <view wx:if="{{show.grammar && (grammar.length || mistakes.length)}}" class="mt-section">
-          <text class="mt-section-title">语法与易错</text>
+          <view class="section-head"><text class="t-label">语法与易错</text></view>
           <view wx:for="{{grammar}}" wx:key="itemId" class="mt-mistake">
-            <text class="mt-mistake-title">{{item.title}}</text>
+            <text class="t-body mt-mistake-title">{{item.title}}</text>
             <view wx:if="{{item.wrong}}" class="mark-line">
               <view class="mark-icon"><t-icon name="close" tone="danger" size="28" /></view>
-              <text class="mt-wrong serif">{{item.wrong}}</text>
+              <text class="t-body serif mt-wrong">{{item.wrong}}</text>
             </view>
             <view wx:if="{{item.right}}" class="mark-line">
               <view class="mark-icon"><t-icon name="check" tone="accent" size="30" /></view>
-              <text class="mt-right serif">{{item.right}}</text>
+              <text class="t-body serif mt-right">{{item.right}}</text>
             </view>
-            <text wx:if="{{item.rule}}" class="mt-note">{{item.rule}}</text>
+            <text wx:if="{{item.rule}}" class="t-secondary mt-note">{{item.rule}}</text>
           </view>
           <view wx:for="{{mistakes}}" wx:key="itemId" class="mt-mistake">
-            <text class="mt-right serif" user-select>{{item.display}}</text>
-            <text wx:if="{{item.note}}" class="mt-note">{{item.note}}</text>
-            <text wx:if="{{item.example.en}}" class="mt-example serif" user-select>{{item.example.en}}</text>
-            <text wx:if="{{item.example.zh}}" class="mt-example-zh">{{item.example.zh}}</text>
+            <text class="t-body serif mt-block" user-select>{{item.display}}</text>
+            <text wx:if="{{item.note}}" class="t-secondary mt-note">{{item.note}}</text>
+            <text wx:if="{{item.example.en}}" class="t-secondary serif mt-example" user-select>{{item.example.en}}</text>
+            <text wx:if="{{item.example.zh}}" class="t-caption mt-block">{{item.example.zh}}</text>
           </view>
         </view>
       </block>
 
-      <view wx:elif="{{phase === 'none'}}" class="mt-none">
-        <text class="mt-none-title">{{noneText}}</text>
-        <text class="mt-none-note">资料按学习计划生成：每天模式整理前一天的内容，每周模式在选定的那天出一份合集。</text>
+      <view wx:elif="{{phase === 'none'}}" class="state">
+        <text class="state-text">{{noneText}}</text>
+        <text class="t-caption">资料按学习计划生成：每天模式整理前一天的内容，每周模式在选定的那天出一份合集。</text>
       </view>
 
-      <view wx:elif="{{phase === 'error'}}" class="mt-none">
-        <text class="error">{{errorText}}</text>
-        <view class="mt-retry">
-          <view class="btn btn-secondary btn-sm" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+      <view wx:elif="{{phase === 'error'}}" class="state">
+        <text class="state-text state-error">{{errorText}}</text>
+        <view class="btn btn-secondary btn-sm" hover-class="pressed" hover-stay-time="80" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+      </view>
+
+      <!-- Loading: the head, the count cells and a few word rows. -->
+      <view wx:else aria-label="加载中">
+        <view class="skel skel-line mt-skel-caption" />
+        <view class="skel mt-skel-title" />
+        <view class="mt-cells">
+          <view wx:for="{{[1, 2, 3, 4]}}" wx:key="*this" class="skel mt-skel-cell" />
         </view>
+        <view class="skel skel-line mt-skel-label" />
+        <view wx:for="{{[1, 2, 3]}}" wx:key="*this" class="skel skel-block" />
       </view>
-
-      <text wx:else class="empty">加载中…</text>
     </view>
   </scroll-view>
 
@@ -189,17 +230,26 @@
     <view
       wx:if="{{canSpeakStory}}"
       class="icon-btn icon-btn-tonal"
+      hover-class="pressed"
+      hover-stay-time="80"
       bindtap="onPlayStory"
       aria-role="button"
       aria-label="{{speech.key === story.key ? '停止朗读' : '朗读短文'}}"
     >
       <t-speak-icon phase="{{speech.key === story.key ? speech.phase : 'idle'}}" tone="accent" size="32" />
     </view>
-    <view class="btn btn-secondary btn-icon-first" bindtap="onExport" aria-role="button">
+    <view class="btn btn-secondary btn-icon-first" hover-class="pressed" hover-stay-time="80" bindtap="onExport" aria-role="button">
       <t-icon name="printer" tone="accent" size="32" />
       <text>导出 PDF</text>
     </view>
-    <view class="btn {{done ? 'btn-tonal' : 'btn-primary'}} mt-grow" bindtap="onToggleRead" aria-role="button">
+    <view
+      class="btn {{done ? 'btn-tonal' : 'btn-primary'}} mt-grow"
+      hover-class="pressed"
+      hover-stay-time="80"
+      bindtap="onToggleRead"
+      aria-role="button"
+      aria-pressed="{{done}}"
+    >
       <text>{{done ? '已学完 · 撤销' : '学完了'}}</text>
     </view>
   </view>
