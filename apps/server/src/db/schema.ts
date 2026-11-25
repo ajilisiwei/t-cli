@@ -259,17 +259,24 @@ export const reviewLogs = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.id] }), index('review_logs_user_card_idx').on(t.userId, t.cardId, t.reviewedAt)],
 );
 
-/** AI-written reading material: one daily per local date, one weekly per week (date = the week's Monday). */
+/**
+ * AI-written reading material, one per (kind, date): `daily` (the day it
+ * covers), `weekly` (the week's Monday), and v3 `digest` (the last day of its
+ * 7-day range) and `extend` (the Monday it was generated). The kinds are a
+ * Drizzle enum only (no CHECK constraint), so v3 added them without a DDL
+ * change. `readAt` is "学完了" (v3), null until the user marks it.
+ */
 export const materials = pgTable(
   'materials',
   {
     userId: text().notNull().references(() => users.id, { onDelete: 'cascade' }),
-    kind: text({ enum: ['daily', 'weekly'] }).notNull(),
+    kind: text({ enum: ['daily', 'weekly', 'digest', 'extend'] }).notNull(),
     date: date({ mode: 'string' }).notNull(),
     content: jsonb().$type<Record<string, unknown>>().notNull(),
     model: text(),
     version: integer().notNull().default(1),
     ...timestamps,
+    readAt: timestamp({ withTimezone: true }),
   },
   (t) => [primaryKey({ columns: [t.userId, t.kind, t.date] })],
 );
@@ -377,4 +384,36 @@ export const lexicon = pgTable(
     ...timestamps,
   },
   (t) => [primaryKey({ columns: [t.lang, t.explainLang, t.lemma, t.version] })],
+);
+
+// ---------------------------------------------------------------------------
+// v3: lookup events (docs/api-v1.md, "v3 → Lookup events").
+// ---------------------------------------------------------------------------
+
+/**
+ * One successful `POST /v1/lookup` of the account: only the lemma key (the
+ * lexicon key of the answer's lemma) and the explanation language — never
+ * the sentence or the record id. At most one per account and lemma key per
+ * 10 minutes. The nightly job merges unmerged events into word units
+ * (`mergedAt` marks them, so a run never counts an event twice and an event
+ * written during a run waits for the next one) and deletes events older than
+ * 180 days.
+ */
+export const lookupEvents = pgTable(
+  'lookup_events',
+  {
+    userId: text().notNull().references(() => users.id, { onDelete: 'cascade' }),
+    id: text().notNull(),
+    lemmaKey: text().notNull(),
+    explainLang: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    mergedAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.id] }),
+    // The 10-minute dedupe, a day's lookups, the signals and the 180-day cleanup.
+    index('lookup_events_user_created_idx').on(t.userId, t.createdAt),
+    // Step 0 of the nightly job: the account's events not merged yet.
+    index('lookup_events_unmerged_idx').on(t.userId).where(sql`merged_at is null`),
+  ],
 );
