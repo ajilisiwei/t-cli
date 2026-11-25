@@ -1,7 +1,8 @@
 /*
- * 学习 home. The pieces (card-surface, label-tag, choice-chip, meter, btn)
- * come from app.wxss; this file lays them out. The root is positioned so the
- * export sheet can sit over the page.
+ * 学习 home. Type (.t-*), the pieces (card-surface, label-tag, choice-chip,
+ * meter, btn, section-head, state, skel) come from app.wxss; this file only
+ * lays them out. The root is positioned so the export sheet can sit over the
+ * page.
  */
 .lh-page {
   position: relative;
@@ -18,40 +19,26 @@
   flex-direction: row;
   align-items: flex-end;
   justify-content: space-between;
+  gap: 24rpx;
 }
 
 .lh-today-left {
   display: flex;
   flex-direction: column;
+  gap: 8rpx;
 }
 
-.lh-caption {
-  color: var(--muted);
-  font-size: 26rpx;
-}
-
+/* The count and its unit share a bottom edge (flex-end, not baseline: Skyline). */
 .lh-due {
   display: flex;
   flex-direction: row;
-  align-items: baseline;
+  align-items: flex-end;
   gap: 12rpx;
 }
 
-.lh-due-n {
-  color: var(--ink);
-  font-size: 72rpx;
-  line-height: 1.15;
-}
-
-.lh-due-unit {
-  color: var(--ink-soft);
-  font-size: 28rpx;
-}
-
 .lh-done {
-  padding-bottom: 12rpx;
+  padding-bottom: 8rpx;
   color: var(--ink-soft);
-  font-size: 26rpx;
 }
 
 .lh-meter {
@@ -60,63 +47,72 @@
 }
 
 .lh-chips {
-  margin-top: 28rpx;
+  margin-top: 24rpx;
+}
+
+/* A scope with nothing due: visible for its count, not selectable. */
+.lh-chip-off {
+  opacity: 0.4;
 }
 
 .lh-start {
-  margin-top: 28rpx;
+  margin-top: 24rpx;
 }
 
 .lh-calm {
   display: block;
   margin-top: 24rpx;
-  color: var(--ink-soft);
-  font-size: 28rpx;
-  line-height: 1.7;
 }
 
-.lh-error {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16rpx;
-  margin-top: 16rpx;
+/* States inside a card or a section: the shared .state, with less air. */
+.lh-state {
+  padding: 32rpx 0;
 }
 
-.lh-error-text {
-  margin-top: 0;
+/* ---- skeletons: the card's caption, count, meter and button ---- */
+.lh-skel-caption {
+  width: 280rpx;
+}
+
+.lh-skel-due {
+  width: 200rpx;
+  height: 64rpx;
+}
+
+.lh-skel-meter {
+  height: 8rpx;
+  margin-top: 24rpx;
+}
+
+.lh-skel-start {
+  height: 96rpx;
+  margin-top: 24rpx;
+  border-radius: 48rpx;
+}
+
+.lh-skel-material {
+  height: 240rpx;
+  border-radius: 32rpx;
 }
 
 /* ---- section heads ---- */
-.lh-section-head {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 48rpx;
-  margin-bottom: 16rpx;
+.lh-section {
+  margin-top: 40rpx;
+  margin-bottom: 8rpx;
 }
 
-.lh-section-title {
-  color: var(--ink);
-  font-size: 34rpx;
-  font-weight: 600;
-}
-
+/* 全部 › / 导出记录 ›: a link with an icon, a 64rpx target. */
 .lh-more {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 4rpx;
-  min-height: 72rpx;
-  color: var(--accent);
-  font-size: 28rpx;
+  min-height: 64rpx;
+  padding: 0;
 }
 
 /* ---- 学习资料 ---- */
 .lh-material {
-  margin-bottom: 20rpx;
+  margin-bottom: 24rpx;
 }
 
 .lh-tags {
@@ -124,11 +120,6 @@
   flex-direction: row;
   align-items: center;
   gap: 16rpx;
-}
-
-.lh-when {
-  color: var(--muted);
-  font-size: 24rpx;
 }
 
 .lh-status {
@@ -143,30 +134,18 @@
 .lh-material-title {
   display: block;
   margin-top: 16rpx;
-  color: var(--ink);
-  font-size: 34rpx;
-  font-weight: 600;
-  line-height: 1.4;
+}
+
+.lh-material-line {
+  display: block;
+  margin-top: 8rpx;
 }
 
 /* An extension's first reason, under its title: one line. */
-.lh-material-subtitle {
-  display: block;
-  margin-top: 8rpx;
+.lh-one-line {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  color: var(--ink-soft);
-  font-size: 26rpx;
-  line-height: 1.5;
-}
-
-.lh-material-meta {
-  display: block;
-  margin-top: 8rpx;
-  color: var(--ink-soft);
-  font-size: 26rpx;
-  line-height: 1.5;
 }
 
 .lh-material-actions {
@@ -185,10 +164,10 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 20rpx;
-  margin-bottom: 20rpx;
-  padding: 24rpx 28rpx;
-  border-radius: 28rpx;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+  padding: 24rpx 32rpx;
+  border-radius: 32rpx;
   background-color: var(--accent-soft);
 }
 
@@ -203,15 +182,6 @@
   white-space: nowrap;
   text-overflow: ellipsis;
   color: var(--ink);
-  font-size: 28rpx;
-}
-
-.lh-empty {
-  display: block;
-  padding: 24rpx 0;
-  color: var(--muted);
-  font-size: 26rpx;
-  line-height: 1.7;
 }
 
 /* ---- 打印与导出 ---- */
@@ -227,26 +197,19 @@
   display: flex;
   flex-direction: column;
   gap: 8rpx;
-  padding: 24rpx 20rpx;
+  padding: 24rpx 16rpx;
   background-color: var(--surface);
   border: 1px solid var(--rule);
-  border-radius: 28rpx;
+  border-radius: 32rpx;
 }
 
 .lh-tile-off {
-  opacity: 0.5;
+  opacity: 0.4;
 }
 
 .lh-tile-label {
   color: var(--ink);
-  font-size: 28rpx;
   font-weight: 600;
-}
-
-.lh-tile-hint {
-  color: var(--muted);
-  font-size: 22rpx;
-  line-height: 1.5;
 }
 
 /* ---- 学习计划 ---- */
@@ -262,7 +225,4 @@
 
 .lh-plan-text {
   flex: 1;
-  color: var(--ink-soft);
-  font-size: 26rpx;
-  line-height: 1.6;
 }

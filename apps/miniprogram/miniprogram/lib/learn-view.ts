@@ -281,11 +281,18 @@ export interface ScopeChip {
   readonly id: ReviewScope
   readonly label: string
   readonly checked: boolean
+  /** Nothing due in this scope (and it is not the chosen one): shown dimmed, not selectable. */
+  readonly off: boolean
 }
 
 /** "全部到期 18" · "只复习笔记本 7" · "3 星以上 9". */
 export function scopeChips(due: DueByScope, chosen: ReviewScope): ScopeChip[] {
-  return SCOPES.map((id) => ({ id, label: `${SCOPE_LABELS[id]} ${due[id]}`, checked: id === chosen }))
+  return SCOPES.map((id) => ({
+    id,
+    label: `${SCOPE_LABELS[id]} ${due[id]}`,
+    checked: id === chosen,
+    off: id !== chosen && due[id] <= 0,
+  }))
 }
 
 /** The start button for a scope; empty when there is nothing to review in it. */
