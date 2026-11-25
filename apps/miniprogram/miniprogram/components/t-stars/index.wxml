@@ -5,6 +5,8 @@
     class="star"
     data-n="{{item.n}}"
     bindtap="onTap"
+    hover-class="pressed"
+    hover-stay-time="80"
     aria-role="button"
     aria-label="{{item.label}}"
   >
