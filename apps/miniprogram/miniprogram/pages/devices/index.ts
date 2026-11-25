@@ -1,6 +1,7 @@
 /**
  * 我的 → 设备: the account's signed-in devices; any but this one can be
- * revoked (it is signed out at its next request).
+ * removed (移除: it is signed out at its next request). One removal at a
+ * time; the list loads with skeleton rows and fails into a 重试 state.
  */
 import { errorMessage } from '../../lib/api'
 import { formatInstant } from '../../lib/history'
@@ -23,6 +24,9 @@ interface DevicesData {
   devices: DeviceRow[]
   loading: boolean
   errorText: string
+  /** The device being removed, or ''. */
+  revokingId: string
+  skeletonRows: readonly number[]
 }
 
 const KIND_LABELS: Readonly<Record<string, string>> = { cli: 'CLI', mp: '小程序', h5: '网页' }
@@ -40,6 +44,8 @@ const initialData: DevicesData = {
   devices: [],
   loading: true,
   errorText: '',
+  revokingId: '',
+  skeletonRows: [0, 1],
 }
 
 Page({
@@ -59,6 +65,10 @@ Page({
     this.stopWatchingTheme?.()
   },
 
+  onRetry() {
+    void this.load()
+  },
+
   async load() {
     this.setData({ loading: true, errorText: '' })
     try {
@@ -76,22 +86,25 @@ Page({
   },
 
   async onRevoke(event: WechatMiniprogram.BaseEvent<Record<string, never>, { id?: string }>) {
+    if (this.data.revokingId !== '') return
     const row = this.data.devices.find((device) => device.id === event.currentTarget.dataset.id)
     if (row === undefined || row.current) return
     const confirmed = await confirm({
-      title: '撤销设备',
-      content: `「${row.name}」将退出登录，需要重新授权才能再用。`,
-      confirmText: '撤销',
+      title: '移除设备',
+      content: `「${row.name}」会退出登录，要再用需要重新授权。`,
+      confirmText: '移除',
       destructive: true,
     })
     if (!confirmed) return
+    this.setData({ revokingId: row.id })
     try {
       await revokeDevice(row.id)
-      toast('已撤销')
-      await this.load()
+      toast('已移除')
     } catch (error: unknown) {
       toast(errorMessage(error, { NOT_FOUND: '设备已不存在' }))
-      await this.load()
+    } finally {
+      this.setData({ revokingId: '' })
     }
+    await this.load()
   },
 })

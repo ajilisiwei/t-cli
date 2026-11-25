@@ -4,15 +4,17 @@
     <view class="content">
       <view class="preview" style="{{cardStyle}}" aria-label="预览">
         <view class="preview-head">
-          <text class="preview-name" style="{{mutedStyle}}">{{previewName}}</text>
-          <view class="chips" style="{{softStyle}}">
+          <text class="t-caption" style="{{mutedStyle}}">{{previewName}}</text>
+          <view class="seg-control preview-seg" style="{{trackStyle}}">
             <view
               wx:for="{{previewChips}}"
               wx:key="value"
-              class="chip {{item.on ? 'chip-on' : ''}}"
-              style="{{item.on ? cardStyle : ''}}"
+              class="seg-option"
+              style="{{item.on ? optionOnStyle : mutedStyle}}"
               data-value="{{item.value}}"
               bindtap="onPreview"
+              hover-class="{{item.on ? 'none' : 'pressed'}}"
+              hover-stay-time="80"
               aria-role="button"
               aria-pressed="{{item.on}}"
               aria-label="预览{{item.label}}"
@@ -22,25 +24,27 @@
           </view>
         </view>
         <view class="preview-headline">
-          <text class="serif preview-word" style="{{wordStyle}}">concise</text>
-          <text class="preview-ipa" style="{{mutedStyle}}">/kənˈsaɪs/</text>
+          <text class="t-headword" style="{{wordStyle}}">concise</text>
+          <text class="t-secondary" style="{{mutedStyle}}">/kənˈsaɪs/</text>
         </view>
         <text class="preview-line" style="{{bodyStyle}}"><text class="serif preview-pos" style="{{mutedStyle}}">adj.</text>　简洁的；简明的；简要的</text>
         <text class="serif preview-line" style="{{bodyStyle}}">Keep your answers <text class="preview-mark" style="{{accentStyle}}">concise</text> and to the point.</text>
         <view class="preview-actions">
-          <view class="preview-icon" style="{{softStyle}}"><image class="preview-glyph" src="{{speakerIcon}}" mode="aspectFit" /></view>
-          <view class="preview-icon" style="{{softStyle}}"><image class="preview-glyph" src="{{bookmarkIcon}}" mode="aspectFit" /></view>
+          <view class="icon-btn" style="{{softStyle}}"><image class="preview-glyph" src="{{speakerIcon}}" mode="aspectFit" /></view>
+          <view class="icon-btn" style="{{softStyle}}"><image class="preview-glyph" src="{{bookmarkIcon}}" mode="aspectFit" /></view>
         </view>
       </view>
 
-      <text class="section-title">什么时候切换</text>
-      <view class="mode-tabs" aria-role="radiogroup" aria-label="深浅模式">
+      <view class="section-head group-head"><text class="t-label">什么时候切换</text></view>
+      <view class="seg-control" aria-role="radiogroup" aria-label="深浅模式">
         <view
           wx:for="{{modes}}"
           wx:key="value"
-          class="mode-tab {{item.on ? 'mode-tab-on' : ''}}"
+          class="seg-option {{item.on ? 'seg-option-on' : ''}}"
           data-mode="{{item.value}}"
           bindtap="onMode"
+          hover-class="{{item.on ? 'none' : 'pressed'}}"
+          hover-stay-time="80"
           aria-role="radio"
           aria-checked="{{item.on}}"
         >
@@ -48,23 +52,23 @@
         </view>
       </view>
 
-      <view wx:if="{{mode === 'time'}}" class="panel">
+      <view wx:if="{{mode === 'time'}}" class="card-surface panel">
         <view class="day-bar-box" aria-label="浅色 {{dayStartLabel}} 到 {{nightStartLabel}}，其余时间深色">
           <view class="day-bar">
             <view wx:for="{{barSegments}}" wx:key="index" class="day-segment" style="{{item.style}}"></view>
           </view>
           <view class="now" style="{{nowStyle}}">
-            <text class="now-label">现在</text>
+            <text class="t-caption now-label">现在</text>
             <view class="now-line"></view>
           </view>
         </view>
         <view class="day-scale">
-          <text>0:00</text>
-          <text>12:00</text>
-          <text>24:00</text>
+          <text class="t-caption">0:00</text>
+          <text class="t-caption">12:00</text>
+          <text class="t-caption">24:00</text>
         </view>
         <picker mode="time" value="{{dayStart}}" bindchange="onDayStart">
-          <view class="row panel-row" aria-role="button" aria-label="浅色开始：{{dayStartLabel}}">
+          <view class="row" hover-class="pressed" hover-stay-time="80" aria-role="button" aria-label="浅色开始：{{dayStartLabel}}">
             <text class="row-label">浅色开始</text>
             <view class="row-trail">
               <text class="row-value">{{dayStartLabel}}</text>
@@ -73,7 +77,7 @@
           </view>
         </picker>
         <picker mode="time" value="{{nightStart}}" bindchange="onNightStart">
-          <view class="row panel-row panel-row-last" aria-role="button" aria-label="深色开始：{{nightStartLabel}}">
+          <view class="row row-last" hover-class="pressed" hover-stay-time="80" aria-role="button" aria-label="深色开始：{{nightStartLabel}}">
             <text class="row-label">深色开始</text>
             <view class="row-trail">
               <text class="row-value">{{nightStartLabel}}</text>
@@ -81,19 +85,21 @@
             </view>
           </view>
         </picker>
-        <text class="hint-text">到点自动切换。两个时间相同时全天浅色。</text>
+        <text class="t-caption hint-text">到点自动切换。两个时间相同时全天浅色。</text>
       </view>
-      <text wx:if="{{mode === 'system'}}" class="hint-text">跟随手机的深色模式：手机是浅色时用浅色，是深色时用深色。</text>
-      <view wx:if="{{mode === 'fixed'}}">
+      <text wx:if="{{mode === 'system'}}" class="t-caption hint-text">跟随手机的深色模式：手机是浅色时用浅色，是深色时用深色。</text>
+      <view wx:if="{{mode === 'fixed'}}" class="fixed">
         <view class="row">
           <text class="row-label">固定为</text>
-          <view class="segmented" aria-role="radiogroup" aria-label="固定为">
+          <view class="seg-control fixed-seg" aria-role="radiogroup" aria-label="固定为">
             <view
               wx:for="{{fixedOptions}}"
               wx:key="value"
-              class="segment {{item.on ? 'segment-on' : ''}}"
+              class="seg-option {{item.on ? 'seg-option-on' : ''}}"
               data-value="{{item.value}}"
               bindtap="onFixed"
+              hover-class="{{item.on ? 'none' : 'pressed'}}"
+              hover-stay-time="80"
               aria-role="radio"
               aria-checked="{{item.on}}"
             >
@@ -101,11 +107,19 @@
             </view>
           </view>
         </view>
-        <text class="hint-text">始终使用这一种，不随手机或时间变化。</text>
+        <text class="t-caption hint-text">始终使用这一种，不随手机或时间变化。</text>
       </view>
 
-      <text class="section-title">阅读模式</text>
-      <view class="row" bindtap="onReading" aria-role="switch" aria-checked="{{readingMode}}" aria-label="阅读模式">
+      <view class="section-head group-head"><text class="t-label">阅读模式</text></view>
+      <view
+        class="row"
+        bindtap="onReading"
+        hover-class="pressed"
+        hover-stay-time="80"
+        aria-role="switch"
+        aria-checked="{{readingMode}}"
+        aria-label="阅读模式"
+      >
         <view class="row-text">
           <text class="row-label">阅读模式</text>
           <text class="row-hint">每日短文、单词详情：大字、宽行距、隐藏多余按钮</text>
@@ -119,6 +133,8 @@
             class="step-btn {{canShrink ? '' : 'step-btn-off'}}"
             data-delta="-1"
             bindtap="onFontStep"
+            hover-class="{{canShrink ? 'pressed' : 'none'}}"
+            hover-stay-time="80"
             aria-role="button"
             aria-label="字号变小"
             aria-disabled="{{!canShrink}}"
@@ -132,6 +148,8 @@
             class="step-btn {{canGrow ? '' : 'step-btn-off'}}"
             data-delta="1"
             bindtap="onFontStep"
+            hover-class="{{canGrow ? 'pressed' : 'none'}}"
+            hover-stay-time="80"
             aria-role="button"
             aria-label="字号变大"
             aria-disabled="{{!canGrow}}"

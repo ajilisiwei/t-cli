@@ -145,8 +145,8 @@ export interface ReadingType {
   readonly lineHeight: number
 }
 
-/** Without 阅读模式: the app's usual sizes (.head, .explanation). */
-const NORMAL_TYPE: ReadingType = { word: 56, body: 30, lineHeight: 1.7 }
+/** Without 阅读模式: the app's usual sizes, from the type scale (.t-headword 56, .t-secondary 28). */
+const NORMAL_TYPE: ReadingType = { word: 56, body: 28, lineHeight: 1.7 }
 
 /** 阅读模式: larger type and wider lines; step 0 is its normal size. */
 const READING_TYPES: readonly ReadingType[] = [

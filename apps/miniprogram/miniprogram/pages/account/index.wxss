@@ -1,33 +1,45 @@
-/* The export file, ready to send: a quiet surface like the composer. */
+/* Layout only; rows, type, cards and buttons come from app.wxss (README "Design system"). */
+
+/* A settings group's heading: 32rpx plus .section-head's own room keeps groups ~48rpx apart. */
+.group-head {
+  margin-top: 32rpx;
+}
+
+/* 注册时间 while it loads: a skeleton the width of a date. */
+.since-skel {
+  width: 200rpx;
+  height: 28rpx;
+}
+
+.para {
+  display: block;
+  margin-top: 16rpx;
+}
+
+/* The export file, ready to send: a card with its 发送 action at the end. */
 .file {
   display: flex;
   flex-direction: row;
   align-items: center;
-  margin-top: 32rpx;
-  padding: 20rpx 20rpx 20rpx 28rpx;
-  background-color: var(--surface);
-  border: 1px solid var(--rule);
-  border-radius: 20rpx;
+  gap: 24rpx;
+  margin-top: 24rpx;
+  padding: 24rpx 24rpx 24rpx 32rpx;
 }
 
 .file-info {
   flex: 1;
   min-width: 0;
-  margin-right: 16rpx;
 }
 
 .file-name {
   display: block;
-  font-size: 28rpx;
+  color: var(--ink);
   word-break: break-all;
 }
 
 .file-size {
   display: block;
-  color: var(--muted);
-  font-size: 24rpx;
 }
-
 
 .facts {
   margin-top: 8rpx;
@@ -35,7 +47,4 @@
 
 .fact {
   display: block;
-  color: var(--ink-soft);
-  font-size: 28rpx;
-  line-height: 1.7;
 }
