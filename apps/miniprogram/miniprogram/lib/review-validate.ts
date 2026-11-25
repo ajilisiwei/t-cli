@@ -8,7 +8,6 @@ import type {
   CardState,
   Intervals,
   ItemType,
-  MaterialDates,
   QueueCard,
   ReviewBatchResult,
   ReviewSummary,
@@ -92,19 +91,6 @@ export function readBatchResult(value: unknown): ReviewBatchResult | null {
     .map((entry) => (isRecord(entry) && nonEmpty(entry['id']) ? entry['id'] : null))
     .filter((id): id is string => id !== null)
   return { accepted, rejected }
-}
-
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
-
-/** `GET /v1/materials?kind=daily` → dates (newest first) and the cursor. */
-export function readMaterialDates(value: unknown): MaterialDates | null {
-  if (!isRecord(value) || !Array.isArray(value['dates'])) return null
-  const dates = value['dates'].filter((date): date is string => typeof date === 'string' && DATE_RE.test(date))
-  const next = value['nextBefore']
-  return {
-    dates: [...new Set(dates)].sort().reverse(),
-    nextBefore: typeof next === 'string' && DATE_RE.test(next) ? next : null,
-  }
 }
 
 /**

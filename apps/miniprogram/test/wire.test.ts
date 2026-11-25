@@ -66,6 +66,34 @@ test('readSettings keeps valid v1 and v2 keys and drops the rest', () => {
   assert.deepEqual(readSettings([]), {})
 })
 
+test('readSettings keeps valid v3 keys and drops malformed ones', () => {
+  const v3 = {
+    materialFrequency: 'weekly',
+    materialWeekday: 3,
+    materialParts: ['words', 'story'],
+    extendEnabled: false,
+    extendTopics: ['work', 'travel'],
+    extendMuted: [{ topic: 'finance', until: '2026-12-25' }, { topic: 'other', until: '2026-12-01' }],
+    studyLevel: 'C1',
+  }
+  assert.deepEqual(readSettings(v3), v3)
+  assert.deepEqual(
+    readSettings({
+      materialFrequency: 'monthly',
+      materialWeekday: 7,
+      materialParts: [],
+      extendEnabled: 'yes',
+      extendTopics: ['work', 'work'],
+      extendMuted: [{ topic: 'finance', until: 'soon' }],
+      studyLevel: 'C2',
+    }),
+    {},
+  )
+  assert.deepEqual(readSettings({ materialParts: ['words', 'poems'] }), {})
+  assert.deepEqual(readSettings({ extendTopics: [] }), { extendTopics: [] })
+  assert.deepEqual(readSettings({ extendTopics: ['other'] }), {})
+})
+
 test('readLookupResult: entry, context and cached; malformed list items are dropped', () => {
   const result = readLookupResult({
     lemma: 'decision',

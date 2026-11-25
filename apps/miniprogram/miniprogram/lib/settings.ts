@@ -13,7 +13,18 @@
  *
  * Pure: no `wx`, no storage; services/settings.ts does the I/O.
  */
-import type { Accent, ExplanationLang, Settings, ThemeChoice, ThemeMode } from './types'
+import type {
+  Accent,
+  ExplanationLang,
+  ExtendTopic,
+  MaterialFrequency,
+  MaterialPart,
+  MutedTopic,
+  Settings,
+  StudyLevelSetting,
+  ThemeChoice,
+  ThemeMode,
+} from './types'
 
 /** Every setting with its default applied. */
 export interface EffectiveSettings {
@@ -30,7 +41,17 @@ export interface EffectiveSettings {
   readonly readingMode: boolean
   readonly readingFontStep: number
   readonly importanceReview: boolean
+  readonly materialFrequency: MaterialFrequency
+  readonly materialWeekday: number
+  readonly materialParts: readonly MaterialPart[]
+  readonly extendEnabled: boolean
+  readonly extendTopics: readonly ExtendTopic[]
+  readonly extendMuted: readonly MutedTopic[]
+  readonly studyLevel: StudyLevelSetting
 }
+
+/** Every 周期资料 part, in the order the clients show them. */
+export const MATERIAL_PARTS: readonly MaterialPart[] = ['words', 'phrases', 'grammar', 'story', 'exercises']
 
 export const SETTING_DEFAULTS: EffectiveSettings = {
   explanationLang: 'zh',
@@ -46,11 +67,20 @@ export const SETTING_DEFAULTS: EffectiveSettings = {
   readingMode: false,
   readingFontStep: 0,
   importanceReview: true,
+  materialFrequency: 'daily',
+  materialWeekday: 1,
+  materialParts: MATERIAL_PARTS,
+  extendEnabled: true,
+  extendTopics: [],
+  extendMuted: [],
+  studyLevel: 'auto',
 }
 
 const ACCENTS: readonly Accent[] = ['indigo', 'pine', 'plum', 'ochre', 'ink']
 const THEME_MODES: readonly ThemeMode[] = ['system', 'time', 'fixed']
 const CLOCK_RE = /^(?:[01]\d|2[0-3]):[0-5]\d$/
+const FREQUENCIES: readonly MaterialFrequency[] = ['daily', 'weekly', 'off']
+const LEVELS: readonly StudyLevelSetting[] = ['auto', 'A2', 'B1', 'B2', 'C1']
 
 const oneOf = <T extends string>(values: readonly T[], value: unknown, fallback: T): T =>
   typeof value === 'string' && (values as readonly string[]).includes(value) ? (value as T) : fallback
@@ -70,6 +100,10 @@ const hourOrOff = (value: unknown, fallback: number | null): number | null =>
 const clock = (value: unknown, fallback: string): string =>
   typeof value === 'string' && CLOCK_RE.test(value) ? value : fallback
 
+/** A list read from storage or the account (lib/wire.ts checked its entries); the default unless non-empty when required. */
+const list = <T>(value: readonly T[] | undefined, fallback: readonly T[], nonEmpty: boolean): readonly T[] =>
+  Array.isArray(value) && (!nonEmpty || value.length > 0) ? value : fallback
+
 /** `settings` with defaults for absent or malformed values. */
 export function effectiveSettings(settings: Settings): EffectiveSettings {
   const d = SETTING_DEFAULTS
@@ -87,6 +121,13 @@ export function effectiveSettings(settings: Settings): EffectiveSettings {
     readingMode: bool(settings.readingMode, d.readingMode),
     readingFontStep: int(settings.readingFontStep, 0, 3, d.readingFontStep),
     importanceReview: bool(settings.importanceReview, d.importanceReview),
+    materialFrequency: oneOf(FREQUENCIES, settings.materialFrequency, d.materialFrequency),
+    materialWeekday: int(settings.materialWeekday, 0, 6, d.materialWeekday),
+    materialParts: list(settings.materialParts, d.materialParts, true),
+    extendEnabled: bool(settings.extendEnabled, d.extendEnabled),
+    extendTopics: list(settings.extendTopics, d.extendTopics, false),
+    extendMuted: list(settings.extendMuted, d.extendMuted, false),
+    studyLevel: oneOf(LEVELS, settings.studyLevel, d.studyLevel),
   }
 }
 
@@ -106,10 +147,16 @@ export function applyLocalChange(local: LocalSettings, patch: Settings): LocalSe
   }
 }
 
+/**
+ * Values compare by content: lists (materialParts, extendMuted, …) come back
+ * from storage as new arrays, so identity would never match.
+ */
+const sameValue = (a: unknown, b: unknown): boolean => a === b || JSON.stringify(a) === JSON.stringify(b)
+
 /** After `sent` was saved to the account: drops the keys whose pending value is still the one sent. */
 export function settlePushed(pending: Settings, sent: Settings): Settings {
   const sentValues = new Map<string, unknown>(Object.entries(sent))
-  const kept = Object.entries(pending).filter(([key, value]) => !sentValues.has(key) || sentValues.get(key) !== value)
+  const kept = Object.entries(pending).filter(([key, value]) => !sentValues.has(key) || !sameValue(sentValues.get(key), value))
   return Object.fromEntries(kept) as Settings
 }
 

@@ -25,6 +25,24 @@ export type Accent = 'indigo' | 'pine' | 'plum' | 'ochre' | 'ink'
 export type ThemeMode = 'system' | 'time' | 'fixed'
 export type ThemeChoice = 'light' | 'dark'
 
+/** v3 周期资料 frequency (docs/api-v1.md, "v3 → Settings"). */
+export type MaterialFrequency = 'daily' | 'weekly' | 'off'
+/** The parts of a 周期资料 the clients and the PDF show. */
+export type MaterialPart = 'words' | 'phrases' | 'grammar' | 'story' | 'exercises'
+/** 拓展方向 the user can choose. */
+export type ExtendTopic = 'work' | 'travel' | 'exam' | 'daily' | 'tech' | 'culture' | 'finance' | 'health'
+/** An extension material's topic: a chosen one, or `other` (never muted). */
+export type MaterialTopic = ExtendTopic | 'other'
+export type StudyLevel = 'A2' | 'B1' | 'B2' | 'C1'
+export type StudyLevelSetting = 'auto' | StudyLevel
+
+/** 不感兴趣: `topic` is not recommended until the local day `until` (exclusive). */
+export interface MutedTopic {
+  readonly topic: MaterialTopic
+  /** YYYY-MM-DD. */
+  readonly until: string
+}
+
 /** Every key optional; an absent key means its default (in the comments). */
 export interface Settings {
   readonly explanationLang?: ExplanationLang
@@ -52,6 +70,20 @@ export interface Settings {
   readonly readingFontStep?: number
   /** 按重要程度安排复习 (default true). */
   readonly importanceReview?: boolean
+  /** v3 周期资料 (default 'daily'). */
+  readonly materialFrequency?: MaterialFrequency
+  /** 0–6, 0 = Sunday: the day a weekly digest comes out (default 1). */
+  readonly materialWeekday?: number
+  /** Non-empty, no duplicates (default all five). */
+  readonly materialParts?: readonly MaterialPart[]
+  /** 拓展资料 (default true). */
+  readonly extendEnabled?: boolean
+  /** ≤ 8, no duplicates; [] = topics found in the account's data only (default []). */
+  readonly extendTopics?: readonly ExtendTopic[]
+  /** ≤ 8 (default []). */
+  readonly extendMuted?: readonly MutedTopic[]
+  /** Default 'auto'. */
+  readonly studyLevel?: StudyLevelSetting
 }
 
 export interface Me {

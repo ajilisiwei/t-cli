@@ -1,0 +1,116 @@
+<view class="page xt-page theme-{{theme}} {{accentClass}}">
+  <nav-bar title="拓展资料" back />
+
+  <scroll-view class="body" scroll-y type="list" show-scrollbar="{{false}}">
+    <view class="content">
+      <block wx:if="{{phase === 'ready'}}">
+        <view class="xt-head">
+          <view class="xt-tags">
+            <text class="label-tag label-tag-accent">{{tagLabel}}</text>
+            <text class="xt-meta">{{meta}}</text>
+          </view>
+          <text class="xt-title">{{title}}</text>
+        </view>
+
+        <view wx:if="{{reasons.length}}" class="card-surface xt-why">
+          <view class="xt-why-head">
+            <t-icon name="info" tone="accent" size="32" />
+            <text class="xt-why-title">为什么推荐给你</text>
+          </view>
+          <view wx:for="{{reasons}}" wx:key="*this" class="xt-reason">
+            <view class="xt-dot" />
+            <text class="xt-reason-text">{{item}}</text>
+          </view>
+        </view>
+
+        <view class="xt-list-head">
+          <text class="xt-section-title">勾选要加入复习的</text>
+          <text wx:if="{{hasSelectable}}" class="link link-strong" bindtap="onPickAll" aria-role="button">{{pickAllLabel}}</text>
+        </view>
+        <view
+          wx:for="{{rows}}"
+          wx:key="index"
+          class="xt-item"
+          data-index="{{item.index}}"
+          bindtap="onToggleItem"
+          aria-role="checkbox"
+          aria-checked="{{item.checked}}"
+          aria-disabled="{{item.known}}"
+          aria-label="{{item.known ? item.text + '，已在复习' : item.aria}}"
+        >
+          <text wx:if="{{item.known}}" class="xt-known">已在复习</text>
+          <view wx:else class="tick {{item.checked ? 'tick-on' : ''}}">
+            <t-icon wx:if="{{item.checked}}" name="check" tone="accentInk" size="32" />
+          </view>
+          <view class="xt-item-main">
+            <view class="xt-item-line">
+              <text class="xt-item-text serif {{item.known ? 'xt-item-known' : ''}}" user-select>{{item.text}}</text>
+              <text class="xt-item-gloss">{{item.gloss}}</text>
+            </view>
+            <text wx:if="{{item.exampleEn}}" class="xt-example serif" user-select>{{item.exampleEn}}</text>
+            <text wx:if="{{item.exampleZh}}" class="xt-example-zh">{{item.exampleZh}}</text>
+          </view>
+        </view>
+
+        <view wx:if="{{passage}}" class="card-surface xt-passage">
+          <view class="xt-passage-head">
+            <text class="xt-section-title xt-flat">{{passage.title || '放进一段短文里看'}}</text>
+            <view wx:if="{{passage.zh}}" class="btn btn-secondary btn-sm" bindtap="onTogglePassageZh" aria-role="button" aria-pressed="{{showPassageZh}}">
+              <text>{{showPassageZh ? '隐藏中文' : '看中文'}}</text>
+            </view>
+          </view>
+          <text class="xt-passage-text serif" user-select>{{passage.text}}</text>
+          <text wx:if="{{showPassageZh}}" class="xt-passage-zh">{{passage.zh}}</text>
+        </view>
+
+        <view wx:if="{{grammar}}" class="xt-grammar">
+          <text class="xt-section-title">语法提示</text>
+          <text wx:if="{{grammar.rule}}" class="xt-rule">{{grammar.rule}}</text>
+          <view wx:for="{{grammar.examples}}" wx:key="wrong" class="xt-pair">
+            <view class="mark-line">
+              <view class="mark-icon"><t-icon name="close" tone="danger" size="28" /></view>
+              <text class="xt-wrong serif">{{item.wrong}}</text>
+            </view>
+            <view class="mark-line">
+              <view class="mark-icon"><t-icon name="check" tone="accent" size="30" /></view>
+              <text class="xt-right serif">{{item.right}}</text>
+            </view>
+          </view>
+        </view>
+
+        <text wx:if="{{dismissed}}" class="xt-notice" aria-role="status">{{dismissNotice}}</text>
+      </block>
+
+      <view wx:elif="{{phase === 'none'}}" class="xt-none">
+        <text class="xt-none-title">{{noneText}}</text>
+        <text class="xt-none-note">开启拓展资料后，每周一早上会按你最近查的词和复习情况推荐一份。</text>
+      </view>
+
+      <view wx:elif="{{phase === 'error'}}" class="xt-none">
+        <text class="error">{{errorText}}</text>
+        <view class="xt-retry">
+          <view class="btn btn-secondary btn-sm" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+        </view>
+      </view>
+
+      <text wx:else class="empty">加载中…</text>
+    </view>
+  </scroll-view>
+
+  <view wx:if="{{phase === 'ready'}}" class="bottom-bar" style="padding-bottom: {{safeBottom + 8}}px;" aria-role="toolbar">
+    <text wx:if="{{canDismiss}}" class="link xt-dismiss" bindtap="onDismiss" aria-role="button">{{dismissing ? '…' : dismissed ? '撤销' : '不感兴趣'}}</text>
+    <view class="icon-btn xt-pdf" bindtap="onExport" aria-role="button" aria-label="导出 PDF">
+      <t-icon name="printer" tone="accent" size="36" />
+    </view>
+    <view
+      class="btn btn-primary xt-grow {{addCount && !adding ? '' : 'btn-disabled'}}"
+      bindtap="onAdd"
+      aria-role="button"
+      aria-disabled="{{!addCount}}"
+    >
+      <text>{{adding ? '正在加入…' : addText}}</text>
+    </view>
+  </view>
+
+  <t-export-sheet open="{{exportOpen}}" input="{{exportInput}}" bind:close="onExportClose" />
+</view>

@@ -162,6 +162,15 @@ export function changeSettings(patch: Settings): Settings {
   return next.settings
 }
 
+/**
+ * Values the account changed on its own (拓展资料 不感兴趣 answers the new
+ * `extendMuted`): taken like a pull, so a pending local change still wins.
+ */
+export function applyAccountSettings(account: Settings): void {
+  const now = load()
+  commit(now.settings, { settings: mergeAccount(now, account), pending: now.pending })
+}
+
 let syncing: Promise<void> | null = null
 let lastSyncAt = 0
 const RESYNC_MIN_MS = 30_000

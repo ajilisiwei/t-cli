@@ -3,7 +3,6 @@ import assert from 'node:assert/strict'
 import {
   readBatchResult,
   readFace,
-  readMaterialDates,
   readQueueCard,
   readQueueCards,
   readSummary,
@@ -18,18 +17,7 @@ import {
   markOccurrences,
   storySpeechKey,
 } from '../miniprogram/lib/review-card.ts'
-import {
-  dateNeighbours,
-  grammarViews,
-  materialCounts,
-  overviewStats,
-  phraseViews,
-  readDailyMaterial,
-  readDailyMaterialResponse,
-  sectionCountLabel,
-  sections,
-  storySegments,
-} from '../miniprogram/lib/review-material.ts'
+import { readDailyMaterial, storySegments } from '../miniprogram/lib/review-material.ts'
 import { diffWords } from '../miniprogram/lib/word-diff.ts'
 import type { QueueCard } from '../miniprogram/lib/review-types.ts'
 
@@ -86,15 +74,6 @@ test('readBatchResult lists accepted ids and the rejected ids it can name', () =
     { accepted: ['a', 'b'], rejected: ['c'] },
   )
   assert.equal(readBatchResult({ accepted: [] }), null)
-})
-
-test('readMaterialDates sorts newest first and validates the cursor', () => {
-  assert.deepEqual(readMaterialDates({ dates: ['2026-11-18', '2026-11-19', 'bad', '2026-11-19'], nextBefore: null }), {
-    dates: ['2026-11-19', '2026-11-18'],
-    nextBefore: null,
-  })
-  assert.deepEqual(readMaterialDates({ dates: [], nextBefore: '2026-10-01' })?.nextBefore, '2026-10-01')
-  assert.equal(readMaterialDates({}), null)
 })
 
 const queueCard = (overrides: Partial<QueueCard>): QueueCard => ({ ...(wireCard as QueueCard), ...overrides })
@@ -250,21 +229,6 @@ test('readDailyMaterial is lenient with entries and strict with the envelope', (
   assert.equal(read.story?.title, 'A Careful Plan')
   assert.deepEqual(readDailyMaterial({})?.words, [])
   assert.equal(readDailyMaterial('x'), null)
-
-  const response = readDailyMaterialResponse({ date: '2026-11-19', content: material, createdAt: '2026-11-20T05:01:00Z' })
-  assert.equal(response?.content.date, '2026-11-19')
-  assert.equal(readDailyMaterialResponse({ date: 'today', content: material }), null)
-  assert.equal(readDailyMaterialResponse({ date: '2026-11-19', content: null }), null)
-})
-
-test('sections list 概览 and the non-empty sections', () => {
-  const read = readDailyMaterial(material)
-  assert.ok(read)
-  assert.deepEqual(
-    sections(read).map((section) => `${section.label}${section.count}`),
-    ['概览0', '单词1', '句型1', '语法1', '短文1'],
-  )
-  assert.equal(materialCounts(read), '1 个单词 · 1 个句型 · 1 条语法')
 })
 
 test('storySegments marks the day’s words and simple inflections', () => {
@@ -281,31 +245,4 @@ test('storySegments marks the day’s words and simple inflections', () => {
   ])
   assert.deepEqual(storySegments('Nothing here.', []), [{ text: 'Nothing here.', word: false }])
   assert.deepEqual(storySegments('', ['x']), [])
-})
-
-test('material view helpers', () => {
-  const read = readDailyMaterial(material)
-  assert.ok(read)
-  assert.deepEqual(
-    overviewStats(read).map((stat) => `${stat.label}${stat.value}`),
-    ['新单词2', '新句型1', '纠错1', '连续天数23'],
-  )
-  assert.deepEqual(
-    sections(read).slice(1).map(sectionCountLabel),
-    ['1 个', '1 个', '1 条', '1 篇'],
-  )
-  assert.deepEqual(
-    grammarViews(read.grammar)[0]?.exerciseViews.map((exercise) => exercise.key),
-    ['g0e0'],
-  )
-  assert.equal(phraseViews(read.phrases)[0]?.registerLabel, '口语')
-})
-
-test('dateNeighbours walks a newest-first list', () => {
-  const dates = ['2026-11-19', '2026-11-18', '2026-11-15']
-  assert.deepEqual(dateNeighbours(dates, '2026-11-18'), { older: '2026-11-15', newer: '2026-11-19' })
-  assert.deepEqual(dateNeighbours(dates, '2026-11-19'), { older: '2026-11-18', newer: '' })
-  assert.deepEqual(dateNeighbours(dates, '2026-11-15'), { older: '', newer: '2026-11-18' })
-  assert.deepEqual(dateNeighbours(dates, '2026-11-17'), { older: '2026-11-15', newer: '2026-11-18' })
-  assert.deepEqual(dateNeighbours([], '2026-11-17'), { older: '', newer: '' })
 })

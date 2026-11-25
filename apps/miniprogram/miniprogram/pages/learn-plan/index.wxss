@@ -1,0 +1,113 @@
+/* 学习计划. Shared pieces (card-surface, seg-control, choice-chip, switch, rows) live in app.wxss. */
+.lp-title {
+  display: block;
+  margin-top: 40rpx;
+  margin-bottom: 16rpx;
+  color: var(--muted);
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.lp-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.lp-hint {
+  display: block;
+  margin-top: 16rpx;
+  color: var(--ink-soft);
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+
+.lp-block {
+  margin-top: 20rpx;
+  padding-top: 20rpx;
+  border-top: 1px solid var(--rule);
+}
+
+.lp-sub {
+  display: block;
+  margin-bottom: 16rpx;
+  color: var(--muted);
+  font-size: 26rpx;
+}
+
+/* Seven equal weekday buttons; the level row reuses them. */
+.lp-days,
+.lp-levels {
+  display: flex;
+  flex-direction: row;
+  gap: 8rpx;
+}
+
+.lp-days {
+  margin-top: 20rpx;
+}
+
+.lp-day {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 80rpx;
+  border: 1px solid var(--rule);
+  border-radius: 20rpx;
+  background-color: var(--surface);
+  color: var(--ink-soft);
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.lp-day-on {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.lp-switch-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lp-muted {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  min-height: 80rpx;
+  margin-top: 12rpx;
+}
+
+.lp-muted-text {
+  flex: 1;
+  color: var(--ink-soft);
+  font-size: 26rpx;
+}
+
+/* The rows sit inside a card: no padding on the card, the rows carry it. */
+.lp-rows {
+  padding: 0 28rpx;
+}
+
+.lp-row {
+  min-height: 104rpx;
+}
+
+.lp-saved {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12rpx;
+  margin-top: 32rpx;
+}
+
+.lp-saved-text {
+  color: var(--muted);
+  font-size: 24rpx;
+  line-height: 1.6;
+}

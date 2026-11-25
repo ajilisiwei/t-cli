@@ -1,0 +1,31 @@
+<view class="page theme-{{theme}} {{accentClass}}">
+  <nav-bar title="导出记录" back />
+  <scroll-view class="body" scroll-y type="list" show-scrollbar="{{false}}">
+    <view class="content">
+      <view wx:for="{{rows}}" wx:key="path" class="ex-row">
+        <view class="ex-file">
+          <view class="ex-badge"><text class="ex-badge-text">PDF</text></view>
+          <view class="ex-text">
+            <text class="ex-name">{{item.fileName}}</text>
+            <text class="ex-meta">{{item.meta}}</text>
+            <text class="ex-left">{{item.left}}</text>
+          </view>
+        </view>
+        <view class="ex-actions">
+          <view class="btn btn-primary btn-sm btn-icon-first" data-path="{{item.path}}" bindtap="onShare" aria-role="button" aria-label="发给微信好友">
+            <t-icon name="share" tone="accentInk" size="28" />
+            <text>发送</text>
+          </view>
+          <view class="btn btn-secondary btn-sm" data-path="{{item.path}}" bindtap="onPreview" aria-role="button"><text>预览</text></view>
+          <text class="link link-danger ex-remove" data-path="{{item.path}}" bindtap="onRemove" aria-role="button">删除</text>
+        </view>
+      </view>
+
+      <view wx:if="{{loaded && !rows.length}}" class="ex-empty">
+        <text class="ex-empty-title">还没有导出过 PDF</text>
+        <text class="ex-empty-note">在学习资料里点「导出 PDF」。导出的文件在这台手机上保留 7 天。</text>
+      </view>
+      <text wx:elif="{{rows.length}}" class="ex-note">文件只存在这台手机上，7 天后自动删除。预览里点右上角「…」可以保存到手机或打印。</text>
+    </view>
+  </scroll-view>
+</view>

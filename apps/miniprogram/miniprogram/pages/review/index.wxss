@@ -1,177 +1,256 @@
-/* 复习 home: one ring, one button. Shared tokens and rows live in app.wxss. */
-.today {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: baseline;
-  padding-top: 8rpx;
+/*
+ * 学习 home. The pieces (card-surface, label-tag, choice-chip, meter, btn)
+ * come from app.wxss; this file lays them out. The root is positioned so the
+ * export sheet can sit over the page.
+ */
+.lh-page {
+  position: relative;
+  overflow: hidden;
 }
 
-.today-date {
+/* ---- 今天的复习 ---- */
+.lh-today {
+  margin-top: 8rpx;
+}
+
+.lh-today-top {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.lh-today-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.lh-caption {
   color: var(--muted);
   font-size: 26rpx;
 }
 
-.today-streak {
+.lh-due {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 12rpx;
+}
+
+.lh-due-n {
+  color: var(--ink);
+  font-size: 72rpx;
+  line-height: 1.15;
+}
+
+.lh-due-unit {
+  color: var(--ink-soft);
+  font-size: 28rpx;
+}
+
+.lh-done {
+  padding-bottom: 12rpx;
   color: var(--ink-soft);
   font-size: 26rpx;
 }
 
-.hero {
+.lh-meter {
+  margin-top: 24rpx;
+  overflow: hidden;
+}
+
+.lh-chips {
+  margin-top: 28rpx;
+}
+
+.lh-start {
+  margin-top: 28rpx;
+}
+
+.lh-calm {
+  display: block;
+  margin-top: 24rpx;
+  color: var(--ink-soft);
+  font-size: 28rpx;
+  line-height: 1.7;
+}
+
+.lh-error {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  padding: 40rpx 0 56rpx;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-top: 16rpx;
 }
 
-/*
- * Progress ring: a conic gradient (inline, lib/review-home.ts ringStyle) under
- * a disc in the page colour, plus a dot at each end for round caps. The end
- * dot sits at 12 o'clock on a full-size arm rotated to the angle.
- */
-.ring {
-  position: relative;
-  width: 320rpx;
-  height: 320rpx;
-  border-radius: 160rpx;
+.lh-error-text {
+  margin-top: 0;
 }
 
-.ring-hole {
-  position: absolute;
-  top: 14rpx;
-  left: 14rpx;
-  width: 292rpx;
-  height: 292rpx;
-  border-radius: 146rpx;
-  background-color: var(--bg);
+/* ---- section heads ---- */
+.lh-section-head {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  margin-top: 48rpx;
+  margin-bottom: 16rpx;
 }
 
-.ring-arm {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 320rpx;
-  height: 320rpx;
+.lh-section-title {
+  color: var(--ink);
+  font-size: 34rpx;
+  font-weight: 600;
 }
 
-.ring-cap {
-  position: absolute;
-  top: 0;
-  left: 153rpx;
-  width: 14rpx;
-  height: 14rpx;
-  border-radius: 7rpx;
-  background-color: var(--accent);
+.lh-more {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4rpx;
+  min-height: 72rpx;
+  color: var(--accent);
+  font-size: 28rpx;
 }
 
-.ring-caption {
+/* ---- 学习资料 ---- */
+.lh-material {
+  margin-bottom: 20rpx;
+}
+
+.lh-tags {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.lh-when {
   color: var(--muted);
   font-size: 24rpx;
 }
 
-.ring-done {
-  margin-top: 4rpx;
-  color: var(--ink);
-  font-size: 88rpx;
-  line-height: 1.1;
+.lh-status {
+  margin-left: auto;
 }
 
-.ring-total {
-  color: var(--muted);
-  font-size: 26rpx;
+.lh-material-body {
+  display: flex;
+  flex-direction: column;
 }
 
-.hero-meta {
+.lh-material-title {
   display: block;
-  margin-top: 36rpx;
-  color: var(--ink-soft);
-  font-size: 28rpx;
-  text-align: center;
-}
-
-.start {
-  align-self: stretch;
-  margin-top: 40rpx;
-}
-
-.calm {
-  padding: 96rpx 24rpx 80rpx;
-  text-align: center;
-}
-
-.calm-title {
-  display: block;
+  margin-top: 16rpx;
   color: var(--ink);
   font-size: 34rpx;
-}
-
-.calm-note {
-  display: block;
-  margin-top: 20rpx;
-  color: var(--muted);
-  font-size: 26rpx;
-  line-height: 1.7;
-}
-
-.load-error {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  padding: 24rpx 0;
-}
-
-.load-error-text {
-  margin-top: 0;
-}
-
-/* The latest 每日材料: the one panel on the page. */
-.material {
-  padding: 28rpx 32rpx;
-  background-color: var(--surface);
-  border: 1px solid var(--rule);
-  border-radius: 24rpx;
-}
-
-.material-head {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.material-title {
-  color: var(--ink);
-  font-size: 30rpx;
   font-weight: 600;
+  line-height: 1.4;
 }
 
-.material-counts {
+.lh-material-meta {
   display: block;
   margin-top: 8rpx;
   color: var(--ink-soft);
   font-size: 26rpx;
+  line-height: 1.5;
 }
 
-.material-story {
+.lh-material-actions {
   display: flex;
   flex-direction: row;
   align-items: center;
-  justify-content: space-between;
-  margin-top: 16rpx;
-  color: var(--ink-soft);
-  font-size: 26rpx;
+  gap: 16rpx;
+  margin-top: 24rpx;
 }
 
-.material-note {
+.lh-grow {
+  flex: 1;
+}
+
+.lh-report {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 20rpx;
+  margin-bottom: 20rpx;
+  padding: 24rpx 28rpx;
+  border-radius: 28rpx;
+  background-color: var(--accent-soft);
+}
+
+.lh-tag-surface {
+  background-color: var(--surface);
+}
+
+.lh-report-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink);
+  font-size: 28rpx;
+}
+
+.lh-empty {
+  display: block;
+  padding: 24rpx 0;
   color: var(--muted);
+  font-size: 26rpx;
   line-height: 1.7;
 }
 
-.links {
-  margin-top: 32rpx;
+/* ---- 打印与导出 ---- */
+.lh-tiles {
+  display: flex;
+  flex-direction: row;
+  gap: 16rpx;
+}
+
+.lh-tile {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  padding: 24rpx 20rpx;
+  background-color: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 28rpx;
+}
+
+.lh-tile-off {
+  opacity: 0.5;
+}
+
+.lh-tile-label {
+  color: var(--ink);
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.lh-tile-hint {
+  color: var(--muted);
+  font-size: 22rpx;
+  line-height: 1.5;
+}
+
+/* ---- 学习计划 ---- */
+.lh-plan {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 40rpx;
+  padding: 24rpx 0;
+  border-top: 1px solid var(--rule);
+}
+
+.lh-plan-text {
+  flex: 1;
+  color: var(--ink-soft);
+  font-size: 26rpx;
+  line-height: 1.6;
 }

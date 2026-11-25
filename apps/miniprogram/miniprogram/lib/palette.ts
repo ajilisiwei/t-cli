@@ -1,7 +1,7 @@
 /**
  * The theme colours for code that cannot use the CSS variables: generated
  * SVG icons (scripts/icons.mjs), tab bar icons and style (scripts/tab-icons.mjs,
- * services/theme.ts) and inline gradients (the 复习 ring). They mirror the
+ * services/theme.ts) and inline colours (the 主题色 swatches). They mirror the
  * `.theme-light` / `.theme-dark` and `.accent-<accent>-<theme>` variables in
  * app.wxss; a unit test keeps the two in step.
  */
@@ -131,6 +131,13 @@ export const ICON_NAMES = [
   'arrow-up',
   'swap',
   'cloud-check',
+  'book',
+  'printer',
+  'doc',
+  'cards',
+  'checklist',
+  'info',
+  'share',
 ] as const
 
 export type IconName = (typeof ICON_NAMES)[number]
