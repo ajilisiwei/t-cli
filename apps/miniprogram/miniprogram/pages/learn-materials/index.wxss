@@ -1,7 +1,7 @@
 /*
- * 学习资料 list. Shared pieces (seg-control, label-tag, tick, bottom-bar)
- * live in app.wxss. The root is positioned so the export sheet can sit over
- * the page.
+ * 学习资料 list. Type (.t-*) and the shared pieces (seg-control, label-tag,
+ * tick, bottom-bar, state, skel) live in app.wxss. The root is positioned so
+ * the export sheet can sit over the page.
  */
 .lm-page {
   position: relative;
@@ -22,9 +22,13 @@
   min-height: 80rpx;
 }
 
-.lm-count {
-  color: var(--muted);
-  font-size: 24rpx;
+/* 选择 / 完成: a link with a 64rpx target. */
+.lm-link {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  min-height: 64rpx;
+  padding: 0 0 0 24rpx;
 }
 
 .lm-content {
@@ -33,10 +37,7 @@
 
 .lm-week {
   display: block;
-  padding: 24rpx 0 4rpx;
-  color: var(--muted);
-  font-size: 26rpx;
-  font-weight: 600;
+  padding: 24rpx 0 8rpx;
 }
 
 .lm-row {
@@ -49,11 +50,7 @@
 }
 
 .lm-row-off {
-  opacity: 0.45;
-}
-
-.lm-tick {
-  margin-top: 4rpx;
+  opacity: 0.4;
 }
 
 .lm-main {
@@ -71,69 +68,49 @@
   gap: 16rpx;
 }
 
-.lm-date {
-  color: var(--muted);
-  font-size: 24rpx;
-}
-
-.lm-title {
+/* A title, or an extension's first reason: one line. */
+.lm-one-line {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  color: var(--ink);
-  font-size: 32rpx;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-/* An extension's first reason: one line. */
-.lm-subtitle {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  color: var(--ink-soft);
-  font-size: 26rpx;
-  line-height: 1.5;
-}
-
-.lm-meta {
-  color: var(--ink-soft);
-  font-size: 26rpx;
 }
 
 .lm-status {
   margin-top: 8rpx;
 }
 
-.lm-empty {
-  display: block;
-  padding: 96rpx 16rpx;
-  color: var(--muted);
-  font-size: 26rpx;
-  line-height: 1.7;
-  text-align: center;
-}
-
 .lm-more {
   display: block;
   padding: 32rpx 0;
-  color: var(--muted);
-  font-size: 24rpx;
   text-align: center;
-}
-
-.lm-error {
-  padding: 96rpx 16rpx;
-  text-align: center;
-}
-
-.lm-retry {
-  margin: 24rpx auto 0;
-  width: 160rpx;
 }
 
 .lm-picked {
   flex: 1;
-  color: var(--ink-soft);
-  font-size: 28rpx;
+}
+
+/* ---- loading ---- */
+.lm-skel-week {
+  width: 96rpx;
+  margin-top: 24rpx;
+}
+
+.lm-skel-row {
+  padding: 24rpx 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.lm-skel-tag {
+  width: 240rpx;
+}
+
+.lm-skel-title {
+  width: 75%;
+  height: 40rpx;
+  margin-bottom: 16rpx;
+}
+
+.lm-skel-meta {
+  width: 50%;
+  margin-bottom: 0;
 }

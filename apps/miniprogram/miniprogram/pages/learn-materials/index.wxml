@@ -7,6 +7,8 @@
         wx:for="{{tabs}}"
         wx:key="id"
         class="seg-option {{item.id === tab ? 'seg-option-on' : ''}}"
+        hover-class="pressed"
+        hover-stay-time="80"
         data-id="{{item.id}}"
         bindtap="onTab"
         aria-role="tab"
@@ -16,8 +18,10 @@
       </view>
     </view>
     <view class="lm-tools">
-      <text class="lm-count">{{phase === 'ready' ? (selecting ? '选择要合并导出的资料' : '共 ' + count + ' 份') : ''}}</text>
-      <text class="link link-strong" bindtap="onToggleSelect" aria-role="button">{{selecting ? '完成' : '选择'}}</text>
+      <text class="t-caption">{{phase === 'ready' ? (selecting ? '选择要合并导出的资料' : '共 ' + count + ' 份') : ''}}</text>
+      <view class="link link-strong lm-link" hover-class="pressed" hover-stay-time="80" bindtap="onToggleSelect" aria-role="button">
+        <text>{{selecting ? '完成' : '选择'}}</text>
+      </view>
     </view>
   </view>
 
@@ -34,29 +38,33 @@
     <view class="content lm-content">
       <block wx:if="{{phase === 'ready'}}">
         <view wx:for="{{groups}}" wx:key="key" wx:for-item="group">
-          <text class="lm-week">{{group.title}}</text>
+          <text class="t-label lm-week">{{group.title}}</text>
+          <!-- While selecting, a report cannot be picked: it does not dim. -->
           <view
             wx:for="{{group.rows}}"
             wx:key="key"
             class="lm-row {{selecting && !item.printable ? 'lm-row-off' : ''}}"
+            hover-class="{{selecting && !item.printable ? 'none' : 'pressed'}}"
+            hover-stay-time="80"
             data-key="{{item.key}}"
             data-url="{{item.url}}"
             bindtap="onRow"
             aria-role="{{selecting ? 'checkbox' : 'button'}}"
             aria-checked="{{item.checked}}"
+            aria-disabled="{{selecting && !item.printable}}"
             aria-label="{{selecting ? '选择「' + item.title + '」' : item.title}}"
           >
-            <view wx:if="{{selecting}}" class="tick tick-round lm-tick {{item.checked ? 'tick-on' : ''}}">
+            <view wx:if="{{selecting}}" class="tick tick-round {{item.checked ? 'tick-on' : ''}}">
               <t-icon wx:if="{{item.checked}}" name="check" tone="accentInk" size="28" />
             </view>
             <view class="lm-main">
               <view class="lm-tags">
                 <text class="label-tag {{item.kind === 'extend' ? 'label-tag-accent' : ''}}">{{item.kindLabel}}</text>
-                <text class="lm-date">{{item.dateLabel}}</text>
+                <text class="t-caption">{{item.dateLabel}}</text>
               </view>
-              <text class="lm-title">{{item.title}}</text>
-              <text wx:if="{{item.subtitle}}" class="lm-subtitle" max-lines="1" overflow="ellipsis">{{item.subtitle}}</text>
-              <text wx:if="{{item.meta}}" class="lm-meta">{{item.meta}}</text>
+              <text class="t-heading lm-one-line">{{item.title}}</text>
+              <text wx:if="{{item.subtitle}}" class="t-secondary lm-one-line" max-lines="1" overflow="ellipsis">{{item.subtitle}}</text>
+              <text wx:if="{{item.meta}}" class="t-secondary">{{item.meta}}</text>
             </view>
             <text
               wx:if="{{item.status}}"
@@ -64,23 +72,41 @@
             >{{item.status}}</text>
           </view>
         </view>
-        <text wx:if="{{count === 0}}" class="lm-empty">{{emptyText}}</text>
-        <text wx:elif="{{loadingMore}}" class="lm-more">加载中…</text>
-        <text wx:elif="{{!hasMore}}" class="lm-more">没有更早的了</text>
+        <view wx:if="{{count === 0}}" class="state">
+          <text class="state-text">{{emptyTitle}}</text>
+          <text wx:if="{{emptyNote}}" class="t-caption">{{emptyNote}}</text>
+        </view>
+        <text wx:elif="{{loadingMore}}" class="t-caption lm-more">加载中…</text>
+        <text wx:elif="{{!hasMore}}" class="t-caption lm-more">没有更早的了</text>
       </block>
 
-      <view wx:elif="{{phase === 'error'}}" class="lm-error">
-        <text class="error">{{errorText}}</text>
-        <view class="btn btn-secondary btn-sm lm-retry" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+      <view wx:elif="{{phase === 'error'}}" class="state">
+        <text class="state-text state-error">{{errorText}}</text>
+        <view class="btn btn-secondary btn-sm" hover-class="pressed" hover-stay-time="80" bindtap="onRetry" aria-role="button"><text>重试</text></view>
       </view>
 
-      <text wx:else class="empty">加载中…</text>
+      <!-- Loading: a week label and rows of the list's shape. -->
+      <view wx:else aria-label="加载中">
+        <view class="skel skel-line lm-skel-week" />
+        <view wx:for="{{[1, 2, 3, 4]}}" wx:key="*this" class="lm-skel-row">
+          <view class="skel skel-line lm-skel-tag" />
+          <view class="skel lm-skel-title" />
+          <view class="skel skel-line lm-skel-meta" />
+        </view>
+      </view>
     </view>
   </scroll-view>
 
   <view wx:if="{{selecting}}" class="bottom-bar" style="padding-bottom: {{safeBottom + 8}}px;" aria-role="toolbar">
-    <text class="lm-picked">已选 {{selectedCount}} 份{{selectedCount ? ' · 约 ' + selectedPages + ' 页' : ''}}</text>
-    <view class="btn btn-primary {{selectedCount ? '' : 'btn-disabled'}}" bindtap="onExport" aria-role="button" aria-disabled="{{!selectedCount}}">
+    <text class="t-secondary lm-picked">已选 {{selectedCount}} 份{{selectedCount ? ' · 约 ' + selectedPages + ' 页' : ''}}</text>
+    <view
+      class="btn btn-primary {{selectedCount ? '' : 'btn-disabled'}}"
+      hover-class="{{selectedCount ? 'pressed' : 'none'}}"
+      hover-stay-time="80"
+      bindtap="onExport"
+      aria-role="button"
+      aria-disabled="{{!selectedCount}}"
+    >
       <text>合并导出 PDF</text>
     </view>
   </view>

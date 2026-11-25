@@ -37,11 +37,17 @@ const TABS: readonly { id: Tab; label: string }[] = [
 /** 周期资料 (daily materials and digests) is filtered by the server, like every tab. */
 const API_KIND: Readonly<Record<Tab, ListKind>> = { all: 'all', periodic: 'periodic', extend: 'extend', weekly: 'weekly' }
 
-const EMPTY_TEXT: Readonly<Record<Tab, string>> = {
-  all: '还没有学习资料。每天早上 5 点，前一天查过的词句会整理成一份资料。',
-  periodic: '还没有周期资料。',
-  extend: '还没有拓展资料。开启后每周一出一份。',
-  weekly: '还没有周报。每周日早上出上一周的。',
+/** The empty list: one line, and when it helps, when the next one comes. */
+interface EmptyText {
+  title: string
+  note: string
+}
+
+const EMPTY_TEXT: Readonly<Record<Tab, EmptyText>> = {
+  all: { title: '还没有学习资料', note: '每天早上 5 点，前一天查过的词句会整理成一份资料。' },
+  periodic: { title: '还没有周期资料', note: '' },
+  extend: { title: '还没有拓展资料', note: '开启后每周一出一份。' },
+  weekly: { title: '还没有周报', note: '每周日早上出上一周的。' },
 }
 
 interface RowView extends MaterialRow {
@@ -61,7 +67,8 @@ interface ListData extends Look {
   selecting: boolean
   selectedCount: number
   selectedPages: number
-  emptyText: string
+  emptyTitle: string
+  emptyNote: string
   safeBottom: number
   exportOpen: boolean
   exportInput: ExportInput
@@ -81,7 +88,8 @@ const initialData: ListData = {
   selecting: false,
   selectedCount: 0,
   selectedPages: 0,
-  emptyText: EMPTY_TEXT.all,
+  emptyTitle: EMPTY_TEXT.all.title,
+  emptyNote: EMPTY_TEXT.all.note,
   safeBottom: 0,
   exportOpen: false,
   exportInput: { origin: 'selection', selection: [], week: [], initial: 'selected' },
@@ -173,7 +181,8 @@ Page({
       groups: groupByWeek(rows, localDateKey(new Date())),
       count: rows.length,
       hasMore: this.nextBefore !== null,
-      emptyText: EMPTY_TEXT[this.data.tab],
+      emptyTitle: EMPTY_TEXT[this.data.tab].title,
+      emptyNote: EMPTY_TEXT[this.data.tab].note,
       selectedCount: this.picked.length,
       selectedPages: this.picked.reduce((sum, material) => sum + material.pages, 0),
     })
