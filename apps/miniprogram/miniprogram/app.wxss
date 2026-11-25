@@ -435,11 +435,14 @@
   font-size: 28rpx;
 }
 
+/* A group label with its section spacing (same type as .t-label). */
 .section-title {
   display: block;
   margin-top: 48rpx;
   color: var(--muted);
   font-size: 26rpx;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .segmented {
@@ -468,11 +471,13 @@
   letter-spacing: 8rpx;
 }
 
+/* An explanatory paragraph (same type as .t-secondary). */
 .notice {
   display: block;
   margin-top: 32rpx;
   color: var(--ink-soft);
-  font-size: 30rpx;
+  font-size: 28rpx;
+  line-height: 1.6;
 }
 
 .empty {
