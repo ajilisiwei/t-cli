@@ -111,13 +111,16 @@ describe('typst runner (fake binary)', () => {
     assert.ok(Date.now() - startedAt < 2500, 'killed, not waited for');
     assert.deepEqual(await tmpLeft(), []);
 
-    await setMode('ok', 0.4);
-    const single = renderer({ maxConcurrent: 1, timeoutMs: 600 });
-    const outcomes = await Promise.allSettled([single.render(doc), single.render(doc), single.render(doc)]);
+    // One slot, a render that never ends: the second request starts waiting
+    // before the first one's render (and its kill timer) starts, so its wait
+    // times out first, whatever the machine's load.
+    const single = renderer({ maxConcurrent: 1, timeoutMs: 400 });
+    const outcomes = await Promise.allSettled([single.render(doc), single.render(doc)]);
     assert.deepEqual(
       outcomes.map((outcome) => (outcome.status === 'fulfilled' ? 'ok' : outcome.reason instanceof RenderFailedError ? outcome.reason.reason : 'other')),
-      ['ok', 'ok', 'busy'],
+      ['timeout', 'busy'],
     );
+    assert.deepEqual(await tmpLeft(), []);
   });
 
   test('a failing or garbled typst → EXPORT_FAILED reasons; the dir is still removed', async () => {
