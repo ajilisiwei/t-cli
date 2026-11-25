@@ -397,3 +397,40 @@ test('/notes listing and /history phone records via the glue', async (t) => {
   const phone = await commands.loadPhoneRecords('2026-11-19');
   assert.deepEqual(phone.map((e) => e.id), ['01J1']);
 });
+
+test('/notes cloud: without a daily material, the 7-day digest covering the date is shown', async (t) => {
+  useTempConfig(t);
+  const api = await startFakeServer(t, (req) => {
+    if (req.path === '/v1/materials' && req.query.kind === 'digest') return ok({ dates: ['2026-11-23', '2026-11-16'], nextBefore: null });
+    if (req.path === '/v1/materials/digest' && req.query.date === '2026-11-23') {
+      return ok({ date: '2026-11-23', content: { range: { start: '2026-11-17', end: '2026-11-23' }, words: [{ headword: 'mitigate', ipa: 'ˈmɪtɪɡeɪt', meanings: [{ pos: 'v.', zh: '减轻' }] }], review: [] } });
+    }
+    return fail(404, 'NOT_FOUND');
+  });
+  const { commands, said } = commandHarness(loggedInClient(api.url));
+
+  assert.equal(await commands.showDailyMaterial('2026-11-19'), true);
+  assert.equal(said[0].text, '7-day digest · 2026-11-17 – 2026-11-23');
+  assert.ok(said.some((s) => s.text.includes('mitigate')));
+  assert.match(said.at(-1).text, /the 7-day digest that covers 2026-11-19 \(weekly mode\)/);
+
+  said.length = 0;
+  assert.equal(await commands.showDailyMaterial('2026-11-24'), false, 'no digest covers it');
+  assert.deepEqual(said.map((s) => s.text), ['No cloud material for 2026-11-24; using local notes.']);
+});
+
+test('/notes listing: digests are listed by range; an older server without digests lists dailies only', async (t) => {
+  useTempConfig(t);
+  const api = await startFakeServer(t, (req) => {
+    if (req.query.kind === 'digest') return ok({ dates: ['2026-11-23'], nextBefore: null });
+    return ok({ dates: [], nextBefore: null });
+  });
+  const { commands, said } = commandHarness(loggedInClient(api.url));
+  await commands.listDailyMaterials();
+  assert.deepEqual(said.map((s) => s.text), ['7-day digests (cloud)\n2026-11-17 – 2026-11-23\nUse /notes <any day in the range> to read.']);
+
+  const old = await startFakeServer(t, (req) => (req.query.kind === 'digest' ? fail(400, 'VALIDATION_FAILED') : ok({ dates: ['2026-11-19'], nextBefore: null })));
+  const legacy = commandHarness(loggedInClient(old.url));
+  await legacy.commands.listDailyMaterials();
+  assert.deepEqual(legacy.said.map((s) => s.text), ['Daily Materials (cloud)\n2026-11-19\nUse /notes <YYYY-MM-DD> to read.']);
+});

@@ -150,9 +150,20 @@ export function fetchWeeklyReport(client, weekStart, { signal } = {}) {
 }
 
 /**
+ * A 7-day digest (weekly mode; `date` = its last day), or null (404).
+ * @param {SyncClient} client
+ * @param {string} date YYYY-MM-DD
+ * @param {{ signal?: AbortSignal }} [options]
+ * @returns {Promise<Material|null>}
+ */
+export function fetchDigest(client, date, { signal } = {}) {
+  return fetchMaterial(client, 'digest', date, { signal });
+}
+
+/**
  * Dates that have a material of `kind`, newest first.
  * @param {SyncClient} client
- * @param {{ kind: 'daily'|'weekly', limit?: number, signal?: AbortSignal }} options
+ * @param {{ kind: 'daily'|'weekly'|'digest', limit?: number, signal?: AbortSignal }} options
  * @returns {Promise<string[]>}
  */
 export async function listMaterialDates(client, { kind, limit = 14, signal }) {
@@ -203,7 +214,7 @@ export async function pushSettings(client, patch, { signal } = {}) {
 
 /**
  * @param {SyncClient} client
- * @param {'daily'|'weekly'} kind
+ * @param {'daily'|'weekly'|'digest'} kind
  * @param {string|null} date
  * @param {{ signal?: AbortSignal }} options
  * @returns {Promise<Material|null>}

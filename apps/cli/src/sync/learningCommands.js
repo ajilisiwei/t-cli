@@ -8,9 +8,9 @@
  * and "the server has none" come back as empty results (with a dim note
  * where useful), so the local behaviour stays the fallback.
  */
-import { fetchDailyMaterial, fetchDayEntries, fetchWeeklyReport, listMaterialDates } from './learning.js';
+import { fetchDailyMaterial, fetchDayEntries, fetchDigest, fetchWeeklyReport, listMaterialDates } from './learning.js';
 import { syncOffLines } from './status.js';
-import { formatDailyMaterial, formatWeeklyReport, weekStartOf } from '../utils/materials.js';
+import { DIGEST_DAYS, digestCovering, formatDailyMaterial, formatDigest, formatWeeklyReport, shiftDate, weekStartOf } from '../utils/materials.js';
 import { phoneEntries } from '../utils/historyMerge.js';
 
 /** @typedef {ReturnType<typeof import('./client.js').createSyncClient>} SyncClient */
@@ -63,12 +63,33 @@ export function createLearningCommands({ client, server, say, withLoading, today
       return false;
     }
     if (!material) {
+      const digest = await withLoading(`Looking for a 7-day digest that covers ${date}...`, () => findDigest(api, date));
+      if (digest) {
+        for (const block of formatDigest(digest)) say(block.text, { color: 'magenta', bold: Boolean(block.bold) });
+        say(`From your account: the 7-day digest that covers ${date} (weekly mode). /notes regen ${date} writes a local AI note instead.`, { dim: true });
+        return true;
+      }
       say(`No cloud material for ${date}; using local notes.`, { dim: true });
       return false;
     }
     for (const block of formatDailyMaterial(material)) say(block.text, { color: 'magenta', bold: Boolean(block.bold) });
     say(`From your account (made nightly from your records). /notes regen ${date} writes a local AI note instead.`, { dim: true });
     return true;
+  }
+
+  /**
+   * The digest covering `date`, or null: none, an older server without
+   * digests, or a network failure (the local flow then runs as before).
+   * @param {SyncClient} api
+   * @param {string} date
+   */
+  async function findDigest(api, date) {
+    try {
+      const end = digestCovering(await listMaterialDates(api, { kind: 'digest' }), date);
+      return end ? await fetchDigest(api, end) : null;
+    } catch {
+      return null;
+    }
   }
 
   /** List the dates that have a cloud daily material (nothing when logged out). */
@@ -82,10 +103,21 @@ export function createLearningCommands({ client, server, say, withLoading, today
       say(`Cloud materials unavailable (${errorMessage(error)}).`, { dim: true });
       return;
     }
-    if (dates.length === 0) return;
-    const current = today();
-    const lines = ['Daily Materials (cloud)', ...dates.map((date) => (date === current ? `${date} (today)` : date))];
-    lines.push('Use /notes <YYYY-MM-DD> to read.');
+    if (dates.length > 0) {
+      const current = today();
+      const lines = ['Daily Materials (cloud)', ...dates.map((date) => (date === current ? `${date} (today)` : date))];
+      lines.push('Use /notes <YYYY-MM-DD> to read.');
+      say(lines.join('\n'), { color: 'magenta' });
+    }
+    let digests = [];
+    try {
+      digests = await listMaterialDates(api, { kind: 'digest' });
+    } catch {
+      return; // an older server has no digests
+    }
+    if (digests.length === 0) return;
+    const lines = ['7-day digests (cloud)', ...digests.map((end) => `${shiftDate(end, -(DIGEST_DAYS - 1))} – ${end}`)];
+    lines.push('Use /notes <any day in the range> to read.');
     say(lines.join('\n'), { color: 'magenta' });
   }
 
