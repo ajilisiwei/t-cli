@@ -1,6 +1,6 @@
 import type { LoadedMaterial } from './content.ts';
 import type { Card, ChecklistRow, ExportLayout, PdfDocument } from './document.ts';
-import { cnDate, dateRangeLabel, glossOfMeanings, monthDay, oneLine, pickExample } from './format.ts';
+import { cnDate, dateRangeLabel, glossOfMeanings, monthDay, oneLine, shortestExample } from './format.ts';
 import { buildSection, CHECKLIST_INTRO, type MaterialPart, type WordNote } from './sections.ts';
 
 /**
@@ -76,7 +76,7 @@ function cardsOfMaterial(material: LoadedMaterial, ipa: boolean): Card[] {
   const { words, phrases } = material.content;
   return [
     ...words.map((word) => {
-      const example = pickExample(word.examples);
+      const example = shortestExample(word.examples);
       return {
         term: oneLine(word.headword),
         ipa: ipa ? oneLine(word.ipa) : '',
@@ -86,7 +86,7 @@ function cardsOfMaterial(material: LoadedMaterial, ipa: boolean): Card[] {
       };
     }),
     ...phrases.map((phrase) => {
-      const example = pickExample(phrase.examples);
+      const example = shortestExample(phrase.examples);
       return { term: oneLine(phrase.phrase), ipa: '', gloss: oneLine(phrase.zh), example: oneLine(example?.en ?? ''), zh: oneLine(example?.zh ?? '') };
     }),
   ];

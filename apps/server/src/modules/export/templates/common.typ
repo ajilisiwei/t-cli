@@ -30,6 +30,32 @@
 
 #let page-number = context [第 #counter(page).display() 页 / 共 #counter(page).final().first() 页]
 
+#let scales = (1.0, 0.92, 0.84, 0.76, 0.68, 0.6, 0.55)
+
+// `make(scale)` at the largest scale (100 % down to 55 %) whose wrapped
+// height fits the space it is laid out in (a long meaning on a card).
+#let shrink-to-fit(make) = layout(size => {
+  let scale = scales.find(scale => measure(make(scale), width: size.width).height <= size.height + 0.1pt)
+  make(if scale == none { scales.last() } else { scale })
+})
+
+// The largest scale at which the widest word of `term` fits `width`, or none.
+#let term-scale(term, size, width, ..style) = {
+  let widest(scale) = calc.max(0pt, ..term.split(" ").map(word => measure(text(size: size * scale, ..style, word)).width))
+  scales.find(scale => widest(scale) <= width)
+}
+
+// A headword at that scale; hyphenated only when even 55 % is too wide.
+#let term-text(term, size, scale, ..style) = if scale == none {
+  text(size: size * scales.last(), lang: "en", hyphenate: true, ..style, term)
+} else {
+  text(size: size * scale, ..style, term)
+}
+
+// A headword made smaller until its widest word fits the space it is laid
+// out in ("internationalization" in a narrow table column).
+#let fit-term(term, size: 11pt, ..style) = layout(region => term-text(term, size, term-scale(term, size, region.width, ..style), ..style))
+
 #let page-setup(body) = {
   set document(title: data.title, author: ())
   set page(
@@ -103,13 +129,14 @@
   ..rows
     .map(row => (
       tick-boxes,
-      {
-        text(size: 12.75pt * k, weight: "semibold", row.term)
+      layout(region => {
+        let size = 12.75pt * k
+        term-text(row.term, size, term-scale(row.term, size, region.width, weight: "semibold"), weight: "semibold")
         if row.ipa != "" {
           h(0.5em)
           box(text(size: 9.75pt * k, fill: ink2, row.ipa))
         }
-      },
+      }),
       text(size: 11.25pt * k, row.gloss),
     ))
     .flatten(),

@@ -65,7 +65,7 @@
         columns: cols,
         column-gutter: gutter,
         stack(dir: ttb, spacing: 4pt * k, ..some(
-          text(size: 14.25pt * k, weight: "semibold", row.term),
+          fit-term(row.term, size: 14.25pt * k, weight: "semibold"),
           if row.ipa != "" { text(size: 10.5pt * k, fill: ink2, row.ipa) },
           if row.note != "" { text(size: 9pt * k, fill: ink3, row.note) },
         )),

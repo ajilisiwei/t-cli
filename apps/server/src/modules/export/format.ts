@@ -77,6 +77,13 @@ export function pickExample<T extends { fromUser?: boolean }>(examples: readonly
   return examples.find((example) => example.fromUser !== true) ?? examples[0];
 }
 
+/** The shortest example not taken from the user's own records (else the shortest): a card has little room. */
+export function shortestExample<T extends { en: string; fromUser?: boolean }>(examples: readonly T[]): T | undefined {
+  const own = examples.filter((example) => example.fromUser !== true);
+  const pool = own.length > 0 ? own : examples;
+  return [...pool].sort((a, b) => a.en.length - b.en.length)[0];
+}
+
 export const TOPIC_LABELS: Readonly<Record<string, string>> = {
   work: '职场',
   travel: '旅行',

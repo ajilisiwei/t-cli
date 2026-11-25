@@ -22,28 +22,29 @@
   [正面单词，背面释义，左右翻面就能读]
 })
 
-// Content centred vertically in a fixed-height half card; overflow is clipped.
-#let half(body, alignment) = block(
+// A half card: `make(scale)` centred vertically, shrunk until it fits the
+// fixed height (and width); whatever still does not fit is clipped.
+#let half(make, alignment) = block(
   width: 100%,
   height: card-height,
-  inset: (x: 6mm),
+  inset: (x: 6mm, y: 3mm),
   clip: true,
-  align(alignment + horizon, body),
+  align(alignment + horizon, shrink-to-fit(make)),
 )
 
 #let front(card) = half(
-  stack(dir: ttb, spacing: 10pt * k, ..some(
-    text(size: 22pt * k, weight: "semibold", card.term),
-    if card.ipa != "" { text(size: 11.25pt * k, fill: ink2, card.ipa) },
+  scale => stack(dir: ttb, spacing: 10pt * k * scale, ..some(
+    align(center, fit-term(card.term, size: 22pt * k * scale, weight: "semibold")),
+    if card.ipa != "" { align(center, text(size: 11.25pt * k * scale, fill: ink2, card.ipa)) },
   )),
   center,
 )
 
 #let back(card) = half(
-  stack(dir: ttb, spacing: 9pt * k, ..some(
-    text(size: 12.75pt * k, weight: "bold", card.gloss),
-    if card.example != "" { text(size: 11.25pt * k, style: "italic", card.example) },
-    if card.zh != "" { text(size: 9pt * k, fill: ink3, card.zh) },
+  scale => stack(dir: ttb, spacing: 9pt * k * scale, ..some(
+    text(size: 12.75pt * k * scale, weight: "bold", card.gloss),
+    if card.example != "" { text(size: 11.25pt * k * scale, style: "italic", card.example) },
+    if card.zh != "" { text(size: 9pt * k * scale, fill: ink3, card.zh) },
   )),
   left,
 )
