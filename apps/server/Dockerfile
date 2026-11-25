@@ -5,10 +5,12 @@
 #
 # Node 24 runs the TypeScript sources directly (type stripping), so there is
 # no compile stage: `deps` installs only the server's production dependencies,
-# `runtime` adds the sources and the SQL migrations.
+# `typst` fetches the PDF renderer, `runtime` adds both, the sources and the
+# SQL migrations.
 #
 # The production host is linux/amd64; always pass --platform when building on
-# an arm64 machine, or the image dies there with `exec format error`.
+# an arm64 machine, or the image dies there with `exec format error` (the
+# Typst binary is x86_64 only, too).
 ARG NODE_VERSION=24-alpine
 
 # ---------------------------------------------------------------- deps ------
@@ -29,17 +31,37 @@ COPY packages/core/package.json packages/core/
 RUN npm ci --omit=dev --workspace @t-cli/server --ignore-scripts \
  && npm cache clean --force
 
+# --------------------------------------------------------------- typst ------
+# PDF export (docs/v3-plan.html §8): Typst 0.13.1 (static musl binary) and
+# six static font files with their licenses, pinned by version and SHA-256 in
+# fetch-typst.sh (shared with CI). Only that script invalidates this stage,
+# so the ~37 MB download happens once; the archive never reaches the image.
+# TARGETARCH (set by BuildKit from --platform) picks the binary: amd64 in
+# production, arm64 only for native local images.
+FROM node:${NODE_VERSION} AS typst
+ARG TARGETARCH
+COPY apps/server/deploy/fetch-typst.sh /tmp/fetch-typst.sh
+RUN sh /tmp/fetch-typst.sh /opt/typst "${TARGETARCH:-amd64}"
+
 # ------------------------------------------------------------- runtime ------
 FROM node:${NODE_VERSION} AS runtime
 ENV NODE_ENV=production \
     PORT=3000
-WORKDIR /app
 
+# The renderer first: large and rarely changing, so code changes never
+# re-send these layers. Paths are the defaults of TYPST_BIN (on PATH) and
+# TYPST_FONT_PATH (src/config.ts).
+COPY --from=typst /opt/typst/fonts /usr/local/share/fonts/t-cli
+COPY --from=typst /opt/typst/licenses /usr/local/share/licenses/typst
+COPY --from=typst /opt/typst/bin/typst /usr/local/bin/typst
+
+WORKDIR /app
 COPY --from=deps /repo/node_modules node_modules
 COPY package.json ./
 COPY packages/core/package.json packages/core/
 COPY packages/core/src packages/core/src
 COPY apps/server/package.json apps/server/
+# Includes the PDF templates (src/modules/export/templates/*.typ).
 COPY apps/server/src apps/server/src
 COPY apps/server/drizzle apps/server/drizzle
 # Operator scripts (invites, roles, CLI device approval) run inside the image.
