@@ -28,6 +28,7 @@ import {
 import type { ExportInput, ExportMaterial } from '../../lib/pdf-export'
 import { fingerprint } from '../../lib/review-card'
 import { SPEECH_IDLE, type SpeechStatus } from '../../lib/speaker'
+import { confirmTap } from '../../services/haptics'
 import { adoptExtend, dismissExtend, fetchExtend, fetchThisWeek, markRead } from '../../services/learn'
 import { safeBottomInset } from '../../services/platform'
 import { redirectIfInviteRequired } from '../../services/session'
@@ -237,6 +238,7 @@ Page({
     this.setData({ adding: true })
     try {
       const result = await adoptExtend(material.date, indexes)
+      confirmTap()
       this.known = applyAdopt(this.known, result)
       this.selected = this.selected.map((on, i) => on && !this.known[i])
       this.renderItems()
