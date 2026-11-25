@@ -3,23 +3,15 @@ import { z } from 'zod';
 import type { AppDeps } from '../../deps.ts';
 import { authOf, requireAuth } from '../../http/auth.ts';
 import { notFound, ok } from '../../http/errors.ts';
-import { IdParams, LocalDate, UtcOffsetMinutes } from '../review/common.ts';
+import { IdParams, UtcOffsetMinutes } from '../review/common.ts';
 import { getItemDetail, listItems } from './items.ts';
-import { getMaterial, listMaterialDates, type MaterialKind } from './materials.ts';
 import { learningStats } from './stats.ts';
 
 export const ITEMS_MAX_LIMIT = 50;
-export const MATERIALS_MAX_LIMIT = 60;
 export const STATS_MAX_DAYS = 366;
 const SEARCH_MAX_CHARS = 64;
 const OFFSET_MAX = 100_000;
 
-const MaterialQuery = z.object({ date: LocalDate.optional() });
-const MaterialListQuery = z.object({
-  kind: z.enum(['daily', 'weekly']),
-  before: LocalDate.optional(),
-  limit: z.coerce.number().int().min(1).max(MATERIALS_MAX_LIMIT).default(30),
-});
 const ItemsQuery = z.object({
   // An empty search box means "no search".
   q: z.string().trim().max(SEARCH_MAX_CHARS).optional().transform((value) => (value === '' ? undefined : value)),
@@ -42,10 +34,8 @@ const SEARCH_LOG_SERIALIZERS = {
 };
 
 /**
- * Materials, 词库 and statistics (docs/api-v1.md, "Materials", "Library and stats"):
- *   GET /v1/materials/daily?date=       one daily material (latest without date)
- *   GET /v1/materials/weekly?date=      one weekly report (date = the week's Monday)
- *   GET /v1/materials?kind=&before=     dates with material, newest first
+ * 词库 and statistics (docs/api-v1.md, "Library and stats"; the materials
+ * live in materialRoutes.ts):
  *   GET /v1/items?q=&type=&level=       learning units, searchable
  *   GET /v1/items/:id                   one unit with its cards and sources
  *   GET /v1/stats?days=                 activity heatmap, streak, retention, totals
@@ -55,22 +45,6 @@ const SEARCH_LOG_SERIALIZERS = {
 export async function registerLibraryRoutes(app: FastifyInstance, deps: AppDeps): Promise<void> {
   const { db, clock } = deps;
   const authenticate = requireAuth(deps.config.JWT_SECRET, clock, deps.db);
-
-  const materialRoute = (kind: MaterialKind) => async (request: FastifyRequest) => {
-    const { userId } = authOf(request);
-    const { date } = MaterialQuery.parse(request.query);
-    const material = await getMaterial(db, userId, kind, date);
-    if (!material) throw notFound(`${kind} material`);
-    return ok(material);
-  };
-  app.get('/v1/materials/daily', { preHandler: authenticate }, materialRoute('daily'));
-  app.get('/v1/materials/weekly', { preHandler: authenticate }, materialRoute('weekly'));
-
-  app.get('/v1/materials', { preHandler: authenticate }, async (request) => {
-    const { userId } = authOf(request);
-    const query = MaterialListQuery.parse(request.query);
-    return ok(await listMaterialDates(db, userId, query));
-  });
 
   app.get('/v1/items', { preHandler: authenticate, logSerializers: SEARCH_LOG_SERIALIZERS }, async (request) => {
     const { userId } = authOf(request);

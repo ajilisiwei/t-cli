@@ -66,7 +66,7 @@ describe('review: summary, queue, ratings, undo, report', { skip: skipWithoutDb 
 
   test('an empty account: nothing due, empty queue', async (ctx) => {
     const { app, account } = await setup(ctx);
-    assert.deepEqual(await summary(app, account), { due: 0, newAvailable: 0, reviewDue: 0, doneToday: 0, estimatedMinutes: 0, streakDays: 0 });
+    assert.deepEqual(await summary(app, account), { due: 0, newAvailable: 0, reviewDue: 0, doneToday: 0, estimatedMinutes: 0, streakDays: 0, dueByScope: { all: 0, notes: 0, stars3: 0 } });
     assert.deepEqual(await queueIds(app, account), []);
   });
 
@@ -397,7 +397,7 @@ describe('review: summary, queue, ratings, undo, report', { skip: skipWithoutDb 
     const theirs = await seedItem(t.db, other.userId, { type: 'phrase', display: 'their summary' });
     await seedLog(t.db, other.userId, { cardId: theirs.cardIds[0]!, rating: 3, reviewedAt: clock() });
     const s = await summary(app, account);
-    assert.deepEqual(s, { due: 3, newAvailable: 3, reviewDue: 0, doneToday: 0, estimatedMinutes: 1, streakDays: 0 });
+    assert.deepEqual(s, { due: 3, newAvailable: 3, reviewDue: 0, doneToday: 0, estimatedMinutes: 1, streakDays: 0, dueByScope: { all: 3, notes: 0, stars3: 0 } });
     assert.equal((await queueIds(app, account)).length, mine.cardIds.length);
   });
 });

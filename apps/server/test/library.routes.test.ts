@@ -57,11 +57,13 @@ describe('library: materials, items, entries of a day', { skip: skipWithoutDb },
       assert.equal((await get(account, `/v1/materials/daily?date=${bad}`)).statusCode, 400, bad);
     }
 
+    // v1 fields only (v3 adds `items`, tested in materials.v3.test.ts).
+    const v1 = (data: { dates: string[]; nextBefore: string | null }) => ({ dates: data.dates, nextBefore: data.nextBefore });
     const page1 = (await get(account, '/v1/materials?kind=daily&limit=3')).json().data;
-    assert.deepEqual(page1, { dates: ['2026-11-16', '2026-11-15', '2026-11-14'], nextBefore: '2026-11-14' });
+    assert.deepEqual(v1(page1), { dates: ['2026-11-16', '2026-11-15', '2026-11-14'], nextBefore: '2026-11-14' });
     const page2 = (await get(account, `/v1/materials?kind=daily&limit=3&before=${page1.nextBefore}`)).json().data;
-    assert.deepEqual(page2, { dates: ['2026-11-13'], nextBefore: null });
-    assert.deepEqual((await get(account, '/v1/materials?kind=weekly')).json().data, { dates: ['2026-11-09'], nextBefore: null });
+    assert.deepEqual(v1(page2), { dates: ['2026-11-13'], nextBefore: null });
+    assert.deepEqual(v1((await get(account, '/v1/materials?kind=weekly')).json().data), { dates: ['2026-11-09'], nextBefore: null });
     for (const query of ['', '?kind=monthly', '?kind=daily&limit=61', '?kind=daily&before=x']) {
       assert.equal((await get(account, `/v1/materials${query}`)).statusCode, 400, query);
     }
