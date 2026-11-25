@@ -44,6 +44,7 @@ import { diffWords, displaySegments } from '../../lib/word-diff'
 import { lookupWord } from '../../services/endpoints'
 import { canSaveNote, flushNotes } from '../../services/notes'
 import { utcOffsetMinutes } from '../../services/platform'
+import { confirmTap } from '../../services/haptics'
 import { createResultRunner, type ResultRunner, type RunnerView } from '../../services/result-runner'
 import { redirectIfInviteRequired } from '../../services/session'
 import { autoSpeakWord, explanationLang } from '../../services/settings'
@@ -561,11 +562,22 @@ Page({
 
   // ---- 收藏 ----
 
+  /**
+   * A light haptic when a bookmark tap actually saved or removed a note (not
+   * when saving failed). Star taps get theirs from <t-stars>.
+   */
+  confirmChange(before: number, after: number) {
+    if (after !== before) confirmTap()
+  },
+
   onResultNote() {
     const state = this.runner?.current().state
     const target = state === undefined ? null : this.resultTarget(state)
-    if (target === null) return
-    this.setData({ 'bar.noteStars': this.saved?.toggle(target) ?? 0 })
+    if (target === null || this.saved === null) return
+    const before = this.saved.starsOf(target)
+    const stars = this.saved.toggle(target)
+    this.confirmChange(before, stars)
+    this.setData({ 'bar.noteStars': stars })
   },
 
   onResultStars(event: WechatMiniprogram.CustomEvent<{ level?: number }>) {
@@ -728,8 +740,8 @@ Page({
 
   onHeadNote() {
     const { head } = this.sheetTargets()
-    if (head === null) return
-    this.saved?.toggle(head)
+    if (head === null || this.saved === null) return
+    this.confirmChange(this.saved.starsOf(head), this.saved.toggle(head))
     this.refreshSheetNotes()
   },
 
@@ -742,8 +754,8 @@ Page({
 
   onPhraseNote() {
     const { phrase } = this.sheetTargets()
-    if (phrase === null) return
-    this.saved?.toggle(phrase)
+    if (phrase === null || this.saved === null) return
+    this.confirmChange(this.saved.starsOf(phrase), this.saved.toggle(phrase))
     this.refreshSheetNotes()
   },
 
