@@ -8,7 +8,7 @@ import { createRateLimiter } from '../../lib/rateLimit.ts';
 import { pushReviewLogs, suspendItemOfCard, undoReviewLog, type IncomingLog, type PushRejection } from './cards.ts';
 import { enforceRateLimit, IdParams, MINUTE_MS, UtcOffsetMinutes } from './common.ts';
 import { RATING_VALUES, type RatingValue } from './fsrs.ts';
-import { reviewQueue, reviewSummary, type ReviewLimits } from './queue.ts';
+import { REVIEW_SCOPES, reviewQueue, reviewSummary, type ReviewLimits } from './queue.ts';
 
 export const PUSH_MAX_LOGS = 200;
 export const QUEUE_MAX_LIMIT = 100;
@@ -23,6 +23,7 @@ const SummaryQuery = z.object({ utcOffsetMinutes: UtcOffsetMinutes });
 const QueueQuery = z.object({
   utcOffsetMinutes: UtcOffsetMinutes,
   limit: z.coerce.number().int().min(1).max(QUEUE_MAX_LIMIT).default(50),
+  scope: z.enum(REVIEW_SCOPES).default('all'),
 });
 const PushBody = z.object({ logs: z.array(z.unknown()).min(1).max(PUSH_MAX_LOGS) });
 const LogShape = z.object({
@@ -89,8 +90,15 @@ export async function registerReviewRoutes(app: FastifyInstance, deps: AppDeps):
   app.get('/v1/review/queue', { preHandler: authenticate }, async (request) => {
     const { userId } = authOf(request);
     const query = QueueQuery.parse(request.query);
-    const cards = await reviewQueue(db, { userId, now: clock(), utcOffsetMinutes: query.utcOffsetMinutes, limits, limit: query.limit });
-    request.log.info({ userId, served: cards.length }, 'review queue');
+    const cards = await reviewQueue(db, {
+      userId,
+      now: clock(),
+      utcOffsetMinutes: query.utcOffsetMinutes,
+      limits,
+      limit: query.limit,
+      scope: query.scope,
+    });
+    request.log.info({ userId, scope: query.scope, served: cards.length }, 'review queue');
     return ok({ cards });
   });
 
