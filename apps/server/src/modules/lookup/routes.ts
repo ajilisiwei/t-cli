@@ -4,7 +4,8 @@ import type { AppDeps } from '../../deps.ts';
 import { authOf, requireAuth } from '../../http/auth.ts';
 import { AppError, loggableError, notFound, ok } from '../../http/errors.ts';
 import { createRateLimiter } from '../../lib/rateLimit.ts';
-import { LookupBody } from './lexicon.ts';
+import { createLookupEventRecorder } from './events.ts';
+import { LookupBody, lexiconKey } from './lexicon.ts';
 import { ownsEntry } from './repo.ts';
 import { createLookupMeter, lookupWord } from './service.ts';
 
@@ -21,12 +22,16 @@ const codePoints = (text: string): number => [...text].length;
  * Order of checks: auth → validation → enabled → per-minute limit →
  * `entryId` → (service) lexicon → daily quota → model → NOT_A_WORD. One log
  * line per request with sizes, timings, token counts, `cached` and the
- * outcome — never the word, the sentence or the lemma.
+ * outcome — never the word, the sentence or the lemma. After a 200 a lookup
+ * event (v3) is recorded without delaying or changing the response.
  */
 export async function registerLookupRoutes(app: FastifyInstance, deps: AppDeps): Promise<void> {
   const { config } = deps;
   const authenticate = requireAuth(config.JWT_SECRET, deps.clock, deps.db);
   const perMinute = createRateLimiter({ limit: config.LOOKUP_REQUESTS_PER_MINUTE, windowMs: 60_000 });
+  // v3: a lookup event after each 200, written in the background; closing the app waits for them.
+  const events = createLookupEventRecorder(deps.db);
+  app.addHook('onClose', () => events.settle());
 
   app.post('/v1/lookup', { preHandler: authenticate, bodyLimit: BODY_LIMIT_BYTES }, async (request, reply) => {
     const startedAt = performance.now();
@@ -63,8 +68,9 @@ export async function registerLookupRoutes(app: FastifyInstance, deps: AppDeps):
     }
 
     try {
-      const result = await lookupWord(deps, { userId, word: body.word, sentence: body.sentence }, meter, request.log);
+      const { result, explainLang } = await lookupWord(deps, { userId, word: body.word, sentence: body.sentence }, meter, request.log);
       log('info', 'ok', { cached: result.cached, withContext: result.context !== null, withPhrase: result.context?.phrase != null });
+      events.record({ userId, lemmaKey: lexiconKey(result.lemma), explainLang, now: deps.clock() }, request.log);
       return ok(result);
     } catch (error) {
       if (error instanceof AppError) {
