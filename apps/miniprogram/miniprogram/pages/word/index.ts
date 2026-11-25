@@ -38,6 +38,7 @@ import { ULID_ENTROPY_BYTES, ulid } from '../../lib/review-ulid'
 import type { SpeechPhase, SpeechStatus } from '../../lib/speaker'
 import type { LookupRequest, LookupResult, Note, NoteInput, NoteKind, NoteStars } from '../../lib/types'
 import { deleteNote, lookupWord, saveNote } from '../../services/endpoints'
+import { confirmTap } from '../../services/haptics'
 import { rememberNote, rememberSaved, savedIndex, syncSavedNotes } from '../../services/saved-index'
 import { fetchItem, fetchItems } from '../../services/library'
 import { utcOffsetMinutes } from '../../services/platform'
@@ -269,6 +270,7 @@ Page({
     this.busy.add('word')
     const before = this.data.wordStars
     this.setData({ wordStars: before > 0 ? 0 : DEFAULT_STARS })
+    confirmTap()
     try {
       const stars = await this.toggleNote('word', result.lemma, (s) => wordNoteInput(result, s, this.entryId))
       this.setData({ wordStars: stars })
@@ -316,6 +318,7 @@ Page({
     this.busy.add(key)
     const before = at.row.stars
     this.setCollocationStars(at.index, before > 0 ? 0 : DEFAULT_STARS)
+    confirmTap()
     try {
       const stars = await this.toggleNote('phrase', at.row.text, (s) => phraseNoteInput(at.row.text, at.row.gloss, s))
       this.setCollocationStars(at.index, stars)

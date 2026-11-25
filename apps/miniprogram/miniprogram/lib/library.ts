@@ -179,5 +179,5 @@ export function emptyLibraryText(filter: LibraryFilter): string {
   const q = normalizeQuery(filter.q)
   if (q !== '') return `没有找到「${q}」`
   if (filter.type !== null || filter.level !== null) return '没有符合筛选的单元'
-  return '词库还是空的。每天凌晨会把前一天查过的词句整理进来。'
+  return '词库还是空的。每天凌晨会把前一天查过的词句整理进来'
 }

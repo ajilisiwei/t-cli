@@ -1,47 +1,33 @@
-/* Layout only; buttons, icons and stars come from app.wxss and the components
- * (README "Design system"). Rounded boxes use one border colour. */
+/* Layout only: type comes from the scale (.t-*), buttons, icons, stars,
+ * states and the card from app.wxss and the components (README "Design
+ * system"). Rounded boxes use one border colour; rows that mix fonts or
+ * sizes are centred or top-aligned, never on a baseline (Skyline). */
 
-.headword {
+.wd-headword {
   display: block;
-  font-size: 76rpx;
-  line-height: 1.15;
   word-break: break-word;
 }
 
-/* ---- skeleton ---- */
-.skeleton {
+/* ---- skeleton (app.wxss .skel), breathing while the lookup runs ---- */
+.wd-skeleton {
   display: flex;
   flex-direction: column;
-  gap: 24rpx;
   padding-top: 16rpx;
 }
 
-.bone {
-  height: 28rpx;
-  border-radius: 14rpx;
-  background-color: var(--rule);
-  animation-name: pulse;
-  animation-duration: 1.2s;
+.wd-skel-head {
+  margin-bottom: 24rpx;
+}
+
+.skel-pulse {
+  animation-name: wd-pulse;
+  animation-duration: 900ms;
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
   animation-direction: alternate;
 }
 
-.bone-short {
-  width: 40%;
-}
-
-.bone-mid {
-  width: 70%;
-}
-
-.bone-block {
-  height: 140rpx;
-  margin: 16rpx 0;
-  border-radius: 28rpx;
-}
-
-@keyframes pulse {
+@keyframes wd-pulse {
   from {
     opacity: 1;
   }
@@ -50,8 +36,21 @@
   }
 }
 
-.failed {
-  padding-top: 16rpx;
+.wd-skel-context {
+  margin-top: 8rpx;
+  border-radius: 32rpx;
+}
+
+.wd-w40 {
+  width: 40%;
+}
+
+.wd-w64 {
+  width: 64%;
+}
+
+.wd-w72 {
+  width: 72%;
 }
 
 /* ---- header ---- */
@@ -90,16 +89,6 @@
   gap: 12rpx;
 }
 
-.ipa-label {
-  color: var(--muted);
-  font-size: 24rpx;
-}
-
-.ipa-text {
-  color: var(--ink-soft);
-  font-size: 30rpx;
-}
-
 .save-line {
   display: flex;
   flex-direction: row;
@@ -107,48 +96,38 @@
   gap: 12rpx;
 }
 
+/* The page's main action: a larger round target (pill: half its height). */
 .save-btn {
   width: 80rpx;
   height: 80rpx;
   border-radius: 40rpx;
 }
 
-/* ---- sections ---- */
+/* ---- sections: a .section-head label, then rows 16rpx apart ---- */
 .section {
   display: flex;
   flex-direction: column;
   gap: 16rpx;
-  margin-top: 44rpx;
+  margin-top: 32rpx;
 }
 
-.sec-title {
-  display: block;
-  color: var(--muted);
-  font-size: 26rpx;
-  font-weight: 600;
-}
-
-/* 在本句中 */
+/* 在本句中: a tinted card */
 .context {
   display: flex;
   flex-direction: column;
   gap: 12rpx;
-  margin-top: 44rpx;
-  padding: 24rpx 28rpx;
-  border-radius: 28rpx;
+  margin-top: 48rpx;
+  padding: 28rpx 32rpx;
+  border-radius: 32rpx;
   background-color: var(--accent-soft);
 }
 
 .context-title {
   color: var(--accent);
-  font-size: 26rpx;
-  font-weight: 600;
 }
 
 .context-sentence {
   color: var(--ink-soft);
-  font-size: 30rpx;
-  line-height: 1.55;
   word-break: break-word;
 }
 
@@ -157,39 +136,36 @@
   font-weight: 600;
 }
 
-.context-meaning {
-  font-size: 30rpx;
-  line-height: 1.55;
-}
-
+/* Label, phrase (serif) and gloss differ in font and size: centred. */
 .context-phrase {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: 16rpx;
-  font-size: 28rpx;
 }
 
 .context-phrase-label {
   color: var(--accent);
-  font-size: 24rpx;
+}
+
+.context-phrase-text {
+  color: var(--ink);
 }
 
 /* 释义 */
 .sense {
   display: flex;
   flex-direction: column;
-  gap: 4rpx;
+  gap: 8rpx;
 }
 
+/* Part of speech (serif) and gloss share size and line height: top-aligned. */
 .sense-line {
   display: flex;
   flex-direction: row;
-  align-items: baseline;
-  gap: 20rpx;
-  font-size: 32rpx;
-  line-height: 1.6;
+  align-items: flex-start;
+  gap: 16rpx;
 }
 
 .pos {
@@ -206,8 +182,6 @@
 
 .sense-def {
   color: var(--muted);
-  font-size: 28rpx;
-  line-height: 1.55;
 }
 
 /* 词形变化: two columns, each cell a label over its form. Label and form side
@@ -222,26 +196,20 @@
 .form {
   display: flex;
   flex-direction: column;
-  gap: 2rpx;
   width: 50%;
-  padding: 10rpx 24rpx 10rpx 0;
+  padding: 8rpx 24rpx 8rpx 0;
   box-sizing: border-box;
 }
 
 .form-label {
-  color: var(--muted);
-  font-size: 24rpx;
-  line-height: 1.4;
   word-break: break-word;
 }
 
 .form-value {
-  font-size: 32rpx;
-  line-height: 1.4;
   word-break: break-word;
 }
 
-/* 常用搭配 (option B) */
+/* 常用搭配 (option B): the phrase over its gloss, bookmark on the right */
 .colloc {
   display: flex;
   flex-direction: column;
@@ -259,12 +227,7 @@
   flex: 1;
   min-width: 0;
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 20rpx;
-  font-size: 30rpx;
-  line-height: 1.5;
+  flex-direction: column;
   word-break: break-word;
 }
 
@@ -286,7 +249,7 @@
   display: flex;
   flex-direction: row;
   align-items: flex-start;
-  gap: 20rpx;
+  gap: 16rpx;
 }
 
 .example-mark {
@@ -302,32 +265,24 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4rpx;
+  gap: 8rpx;
 }
 
 .example-text {
-  font-size: 30rpx;
-  line-height: 1.5;
   word-break: break-word;
 }
 
-.example-gloss {
-  color: var(--muted);
-  font-size: 26rpx;
-}
-
-/* 近义辨析 */
+/* 近义辨析: word (serif) and note share size and line height: top-aligned. */
 .contrast {
   display: flex;
   flex-direction: row;
-  align-items: baseline;
-  gap: 20rpx;
-  font-size: 28rpx;
-  line-height: 1.55;
+  align-items: flex-start;
+  gap: 16rpx;
 }
 
 .contrast-word {
   flex-shrink: 0;
+  color: var(--ink);
   font-weight: 600;
 }
 
@@ -338,8 +293,6 @@
 }
 
 .memory {
-  font-size: 28rpx;
-  line-height: 1.6;
   word-break: break-word;
 }
 
@@ -348,35 +301,25 @@
   display: flex;
   flex-direction: column;
   gap: 12rpx;
-  margin-top: 44rpx;
-  padding: 24rpx 28rpx;
-  border-radius: 28rpx;
-  background-color: var(--surface);
-  border: 1px solid var(--rule);
+  margin-top: 48rpx;
 }
 
-.record-line {
-  font-size: 28rpx;
+.record-strong {
+  color: var(--ink);
 }
 
-.record-soft {
-  color: var(--ink-soft);
-}
-
+/* A text link at least 64rpx tall. */
 .record-link {
   display: flex;
   flex-direction: row;
+  align-self: flex-start;
   align-items: center;
-  gap: 4rpx;
-  padding: 8rpx 0;
-  color: var(--accent);
-  font-size: 28rpx;
+  gap: 8rpx;
+  min-height: 64rpx;
 }
 
 .footnote {
   display: block;
   margin-top: 32rpx;
-  color: var(--muted);
-  font-size: 24rpx;
   text-align: center;
 }

@@ -8,40 +8,47 @@
     lower-threshold="240"
     bindscrolltolower="onLoadMore"
     refresher-enabled
+    refresher-default-style="{{theme === 'dark' ? 'white' : 'black'}}"
     refresher-triggered="{{refreshing}}"
     bindrefresherrefresh="onRefresh"
   >
     <view class="content">
       <!-- Summary: total, this week, mastery bar (hidden when the summary is unavailable) -->
-      <view wx:if="{{summary}}" class="summary">
+      <view wx:if="{{summary}}" class="card-surface summary">
         <view class="summary-head">
-          <text class="summary-total">{{summary.total}}</text>
-          <text class="summary-caption">{{summary.caption}}</text>
+          <text class="t-display summary-total">{{summary.total}}</text>
+          <text class="t-secondary summary-caption">{{summary.caption}}</text>
         </view>
         <block wx:if="{{summary.bar.length > 0}}">
           <view class="mastery" aria-role="img" aria-label="{{summary.barAria}}">
             <view
               wx:for="{{summary.bar}}"
               wx:key="key"
-              class="mastery-seg seg-{{item.key}}"
+              class="mastery-seg mastery-{{item.key}}"
               style="flex: {{item.count}};"
             />
           </view>
           <view class="legend">
             <view wx:for="{{summary.legend}}" wx:key="key" class="legend-item">
-              <view class="legend-dot seg-{{item.key}}" />
-              <text>{{item.label}} {{item.count}}</text>
+              <view class="legend-dot mastery-{{item.key}}" />
+              <text class="t-caption legend-text">{{item.label}} {{item.count}}</text>
             </view>
           </view>
         </block>
       </view>
+      <view wx:elif="{{loading && !loaded}}" class="card-surface summary" aria-label="加载中">
+        <view class="skel skel-pulse nb-skel-total" />
+        <view class="skel skel-pulse nb-skel-bar" />
+      </view>
 
       <!-- Type tabs -->
-      <view class="tabs" aria-role="tablist" aria-label="笔记类型">
+      <view class="seg-control nb-tabs" aria-role="tablist" aria-label="笔记类型">
         <view
           wx:for="{{kindTabs}}"
           wx:key="value"
-          class="tab {{item.selected ? 'tab-on' : ''}}"
+          class="seg-option {{item.selected ? 'seg-option-on' : ''}}"
+          hover-class="pressed"
+          hover-stay-time="80"
           data-value="{{item.value}}"
           bindtap="onKindTab"
           aria-role="tab"
@@ -53,28 +60,32 @@
 
       <!-- Star filters -->
       <view class="filters">
-        <view class="star-chips">
+        <view class="choice-chips nb-star-chips">
           <view
             wx:for="{{starChips}}"
             wx:key="value"
-            class="star-chip {{item.selected ? 'star-chip-on' : ''}}"
+            class="choice-chip nb-star-chip {{item.selected ? 'choice-chip-on' : ''}}"
+            hover-class="pressed"
+            hover-stay-time="80"
             data-value="{{item.value}}"
             bindtap="onStarChip"
             aria-role="button"
             aria-label="{{item.aria}}{{item.selected ? '，已选' : ''}}"
           >
-            <t-icon wx:if="{{item.star}}" name="star-filled" tone="{{item.selected ? 'accentInk' : 'muted'}}" size="22" />
+            <t-icon wx:if="{{item.star}}" name="star-filled" tone="{{item.selected ? 'accentInk' : 'muted'}}" size="24" />
             <text>{{item.label}}</text>
           </view>
         </view>
-        <text class="order">最近加入</text>
+        <text class="t-caption order">最近加入</text>
       </view>
 
-      <!-- Notes -->
+      <!-- Notes. An expanded row's editor takes its own taps, so the row does not dim then. -->
       <view
         wx:for="{{rows}}"
         wx:key="id"
         class="note"
+        hover-class="{{item.expanded ? 'none' : 'pressed'}}"
+        hover-stay-time="80"
         data-id="{{item.id}}"
         bindtap="onRow"
         aria-role="button"
@@ -89,12 +100,15 @@
             overflow="ellipsis"
           >{{item.text}}</text>
           <block wx:if="{{item.gloss}}">
-            <text wx:if="{{item.expanded}}" class="note-gloss note-gloss-full" user-select>{{item.gloss}}</text>
-            <text wx:else class="note-gloss clamp-1" max-lines="1" overflow="ellipsis">{{item.gloss}}</text>
+            <text wx:if="{{item.expanded}}" class="t-secondary note-gloss note-gloss-full" user-select>{{item.gloss}}</text>
+            <text wx:else class="t-secondary note-gloss clamp-1" max-lines="1" overflow="ellipsis">{{item.gloss}}</text>
           </block>
           <view class="tags">
-            <text class="tag">{{item.kindLabel}}</text>
-            <text wx:if="{{item.levelLabel}}" class="tag tag-{{item.level}}">{{item.levelLabel}}</text>
+            <text class="label-tag">{{item.kindLabel}}</text>
+            <text
+              wx:if="{{item.levelLabel}}"
+              class="label-tag {{item.level === 'learning' ? 'label-tag-soft' : (item.level === 'mastered' ? 'label-tag-accent' : '')}}"
+            >{{item.levelLabel}}</text>
           </view>
 
           <!-- Expanded phrase / sentence (option B): stars on their own line, then 朗读 and 删除 -->
@@ -105,6 +119,8 @@
             <view class="note-actions">
               <view
                 class="icon-btn icon-btn-sm icon-btn-tonal"
+                hover-class="pressed"
+                hover-stay-time="80"
                 data-id="{{item.id}}"
                 catchtap="onRowSpeak"
                 aria-role="button"
@@ -112,7 +128,7 @@
               >
                 <t-speak-icon phase="{{item.itemId && speakKey === 'item-' + item.itemId ? speakPhase : 'idle'}}" tone="accent" size="30" />
               </view>
-              <view class="btn btn-danger btn-sm" data-id="{{item.id}}" catchtap="onRowDelete" aria-role="button" aria-label="删除这条笔记">
+              <view class="btn btn-danger btn-sm" hover-class="pressed" hover-stay-time="80" data-id="{{item.id}}" catchtap="onRowDelete" aria-role="button" aria-label="删除这条笔记">
                 <text>删除</text>
               </view>
             </view>
@@ -132,13 +148,26 @@
         </view>
       </view>
 
-      <view wx:if="{{errorText}}" class="failed">
-        <text class="error">{{errorText}}</text>
-        <view wx:if="{{rows.length === 0}}" class="btn btn-secondary btn-block" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+      <!-- First load: rows shaped like notes. Loading more: one row at the end. -->
+      <view wx:if="{{loading && !refreshing}}" aria-label="加载中">
+        <view wx:for="{{rows.length === 0 ? [1, 2, 3, 4, 5] : [1]}}" wx:key="*this" class="note">
+          <view class="note-main">
+            <view class="skel skel-line skel-pulse nb-skel-text" />
+            <view class="skel skel-line skel-pulse nb-skel-gloss" />
+            <view class="skel skel-pulse nb-skel-tag" />
+          </view>
+          <view class="skel skel-pulse nb-skel-stars" />
+        </view>
       </view>
-      <text wx:if="{{loaded && rows.length === 0 && !errorText && !loading}}" class="empty">{{emptyText}}</text>
-      <text wx:if="{{loading && !refreshing}}" class="empty">加载中…</text>
-      <text wx:elif="{{loaded && rows.length > 0 && !hasMore}}" class="empty">没有更早的笔记了</text>
+
+      <view wx:if="{{errorText}}" class="state">
+        <text class="state-text state-error">{{errorText}}</text>
+        <view class="btn btn-secondary btn-sm" hover-class="pressed" hover-stay-time="80" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+      </view>
+      <view wx:elif="{{loaded && rows.length === 0 && !loading}}" class="state">
+        <text class="state-text">{{emptyText}}</text>
+      </view>
+      <text wx:elif="{{loaded && rows.length > 0 && !hasMore && !loading}}" class="t-caption list-end">没有更早的笔记了</text>
     </view>
   </scroll-view>
 </view>

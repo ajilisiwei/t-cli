@@ -156,6 +156,12 @@ Page({
     void this.reload()
   },
 
+  /** 重试: the first page again, or the page that failed to load at the end. */
+  onRetry() {
+    if (this.data.rows.length === 0) void this.reload()
+    else void this.onLoadMore()
+  },
+
   onQueryInput(event: WechatMiniprogram.Input) {
     const query = event.detail.value
     this.setData({ query })

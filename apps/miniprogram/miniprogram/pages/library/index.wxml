@@ -2,6 +2,7 @@
   <nav-bar title="词库" back />
   <view class="filters">
     <view class="search {{searchFocused ? 'search-focused' : ''}}">
+      <t-icon name="search" tone="muted" size="30" />
       <input
         class="search-input"
         type="text"
@@ -9,21 +10,24 @@
         maxlength="64"
         placeholder="搜索单词、句型、语法"
         placeholder-class="placeholder"
+        aria-label="搜索词库"
         value="{{query}}"
         bindinput="onQueryInput"
         bindconfirm="onQueryConfirm"
         bindfocus="onSearchFocus"
         bindblur="onSearchBlur"
       />
-      <view wx:if="{{query}}" class="icon-btn" bindtap="onClearQuery" aria-role="button" aria-label="清空搜索">
-        <t-icon name="close" tone="muted" size="32" />
+      <view wx:if="{{query}}" class="icon-btn icon-btn-sm" hover-class="pressed" hover-stay-time="80" bindtap="onClearQuery" aria-role="button" aria-label="清空搜索">
+        <t-icon name="close" tone="muted" size="28" />
       </view>
     </view>
-    <view class="chips">
+    <view class="choice-chips lb-chips">
       <view
         wx:for="{{typeChips}}"
         wx:key="value"
-        class="chip {{item.value === typeValue ? 'chip-on' : ''}}"
+        class="choice-chip {{item.value === typeValue ? 'choice-chip-on' : ''}}"
+        hover-class="pressed"
+        hover-stay-time="80"
         data-value="{{item.value}}"
         bindtap="onTypeChip"
         aria-role="button"
@@ -32,11 +36,13 @@
         <text>{{item.label}}</text>
       </view>
     </view>
-    <view class="chips">
+    <view class="choice-chips lb-chips">
       <view
         wx:for="{{levelChips}}"
         wx:key="value"
-        class="chip {{item.value === levelValue ? 'chip-on' : ''}}"
+        class="choice-chip {{item.value === levelValue ? 'choice-chip-on' : ''}}"
+        hover-class="pressed"
+        hover-stay-time="80"
         data-value="{{item.value}}"
         bindtap="onLevelChip"
         aria-role="button"
@@ -55,6 +61,7 @@
     lower-threshold="240"
     bindscrolltolower="onLoadMore"
     refresher-enabled
+    refresher-default-style="{{theme === 'dark' ? 'white' : 'black'}}"
     refresher-triggered="{{refreshing}}"
     bindrefresherrefresh="onRefresh"
   >
@@ -63,22 +70,39 @@
         wx:for="{{rows}}"
         wx:key="id"
         class="unit"
+        hover-class="pressed"
+        hover-stay-time="80"
         data-id="{{item.id}}"
         bindtap="onOpen"
         aria-role="button"
         aria-label="{{item.display}}，{{item.meta}}，{{item.levelLabel}}"
       >
         <view class="unit-main">
-          <text class="unit-display serif">{{item.display}}</text>
-          <text class="unit-meta">{{item.meta}}</text>
+          <text class="serif unit-display">{{item.display}}</text>
+          <text class="t-caption unit-meta">{{item.meta}}</text>
         </view>
-        <text class="level level-{{item.level}}">{{item.levelLabel}}</text>
+        <text class="label-tag {{item.level === 'learning' ? 'label-tag-soft' : (item.level === 'mastered' ? 'label-tag-accent' : '')}}">{{item.levelLabel}}</text>
       </view>
 
-      <text wx:if="{{loaded && rows.length === 0 && !errorText && !loading}}" class="empty">{{emptyText}}</text>
-      <text wx:if="{{errorText}}" class="error">{{errorText}}</text>
-      <text wx:if="{{loading && !refreshing}}" class="empty">加载中…</text>
-      <text wx:elif="{{loaded && rows.length > 0 && !hasMore}}" class="empty">共 {{rows.length}} 个</text>
+      <!-- First load: rows shaped like units. Loading more: one row at the end. -->
+      <view wx:if="{{loading && !refreshing}}" aria-label="加载中">
+        <view wx:for="{{rows.length === 0 ? [1, 2, 3, 4, 5] : [1]}}" wx:key="*this" class="unit">
+          <view class="unit-main">
+            <view class="skel skel-line skel-pulse lb-skel-title" />
+            <view class="skel skel-line skel-pulse lb-skel-meta" />
+          </view>
+          <view class="skel skel-pulse lb-skel-tag" />
+        </view>
+      </view>
+
+      <view wx:if="{{errorText}}" class="state">
+        <text class="state-text state-error">{{errorText}}</text>
+        <view class="btn btn-secondary btn-sm" hover-class="pressed" hover-stay-time="80" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+      </view>
+      <view wx:elif="{{loaded && rows.length === 0 && !loading}}" class="state">
+        <text class="state-text">{{emptyText}}</text>
+      </view>
+      <text wx:elif="{{loaded && rows.length > 0 && !hasMore && !loading}}" class="t-caption list-end">共 {{rows.length}} 个</text>
     </view>
   </scroll-view>
 </view>

@@ -1,8 +1,10 @@
 /*
- * Layout of 翻译. The pieces (composer, buttons, icon buttons, stars, result
- * type) come from app.wxss; this file places them and draws what only this
- * page has: tappable words, numbered changes, the docked bar and the sheet.
- * Skyline: one border colour per rounded box, motion on transform/opacity.
+ * Layout of 翻译. The pieces (composer, buttons, icon buttons, stars, type
+ * scale, states) come from app.wxss; this file places them and draws what
+ * only this page has: tappable words, numbered changes, the docked bar and
+ * the sheet. Sizes stay on the type scale (README "Design system → Type").
+ * Skyline: one border colour per rounded box, motion on transform/opacity,
+ * no baseline alignment across fonts or sizes.
  */
 .tr-page {
   position: relative;
@@ -33,6 +35,7 @@
   pointer-events: none;
 }
 
+/* Same size as the textarea it stands in for (.composer-input). */
 .tr-hint-text {
   color: var(--muted);
   font-size: 34rpx;
@@ -44,7 +47,7 @@
 }
 
 .tr-preview {
-  padding: 4rpx 0;
+  padding: 8rpx 0;
 }
 
 .tr-preview-text {
@@ -53,8 +56,6 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   color: var(--ink-soft);
-  font-size: 32rpx;
-  line-height: 1.6;
   word-break: break-word;
 }
 
@@ -67,12 +68,7 @@
 }
 
 .tr-dir {
-  padding: 0 20rpx;
-}
-
-.tr-counter {
-  color: var(--muted);
-  font-size: 24rpx;
+  padding: 0 24rpx;
 }
 
 /* 纠错 while its result shows. */
@@ -84,19 +80,28 @@
 .tr-meta {
   display: block;
   margin-bottom: 16rpx;
-  color: var(--muted);
-  font-size: 24rpx;
 }
 
 .tr-label {
   display: block;
   margin-bottom: 8rpx;
-  color: var(--muted);
-  font-size: 24rpx;
 }
 
 .tr-label-after {
   margin-top: 12rpx;
+}
+
+/* The translation: Chinese at 34, English (serif) at 40 like the tappable words. */
+.tr-output {
+  display: block;
+  font-size: 34rpx;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.tr-output-en {
+  font-size: 40rpx;
 }
 
 .tr-headline {
@@ -108,27 +113,37 @@
 }
 
 .tr-head {
-  margin-right: 0;
   word-break: break-all;
 }
 
 .tr-head-long {
-  font-size: 48rpx;
-}
-
-.tr-head-xlong {
   font-size: 40rpx;
 }
 
+.tr-head-xlong {
+  font-size: 34rpx;
+}
+
+.tr-gloss {
+  display: block;
+  margin-top: 12rpx;
+}
+
+.tr-explanation {
+  display: block;
+  margin-top: 32rpx;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* A text link with a chevron; at least 64rpx tall to tap. */
 .tr-more {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 4rpx;
+  gap: 8rpx;
   min-height: 64rpx;
   margin-top: 16rpx;
-  color: var(--accent);
-  font-size: 28rpx;
 }
 
 .tr-chevron {
@@ -140,7 +155,51 @@
   transform: rotate(-90deg);
 }
 
-/* ---- tappable words (lib/tokens.ts): chips wrap, words inside them tap ---- */
+.tr-wait {
+  padding-top: 16rpx;
+}
+
+.tr-note {
+  display: block;
+  margin-top: 16rpx;
+}
+
+/* ---- skeletons (app.wxss .skel), breathing while they wait ---- */
+.skel-pulse {
+  animation-name: tr-pulse;
+  animation-duration: 900ms;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+
+@keyframes tr-pulse {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.45;
+  }
+}
+
+.tr-w88 {
+  width: 88%;
+}
+
+.tr-w80 {
+  width: 80%;
+}
+
+.tr-w72 {
+  width: 72%;
+}
+
+.tr-w64 {
+  width: 64%;
+}
+
+/* ---- tappable words (lib/tokens.ts): chips wrap, words inside them tap ----
+ * Baseline alignment is safe here: every word has the same font and size. */
 .tokens {
   display: flex;
   flex-direction: row;
@@ -156,6 +215,7 @@
   line-height: 1.6;
 }
 
+/* A word space, not layout spacing. */
 .chip {
   display: flex;
   flex-direction: row;
@@ -180,7 +240,7 @@
 }
 
 .tok-para {
-  height: 20rpx;
+  height: 24rpx;
 }
 
 .tr-source {
@@ -200,15 +260,10 @@
   justify-content: space-between;
   gap: 16rpx;
   margin-top: 16rpx;
-  padding: 20rpx 24rpx;
+  padding: 16rpx 24rpx;
   border: 1px solid var(--rule);
   border-radius: 24rpx;
   background-color: var(--surface);
-}
-
-.tr-fold-text {
-  color: var(--ink-soft);
-  font-size: 26rpx;
 }
 
 .tr-fold-link {
@@ -216,7 +271,6 @@
   flex-direction: row;
   align-items: center;
   color: var(--accent);
-  font-size: 26rpx;
 }
 
 /* ---- 纠错: numbered changes ---- */
@@ -225,23 +279,24 @@
   color: var(--accent);
   background-color: var(--accent-soft);
   font-family: -apple-system, 'PingFang SC', sans-serif;
-  font-size: 20rpx;
+  font-size: 24rpx;
 }
 
 .tr-rows {
   display: flex;
   flex-direction: column;
-  gap: 20rpx;
-  margin-top: 28rpx;
+  gap: 24rpx;
+  margin-top: 32rpx;
 }
 
 .tr-row {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
-  gap: 20rpx;
+  gap: 16rpx;
 }
 
+/* Centred on the first line of .tr-change (28rpx × 1.55). */
 .tr-badge {
   display: flex;
   flex-shrink: 0;
@@ -249,7 +304,6 @@
   justify-content: center;
   width: 40rpx;
   height: 40rpx;
-  margin-top: 4rpx;
   border-radius: 20rpx;
   background-color: var(--accent-soft);
   color: var(--accent);
@@ -266,13 +320,13 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 4rpx;
+  gap: 8rpx;
   min-width: 0;
 }
 
 .tr-change {
   font-size: 28rpx;
-  line-height: 1.5;
+  line-height: 1.55;
   word-break: break-word;
 }
 
@@ -286,22 +340,14 @@
 }
 
 .tr-why {
-  color: var(--ink-soft);
-  font-size: 28rpx;
-  line-height: 1.6;
   word-break: break-word;
-}
-
-.tr-why-heading {
-  color: var(--muted);
-  font-size: 24rpx;
-  font-weight: 600;
 }
 
 /* ---- actions: inline under the result, or docked ---- */
 /* One line: the stars stay beside the bookmark. With wrap, Skyline sized the
  * icon group to its content and pushed the stars to a second line. The row
- * fits on 360 px screens, docked with 朗读 progress and 回到顶部 included. */
+ * fits on 360 px screens, docked with 朗读 progress and 回到顶部 included
+ * (hence a 16rpx gap, not 24). */
 .tr-actions {
   flex-wrap: nowrap;
   justify-content: space-between;
@@ -314,12 +360,11 @@
   min-width: 0;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 20rpx;
+  gap: 16rpx;
 }
 
 .tr-progress {
   color: var(--accent);
-  font-size: 24rpx;
 }
 
 .tr-top {
@@ -327,7 +372,7 @@
   background-color: var(--surface);
 }
 
-/* 120rpx: DOCK_BAR_PX in view.ts. */
+/* 120rpx: DOCK_BAR_PX in view.ts. A tab page: the tab bar below keeps the home indicator. */
 .tr-dock {
   display: flex;
   flex-direction: row;
@@ -388,39 +433,28 @@
   flex-shrink: 0;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 20rpx;
+  gap: 24rpx;
 }
 
 .tr-sheet-title {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 4rpx;
+  gap: 8rpx;
   min-width: 0;
 }
 
+/* Head word and IPA differ in font and size: centred, not on a baseline. */
 .tr-sheet-word {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: 16rpx;
 }
 
 .tr-sheet-lemma {
-  font-size: 52rpx;
-  line-height: 1.2;
   word-break: break-all;
-}
-
-.tr-sheet-ipa {
-  color: var(--muted);
-  font-size: 28rpx;
-}
-
-.tr-sheet-sub {
-  color: var(--muted);
-  font-size: 24rpx;
 }
 
 .tr-sheet-actions {
@@ -443,80 +477,30 @@
   display: flex;
   flex-direction: column;
   gap: 24rpx;
-  padding: 24rpx 0 56rpx;
+  padding: 24rpx 0 48rpx;
 }
 
-.tr-skeleton {
-  display: flex;
-  flex-direction: column;
-  gap: 20rpx;
-}
-
-.tr-skel {
-  border-radius: 14rpx;
-  background-color: var(--rule);
-  animation-name: tr-pulse;
-  animation-duration: 900ms;
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: infinite;
-  animation-direction: alternate;
-}
-
-@keyframes tr-pulse {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0.45;
-  }
-}
-
-.tr-skel-block {
-  height: 116rpx;
+/* The size of a one-line 在本句中 box. */
+.tr-skel-context {
+  height: 112rpx;
   border-radius: 24rpx;
 }
 
-.tr-skel-line {
-  height: 28rpx;
-}
-
-.tr-skel-80 {
-  width: 80%;
-}
-
-.tr-skel-64 {
-  width: 64%;
-}
-
-.tr-skel-72 {
-  width: 72%;
-}
-
-.tr-sheet-error {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8rpx;
+.tr-sheet-state {
+  padding: 48rpx 0;
 }
 
 .tr-context {
   display: flex;
   flex-direction: column;
-  gap: 6rpx;
-  padding: 20rpx 24rpx;
+  gap: 8rpx;
+  padding: 24rpx;
   border-radius: 24rpx;
   background-color: var(--accent-soft);
 }
 
 .tr-context-label {
   color: var(--accent);
-  font-size: 24rpx;
-  font-weight: 600;
-}
-
-.tr-context-text {
-  font-size: 30rpx;
-  line-height: 1.55;
 }
 
 /* The phrase row (option B): bookmark on the right, its stars on a line below the text. */
@@ -540,25 +524,14 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 2rpx;
   min-width: 0;
 }
 
-.tr-phrase-label {
-  color: var(--muted);
-  font-size: 24rpx;
-}
-
 .tr-phrase-en {
-  font-size: 30rpx;
   word-break: break-word;
 }
 
-.tr-phrase-gloss {
-  color: var(--ink-soft);
-  font-size: 26rpx;
-}
-
+/* The first star's target starts at the text's edge. */
 .tr-phrase-stars {
   display: flex;
   flex-direction: row;
@@ -571,12 +544,12 @@
   gap: 12rpx;
 }
 
+/* Part of speech (serif) and gloss share size and line height: top-aligned. */
 .tr-sense {
   display: flex;
   flex-direction: row;
+  align-items: flex-start;
   gap: 16rpx;
-  font-size: 30rpx;
-  line-height: 1.55;
 }
 
 .tr-pos {

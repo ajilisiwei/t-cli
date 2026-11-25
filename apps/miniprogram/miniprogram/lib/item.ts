@@ -327,8 +327,8 @@ export function toggleExercise(exercises: readonly ExerciseView[], index: number
 
 /** A line under the header while the unit has no (or outdated) content; '' otherwise. */
 export function statusNotice(detail: ItemDetail): string {
-  if (detail.status === 'needs_regen') return '内容正在重新生成，稍后再来看。'
-  if (detail.content === null) return '内容还在整理，通常第二天早上就能看到。'
+  if (detail.status === 'needs_regen') return '内容正在重新生成，稍后再来看'
+  if (detail.content === null) return '内容还在整理，通常第二天早上就能看到'
   return ''
 }
 

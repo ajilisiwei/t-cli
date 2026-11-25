@@ -132,7 +132,7 @@ test('library rows show type, counts and level', () => {
 test('the empty list explains itself', () => {
   assert.equal(emptyLibraryText({ q: ' tear ', type: null, level: null }), '没有找到「tear」')
   assert.equal(emptyLibraryText({ q: '', type: 'word', level: null }), '没有符合筛选的单元')
-  assert.match(emptyLibraryText(EMPTY_FILTER), /词库还是空的/)
+  assert.equal(emptyLibraryText(EMPTY_FILTER), '词库还是空的。每天凌晨会把前一天查过的词句整理进来')
 })
 
 const wordDetail = {
@@ -201,11 +201,12 @@ test('readItemDetail reads a word unit loosely', () => {
 test('readItemDetail: no content yet, other types, and unusable responses', () => {
   const pending = readItemDetail({ ...wordDetail, status: 'pending', content: null })
   assert.equal(pending?.content, null)
-  assert.match(statusNotice(pending!), /还在整理/)
+  // One-line notices end without 。 (README "Design system → States").
+  assert.equal(statusNotice(pending!), '内容还在整理，通常第二天早上就能看到')
   const noHead = readItemDetail({ ...wordDetail, content: { ...wordDetail.content, headword: ' ' } })
   assert.equal(noHead?.content, null)
   const regen = readItemDetail({ ...wordDetail, status: 'needs_regen' })
-  assert.match(statusNotice(regen!), /重新生成/)
+  assert.equal(statusNotice(regen!), '内容正在重新生成，稍后再来看')
   assert.equal(statusNotice(readItemDetail(wordDetail)!), '')
 
   const phrase = readItemDetail({

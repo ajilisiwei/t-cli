@@ -20,12 +20,12 @@
           bindfocus="onSearchFocus"
           bindblur="onSearchBlur"
         />
-        <view wx:if="{{query}}" class="icon-btn icon-btn-sm" bindtap="onClearQuery" aria-role="button" aria-label="清空搜索">
+        <view wx:if="{{query}}" class="icon-btn icon-btn-sm" hover-class="pressed" hover-stay-time="80" bindtap="onClearQuery" aria-role="button" aria-label="清空搜索">
           <t-icon name="close" tone="muted" size="28" />
         </view>
       </view>
       <picker mode="date" value="{{pickerValue}}" end="{{today}}" bindchange="onPickDate">
-        <view class="calendar-btn" aria-role="button" aria-label="选择日期">
+        <view class="calendar-btn" hover-class="pressed" hover-stay-time="80" aria-role="button" aria-label="选择日期">
           <t-icon name="calendar" tone="accent" size="34" />
         </view>
       </picker>
@@ -42,6 +42,8 @@
       <view class="strip-row">
         <view
           class="day {{selectedDate === '' ? 'day-on' : ''}}"
+          hover-class="pressed"
+          hover-stay-time="80"
           bindtap="onAllDays"
           aria-role="button"
           aria-label="全部日期{{selectedDate === '' ? '，已选' : ''}}"
@@ -55,6 +57,8 @@
           wx:key="date"
           id="{{item.anchor}}"
           class="day {{item.selected ? 'day-on' : ''}} {{item.empty ? 'day-empty' : ''}}"
+          hover-class="{{item.empty ? 'none' : 'pressed'}}"
+          hover-stay-time="80"
           data-date="{{item.date}}"
           data-empty="{{item.empty}}"
           bindtap="onDayChip"
@@ -69,11 +73,13 @@
       </view>
     </scroll-view>
 
-    <view class="sources">
+    <view class="choice-chips sources">
       <view
         wx:for="{{sourceChips}}"
         wx:key="value"
-        class="source {{item.value === sourceValue ? 'source-on' : ''}}"
+        class="choice-chip {{item.value === sourceValue ? 'choice-chip-on' : ''}}"
+        hover-class="pressed"
+        hover-stay-time="80"
         data-value="{{item.value}}"
         bindtap="onSourceChip"
         aria-role="button"
@@ -92,51 +98,74 @@
     lower-threshold="240"
     bindscrolltolower="onLoadMore"
     refresher-enabled
+    refresher-default-style="{{theme === 'dark' ? 'white' : 'black'}}"
     refresher-triggered="{{refreshing}}"
     bindrefresherrefresh="onRefresh"
   >
     <view class="list">
-      <text wx:if="{{offline}}" class="notice-line">需要联网 · 显示的是上次缓存的记录</text>
+      <text wx:if="{{offline}}" class="t-caption notice-line">需要联网 · 显示的是上次缓存的记录</text>
 
       <view wx:for="{{groups}}" wx:key="date" wx:for-item="group" class="group">
         <view class="group-head">
-          <text class="group-label">{{group.label}}</text>
-          <text class="group-full">{{group.full}}</text>
+          <text class="t-label group-label">{{group.label}}</text>
+          <text class="t-caption">{{group.full}}</text>
           <view class="group-rule" />
-          <text class="group-count">{{group.countLabel}}</text>
+          <text class="t-caption">{{group.countLabel}}</text>
         </view>
 
         <view
           wx:for="{{group.rows}}"
           wx:key="id"
           class="entry"
+          hover-class="pressed"
+          hover-stay-time="80"
           data-id="{{item.id}}"
           bindtap="onToggle"
           aria-role="button"
+          aria-expanded="{{expandedId === item.id}}"
           aria-label="{{item.time}} {{item.sourceLabel}} {{item.taskLabel}}：{{item.input}}"
         >
-          <text class="entry-time">{{item.time}}</text>
+          <text class="t-caption entry-time">{{item.time}}</text>
           <view class="entry-main">
             <block wx:if="{{expandedId === item.id}}">
-              <text class="entry-input {{item.serif ? 'serif' : ''}}" user-select>{{item.input}}</text>
-              <text class="entry-output" user-select>{{item.output}}</text>
+              <text class="t-body entry-input {{item.serif ? 'serif' : ''}}" user-select>{{item.input}}</text>
+              <text class="t-secondary entry-output" user-select>{{item.output}}</text>
             </block>
             <block wx:else>
-              <text class="entry-input clamp-1 {{item.serif ? 'serif' : ''}}" max-lines="1" overflow="ellipsis">{{item.input}}</text>
-              <text class="entry-preview clamp-1" max-lines="1" overflow="ellipsis">{{item.preview}}</text>
+              <text class="t-body entry-input clamp-1 {{item.serif ? 'serif' : ''}}" max-lines="1" overflow="ellipsis">{{item.input}}</text>
+              <text class="t-secondary entry-preview clamp-1" max-lines="1" overflow="ellipsis">{{item.preview}}</text>
             </block>
             <view class="tags">
-              <text class="tag tag-{{item.source}}">{{item.sourceLabel}}</text>
-              <text class="tag">{{item.taskLabel}}</text>
+              <text class="label-tag {{item.source === 'cli' ? 'tag-cli' : 'label-tag-soft'}}">{{item.sourceLabel}}</text>
+              <text class="label-tag">{{item.taskLabel}}</text>
             </view>
           </view>
         </view>
       </view>
 
-      <text wx:if="{{loaded && groups.length === 0 && !errorText && !loading}}" class="empty list-message">{{emptyText}}</text>
-      <text wx:if="{{errorText && !offline}}" class="error list-message">{{errorText}}</text>
-      <text wx:if="{{loading && !refreshing}}" class="empty list-message">加载中…</text>
-      <text wx:elif="{{loaded && groups.length > 0 && !hasMore}}" class="empty list-message">没有更早的记录了</text>
+      <!-- First load: rows shaped like records. Loading more: one row at the end. -->
+      <view wx:if="{{loading && !refreshing}}" aria-label="加载中">
+        <view wx:if="{{groups.length === 0}}" class="group-head">
+          <view class="skel skel-pulse hs-skel-label" />
+          <view class="group-rule" />
+        </view>
+        <view wx:for="{{groups.length === 0 ? [1, 2, 3, 4, 5] : [1]}}" wx:key="*this" class="entry">
+          <view class="skel skel-pulse hs-skel-time" />
+          <view class="entry-main">
+            <view class="skel skel-line skel-pulse hs-skel-input" />
+            <view class="skel skel-line skel-pulse hs-skel-preview" />
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{errorText && !offline}}" class="state hs-state">
+        <text class="state-text state-error">{{errorText}}</text>
+        <view class="btn btn-secondary btn-sm" hover-class="pressed" hover-stay-time="80" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+      </view>
+      <view wx:elif="{{loaded && groups.length === 0 && !loading}}" class="state hs-state">
+        <text class="state-text">{{emptyText}}</text>
+      </view>
+      <text wx:elif="{{loaded && groups.length > 0 && !hasMore && !loading}}" class="t-caption list-end">没有更早的记录了</text>
     </view>
   </scroll-view>
 </view>
