@@ -2,8 +2,9 @@
  * 拓展资料 (`?date=YYYY-MM-DD&pages=n`; without a date the latest): why it was
  * recommended (reasons written by the server), the items to tick — those
  * already in review show 已在复习 — 加入复习 for the ticked ones, the passage
- * and the grammar note. 不感兴趣 mutes the topic for 30 days (with 撤销), and
- * the PDF button opens the export sheet. Adding marks the material read.
+ * and the grammar note. Each item and the passage have a 朗读 button.
+ * 不感兴趣 mutes the topic for 30 days (with 撤销), and the PDF button opens
+ * the export sheet. Adding marks the material read.
  */
 import { errorMessage } from '../../lib/api'
 import { localDateKey } from '../../lib/history'
@@ -25,10 +26,13 @@ import {
   type ExtendItemRow,
 } from '../../lib/extend-view'
 import type { ExportInput, ExportMaterial } from '../../lib/pdf-export'
+import { fingerprint } from '../../lib/review-card'
+import { SPEECH_IDLE, type SpeechStatus } from '../../lib/speaker'
 import { adoptExtend, dismissExtend, fetchExtend, fetchThisWeek, markRead } from '../../services/learn'
 import { safeBottomInset } from '../../services/platform'
 import { redirectIfInviteRequired } from '../../services/session'
 import { currentSettings } from '../../services/settings'
+import { speechStatus, stopSpeaking, toggleSpeech, watchSpeech, type SpeechSource } from '../../services/speech'
 import { bindPageLook, currentLook, type Look } from '../../services/theme'
 import { toast } from '../../services/ui'
 
@@ -49,7 +53,10 @@ interface ExtendData extends Look {
   addCount: number
   adding: boolean
   passage: ExtendContent['passage']
+  /** The speech key of the passage's 朗读 button. */
+  passageKey: string
   showPassageZh: boolean
+  speech: SpeechStatus
   grammar: ExtendContent['grammar']
   canDismiss: boolean
   dismissed: boolean
@@ -63,6 +70,13 @@ interface ExtendData extends Look {
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 /** About five items per A4 page, when the list's estimate did not come along. */
 const ITEMS_PER_PAGE = 5
+
+/** Speech keys: the material's date and the text's fingerprint (a key names its cached audio). */
+const passageKey = (date: string, text: string): string => `x-${date}-passage-${fingerprint(text)}`
+const itemKeyOf =
+  (date: string) =>
+  (index: number, text: string): string =>
+    `x-${date}-${index}-${fingerprint(text)}`
 
 const initialData: ExtendData = {
   ...currentLook(),
@@ -80,7 +94,9 @@ const initialData: ExtendData = {
   addCount: 0,
   adding: false,
   passage: null,
+  passageKey: '',
   showPassageZh: false,
+  speech: SPEECH_IDLE,
   grammar: null,
   canDismiss: false,
   dismissed: false,
@@ -93,7 +109,7 @@ const initialData: ExtendData = {
 
 Page({
   data: initialData,
-  stopWatchingTheme: null as (() => void) | null,
+  stopWatching: [] as (() => void)[],
   material: null as ExtendMaterial | null,
   known: [] as boolean[],
   selected: [] as boolean[],
@@ -101,9 +117,9 @@ Page({
   week: [] as ExportMaterial[],
 
   onLoad(options: Record<string, string | undefined>) {
-    this.stopWatchingTheme = bindPageLook(this)
+    this.stopWatching = [bindPageLook(this), watchSpeech((speech) => this.setData({ speech }))]
     this.listPages = Number(options['pages'] ?? 0) || 0
-    this.setData({ safeBottom: safeBottomInset() })
+    this.setData({ safeBottom: safeBottomInset(), speech: speechStatus() })
     const date = options['date']
     void this.load(date !== undefined && DATE_RE.test(date) ? date : undefined)
     fetchThisWeek()
@@ -113,8 +129,14 @@ Page({
       .catch((error: unknown) => console.warn('[extend] this week not loaded', error))
   },
 
+  onHide() {
+    stopSpeaking()
+  },
+
   onUnload() {
-    this.stopWatchingTheme?.()
+    for (const stop of this.stopWatching) stop()
+    this.stopWatching = []
+    stopSpeaking()
   },
 
   async load(date?: string): Promise<void> {
@@ -138,6 +160,7 @@ Page({
         title: content.title === '' ? '拓展资料' : content.title,
         reasons: [...content.reasons],
         passage: content.passage,
+        passageKey: content.passage === null ? '' : passageKey(material.date, content.passage.text),
         grammar: content.grammar,
         canDismiss: content.topic !== 'other',
         dismissed,
@@ -155,7 +178,7 @@ Page({
     if (material === null) return
     const count = chosenIndexes(this.selected, this.known).length
     this.setData({
-      rows: itemRows(material.content, this.known, this.selected),
+      rows: itemRows(material.content, this.known, this.selected, itemKeyOf(material.date)),
       hasSelectable: this.known.some((isKnown) => !isKnown),
       pickAllLabel: allSelected(this.selected, this.known) ? '全不选' : '全选',
       addText: addLabel(count),
@@ -181,6 +204,26 @@ Page({
 
   onTogglePassageZh() {
     this.setData({ showPassageZh: !this.data.showPassageZh })
+  },
+
+  /** 朗读 one item (catchtap: the row's own tap ticks it). */
+  onPlayItem(event: WechatMiniprogram.BaseEvent<Record<string, never>, { index?: number; key?: string }>) {
+    const material = this.material
+    const index = Number(event.currentTarget.dataset.index)
+    const key = event.currentTarget.dataset.key
+    if (material === null || !Number.isInteger(index) || key === undefined) return
+    this.play({ material: { kind: 'extend', date: material.date, section: 'item', index } }, key)
+  },
+
+  onPlayPassage() {
+    const material = this.material
+    if (material === null || material.content.passage === null) return
+    this.play({ material: { kind: 'extend', date: material.date, section: 'passage' } }, this.data.passageKey)
+  },
+
+  /** Plays `source`; tapping what loads or plays stops it. */
+  play(source: SpeechSource, key: string) {
+    toggleSpeech(source, key).catch((error: unknown) => toast(errorMessage(error)))
   },
 
   async onAdd() {

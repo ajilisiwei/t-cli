@@ -27,6 +27,7 @@
   --accent-ink: #ffffff;
   --surface: #fffefb;
   --danger: #9c3426;
+  --danger-soft: rgba(156, 52, 38, 0.1);
 }
 
 .theme-dark {
@@ -40,6 +41,7 @@
   --accent-ink: #131312;
   --surface: #1c1c1a;
   --danger: #e59a8c;
+  --danger-soft: rgba(229, 154, 140, 0.16);
 }
 
 /*
@@ -562,7 +564,8 @@
 
 /* ---- 学习 pieces (v3) ----
  * .card-surface   a surface panel with a hairline (a material, a settings group)
- * .label-tag      a small label (每日资料, 未读); -accent filled, -soft tinted, -plain text only, -danger
+ * .label-tag      a small label (每日资料, 未读); -accent filled, -soft tinted, -plain text only, -danger,
+ *                 -danger-soft danger on a danger tint (复习时忘了 2 次)
  * .choice-chip    a pill to pick (复习范围, 资料内容, 拓展方向); .choice-chip-on chosen; in a .choice-chips row
  * .tick           a checkbox: <view class="tick {{on ? 'tick-on' : ''}}"><t-icon wx:if="{{on}}" name="check" tone="accentInk" size="32" /></view>;
  *                 .tick-round for a round one (selecting materials)
@@ -607,6 +610,11 @@
   background-color: transparent;
   color: var(--danger);
   font-weight: 400;
+}
+
+.label-tag-danger-soft {
+  background-color: var(--danger-soft);
+  color: var(--danger);
 }
 
 .choice-chips {

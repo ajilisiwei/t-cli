@@ -1,11 +1,33 @@
 /**
  * 周期资料 (每日资料 / 每周合集) on one scrolling page: the title, the counts
- * row, compact word and phrase rows, and which parts `materialParts` shows.
+ * row, compact word and phrase rows with why each was picked (one tag), and
+ * which parts `materialParts` shows.
  * Pure; the page composes it with lib/exercises.ts and lib/review-material.ts.
  */
-import type { PeriodicMaterial } from './learn-types'
+import type { PeriodicMaterial, UnitReason } from './learn-types'
 import type { MaterialPhrase, MaterialWord } from './review-types'
 import type { MaterialPart } from './types'
+
+export type ReasonTone = 'lapse' | 'star' | 'lookup'
+
+export interface ReasonTag {
+  readonly text: string
+  readonly tone: ReasonTone
+}
+
+/**
+ * Why a word or phrase is in the material, one tag: forgotten in review
+ * first, then its stars, then its lookups; null when there is nothing to say.
+ */
+export function reasonTag(reason: UnitReason | undefined): ReasonTag | null {
+  if (reason === undefined) return null
+  if (reason.lapses > 0) return { text: `复习时忘了 ${reason.lapses} 次`, tone: 'lapse' }
+  if (reason.stars > 0) return { text: `笔记本 · ${reason.stars} 星`, tone: 'star' }
+  if (reason.lookups > 0) return { text: `查了 ${reason.lookups} 次`, tone: 'lookup' }
+  return null
+}
+
+const NO_REASONS: ReadonlyMap<string, UnitReason> = new Map()
 
 export const showsPart = (parts: readonly MaterialPart[], part: MaterialPart): boolean => parts.includes(part)
 
@@ -50,6 +72,10 @@ export interface WordRow {
   readonly gloss: string
   readonly exampleEn: string
   readonly exampleZh: string
+  /** The reason tag ("复习时忘了 2 次"); '' without one. */
+  readonly why: string
+  /** '' without a tag. */
+  readonly whyTone: '' | ReasonTone
 }
 
 const meaningLine = (word: MaterialWord): string =>
@@ -58,7 +84,16 @@ const meaningLine = (word: MaterialWord): string =>
     .map((meaning) => (meaning.pos === '' ? meaning.zh : `${meaning.pos} ${meaning.zh}`))
     .join(' · ')
 
-export function wordRows(words: readonly MaterialWord[], keyOf: (itemId: string, text: string) => string): WordRow[] {
+const whyOf = (reason: UnitReason | undefined): Pick<WordRow, 'why' | 'whyTone'> => {
+  const tag = reasonTag(reason)
+  return { why: tag?.text ?? '', whyTone: tag?.tone ?? '' }
+}
+
+export function wordRows(
+  words: readonly MaterialWord[],
+  keyOf: (itemId: string, text: string) => string,
+  reasons: ReadonlyMap<string, UnitReason> = NO_REASONS,
+): WordRow[] {
   return words.map((word) => ({
     itemId: word.itemId,
     key: keyOf(word.itemId, word.headword),
@@ -67,10 +102,15 @@ export function wordRows(words: readonly MaterialWord[], keyOf: (itemId: string,
     gloss: meaningLine(word),
     exampleEn: word.examples[0]?.en ?? '',
     exampleZh: word.examples[0]?.zh ?? '',
+    ...whyOf(reasons.get(word.itemId)),
   }))
 }
 
-export function phraseRows(phrases: readonly MaterialPhrase[], keyOf: (itemId: string, text: string) => string): WordRow[] {
+export function phraseRows(
+  phrases: readonly MaterialPhrase[],
+  keyOf: (itemId: string, text: string) => string,
+  reasons: ReadonlyMap<string, UnitReason> = NO_REASONS,
+): WordRow[] {
   return phrases.map((phrase) => ({
     itemId: phrase.itemId,
     key: keyOf(phrase.itemId, phrase.phrase),
@@ -79,6 +119,7 @@ export function phraseRows(phrases: readonly MaterialPhrase[], keyOf: (itemId: s
     gloss: phrase.zh,
     exampleEn: phrase.examples[0]?.en ?? '',
     exampleZh: phrase.examples[0]?.zh ?? '',
+    ...whyOf(reasons.get(phrase.itemId)),
   }))
 }
 

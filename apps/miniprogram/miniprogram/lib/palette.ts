@@ -20,6 +20,7 @@ export interface Palette {
   readonly accentInk: string
   readonly surface: string
   readonly danger: string
+  readonly dangerSoft: string
 }
 
 /** The neutral colours and the default accent (indigo) per theme. */
@@ -35,6 +36,7 @@ export const PALETTES: Readonly<Record<Theme, Palette>> = {
     accentInk: '#ffffff',
     surface: '#fffefb',
     danger: '#9c3426',
+    dangerSoft: 'rgba(156, 52, 38, 0.1)',
   },
   dark: {
     bg: '#131312',
@@ -47,6 +49,7 @@ export const PALETTES: Readonly<Record<Theme, Palette>> = {
     accentInk: '#131312',
     surface: '#1c1c1a',
     danger: '#e59a8c',
+    dangerSoft: 'rgba(229, 154, 140, 0.16)',
   },
 }
 

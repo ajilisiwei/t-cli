@@ -50,13 +50,33 @@
             <text wx:if="{{item.exampleEn}}" class="xt-example serif" user-select>{{item.exampleEn}}</text>
             <text wx:if="{{item.exampleZh}}" class="xt-example-zh">{{item.exampleZh}}</text>
           </view>
+          <view
+            class="icon-btn icon-btn-sm icon-btn-tonal"
+            data-index="{{item.index}}"
+            data-key="{{item.key}}"
+            catchtap="onPlayItem"
+            aria-role="button"
+            aria-label="{{speech.key === item.key ? '停止朗读' : '朗读 ' + item.text}}"
+          >
+            <t-speak-icon phase="{{speech.key === item.key ? speech.phase : 'idle'}}" tone="accent" size="30" />
+          </view>
         </view>
 
         <view wx:if="{{passage}}" class="card-surface xt-passage">
           <view class="xt-passage-head">
             <text class="xt-section-title xt-flat">{{passage.title || '放进一段短文里看'}}</text>
-            <view wx:if="{{passage.zh}}" class="btn btn-secondary btn-sm" bindtap="onTogglePassageZh" aria-role="button" aria-pressed="{{showPassageZh}}">
-              <text>{{showPassageZh ? '隐藏中文' : '看中文'}}</text>
+            <view class="xt-passage-tools">
+              <view wx:if="{{passage.zh}}" class="btn btn-secondary btn-sm" bindtap="onTogglePassageZh" aria-role="button" aria-pressed="{{showPassageZh}}">
+                <text>{{showPassageZh ? '隐藏中文' : '看中文'}}</text>
+              </view>
+              <view
+                class="icon-btn icon-btn-sm icon-btn-tonal"
+                bindtap="onPlayPassage"
+                aria-role="button"
+                aria-label="{{speech.key === passageKey ? '停止朗读' : '朗读短文'}}"
+              >
+                <t-speak-icon phase="{{speech.key === passageKey ? speech.phase : 'idle'}}" tone="accent" size="30" />
+              </view>
             </view>
           </view>
           <text class="xt-passage-text serif" user-select>{{passage.text}}</text>

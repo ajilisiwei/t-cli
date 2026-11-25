@@ -55,6 +55,7 @@
                 <text class="lm-date">{{item.dateLabel}}</text>
               </view>
               <text class="lm-title">{{item.title}}</text>
+              <text wx:if="{{item.subtitle}}" class="lm-subtitle" max-lines="1" overflow="ellipsis">{{item.subtitle}}</text>
               <text wx:if="{{item.meta}}" class="lm-meta">{{item.meta}}</text>
             </view>
             <text

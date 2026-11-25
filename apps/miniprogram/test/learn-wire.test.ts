@@ -9,6 +9,7 @@ import {
   readMaterialListItem,
   readPeriodicMaterial,
   readReadAt,
+  readReasons,
 } from '../miniprogram/lib/learn-wire.ts'
 import { readDailyMaterial } from '../miniprogram/lib/review-material.ts'
 
@@ -16,6 +17,7 @@ const listItem = {
   kind: 'daily',
   date: '2026-11-24',
   title: '9 个词和一篇短文',
+  subtitle: null,
   counts: { words: 6, phrases: 2, grammar: 1, exercises: 8, items: 0 },
   readAt: null,
   pages: 3,
@@ -30,6 +32,14 @@ test('readMaterialListItem: kind and date required, counts default to 0', () => 
   assert.deepEqual(sparse?.counts, { words: 0, phrases: 0, grammar: 0, exercises: 0, items: 0 })
   assert.equal(sparse?.readAt, null)
   assert.equal(sparse?.pages, 0)
+  assert.equal(sparse?.subtitle, null, 'an older server sends no subtitle')
+})
+
+test("readMaterialListItem: an extension's subtitle; blank or not a string is null", () => {
+  const extend = { ...listItem, kind: 'extend', title: '开会和跟进的常用说法' }
+  assert.equal(readMaterialListItem({ ...extend, subtitle: ' 最近 7 天你查了 6 个职场用词 ' })?.subtitle, '最近 7 天你查了 6 个职场用词')
+  assert.equal(readMaterialListItem({ ...extend, subtitle: '  ' })?.subtitle, null)
+  assert.equal(readMaterialListItem({ ...extend, subtitle: 3 })?.subtitle, null)
 })
 
 test('readMaterialList: rows and cursor; an old server without items is null', () => {
@@ -99,6 +109,7 @@ test('readPeriodicMaterial: daily ignores digest fields; digest reads range and 
   assert.equal(day?.range, null)
   assert.equal(day?.content.words[0]?.headword, 'mitigate')
   assert.deepEqual(day?.exercises.cloze, [])
+  assert.equal(day?.reasons.size, 0, 'an older server sends no reasons')
 
   const digest = readPeriodicMaterial(
     {
@@ -112,14 +123,38 @@ test('readPeriodicMaterial: daily ignores digest fields; digest reads range and 
         review: [{ itemId: 'r1', display: 'circle back', gloss: '回头再讨论', lapses: 2 }, { display: '' }],
       },
       exercises: { bank: ['mitigate'], cloze: [], translate: [], fix: [] },
+      reasons: { w1: { stars: 3, lapses: 2, lookups: 1 } },
     },
     'digest',
     readDailyMaterial,
   )
+  assert.deepEqual(digest?.reasons.get('w1'), { stars: 3, lapses: 2, lookups: 1 })
   assert.deepEqual(digest?.range, { start: '2026-11-18', end: '2026-11-24' })
   assert.deepEqual(digest?.review, [{ itemId: 'r1', display: 'circle back', gloss: '回头再讨论', lapses: 2 }])
   assert.equal(digest?.readAt, '2026-11-25T08:00:00Z')
   assert.equal(readPeriodicMaterial({ date: 'bad', content: daily }, 'daily', readDailyMaterial), null)
+})
+
+test('readReasons: by item id; counts default to 0, stars stay within 0–4, malformed entries are skipped', () => {
+  const reasons = readReasons({
+    w1: { stars: 2, lapses: 0, lookups: 3 },
+    w2: { stars: 9, lapses: -1, lookups: 1.7 },
+    w3: {},
+    w4: 'junk',
+    '': { stars: 1 },
+  })
+  assert.deepEqual(
+    [...reasons],
+    [
+      ['w1', { stars: 2, lapses: 0, lookups: 3 }],
+      ['w2', { stars: 4, lapses: 0, lookups: 1 }],
+      ['w3', { stars: 0, lapses: 0, lookups: 0 }],
+    ],
+  )
+  assert.equal(readReasons(null).size, 0)
+  assert.equal(readReasons([{ stars: 1 }]).size, 0)
+  // An id like "__proto__" is just a key.
+  assert.deepEqual(readReasons(JSON.parse('{"__proto__": {"stars": 1}}')).get('__proto__'), { stars: 1, lapses: 0, lookups: 0 })
 })
 
 const extendItems = [

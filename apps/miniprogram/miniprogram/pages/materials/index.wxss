@@ -132,6 +132,13 @@
   line-height: 1.5;
 }
 
+/* Why the word is here: a quiet tag under the meaning (tone from the label-tag variants). */
+.mt-why {
+  align-self: flex-start;
+  margin-top: 4rpx;
+  font-weight: 400;
+}
+
 .mt-example {
   margin-top: 8rpx;
   color: var(--ink);

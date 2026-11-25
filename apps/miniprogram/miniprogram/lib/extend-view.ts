@@ -64,6 +64,8 @@ export function dismissText(topicLabel: string): string {
 
 export interface ExtendItemRow {
   readonly index: number
+  /** The speech key of its 朗读 button. */
+  readonly key: string
   readonly text: string
   readonly gloss: string
   readonly exampleEn: string
@@ -77,11 +79,13 @@ export function itemRows(
   content: Pick<ExtendContent, 'items'>,
   known: readonly boolean[],
   selected: readonly boolean[],
+  keyOf: (index: number, text: string) => string,
 ): ExtendItemRow[] {
   return content.items.map((item, index) => {
     const isKnown = known[index] === true
     return {
       index,
+      key: keyOf(index, item.text),
       text: item.text,
       gloss: item.gloss,
       exampleEn: item.example.en,

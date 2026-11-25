@@ -34,7 +34,8 @@ const TABS: readonly { id: Tab; label: string }[] = [
   { id: 'weekly', label: '周报' },
 ]
 
-const API_KIND: Readonly<Record<Tab, ListKind>> = { all: 'all', periodic: 'all', extend: 'extend', weekly: 'weekly' }
+/** 周期资料 (daily materials and digests) is filtered by the server, like every tab. */
+const API_KIND: Readonly<Record<Tab, ListKind>> = { all: 'all', periodic: 'periodic', extend: 'extend', weekly: 'weekly' }
 
 const EMPTY_TEXT: Readonly<Record<Tab, string>> = {
   all: '还没有学习资料。每天早上 5 点，前一天查过的词句会整理成一份资料。',
@@ -42,13 +43,6 @@ const EMPTY_TEXT: Readonly<Record<Tab, string>> = {
   extend: '还没有拓展资料。开启后每周一出一份。',
   weekly: '还没有周报。每周日早上出上一周的。',
 }
-
-/** 周期资料 is two kinds; pages are fetched with kind=all and filtered, so load on while few rows came. */
-const MIN_ROWS = 12
-const MAX_AUTO_PAGES = 3
-
-const inTab = (tab: Tab, item: MaterialListItem): boolean =>
-  tab !== 'periodic' || item.kind === 'daily' || item.kind === 'digest'
 
 interface RowView extends MaterialRow {
   checked: boolean
@@ -135,24 +129,11 @@ Page({
       if (generation !== this.generation) return
       this.items = [...page.items]
       this.nextBefore = page.nextBefore
-      await this.fillUp(generation)
-      if (generation === this.generation) this.render()
+      this.render()
     } catch (error: unknown) {
       if (generation !== this.generation || redirectIfInviteRequired(error)) return
       if (quiet) console.warn('[learn-materials] refresh failed', error)
       else this.setData({ phase: 'error', errorText: errorMessage(error) })
-    }
-  },
-
-  /** For 周期资料: more pages while the filter left too few rows. */
-  async fillUp(generation: number): Promise<void> {
-    for (let pages = 0; pages < MAX_AUTO_PAGES && this.nextBefore !== null; pages += 1) {
-      const rows = this.items.filter((item) => inTab(this.data.tab, item)).length
-      if (rows >= MIN_ROWS) return
-      const page = await fetchMaterialList(API_KIND[this.data.tab], this.nextBefore)
-      if (generation !== this.generation) return
-      this.items = appendItems(this.items, page.items)
-      this.nextBefore = page.nextBefore
     }
   },
 
@@ -186,9 +167,7 @@ Page({
   render() {
     const parts = currentSettings().materialParts
     const pickedKeys = new Set(this.picked.map((material) => materialKey(material)))
-    const rows = this.items
-      .filter((item) => inTab(this.data.tab, item))
-      .map((item): RowView => ({ ...materialRow(item, parts), checked: pickedKeys.has(materialKey(item)) }))
+    const rows = this.items.map((item): RowView => ({ ...materialRow(item, parts), checked: pickedKeys.has(materialKey(item)) }))
     this.setData({
       phase: 'ready',
       groups: groupByWeek(rows, localDateKey(new Date())),

@@ -166,6 +166,8 @@ export interface MaterialRow {
   readonly kindLabel: string
   readonly dateLabel: string
   readonly title: string
+  /** An extension's first reason; '' otherwise. */
+  readonly subtitle: string
   readonly meta: string
   readonly status: string
   /** '' without a status. */
@@ -186,6 +188,7 @@ export function materialRow(item: MaterialListItem, parts: readonly MaterialPart
     kindLabel: KIND_LABELS[item.kind],
     dateLabel: materialDateLabel(item),
     title: item.title === '' ? KIND_LABELS[item.kind] : item.title,
+    subtitle: item.subtitle ?? '',
     meta: materialMeta(item, parts),
     status: status?.text ?? '',
     statusTone: status?.tone ?? '',

@@ -33,6 +33,7 @@ const item = (overrides: Partial<MaterialListItem>): MaterialListItem => ({
   kind: 'daily',
   date: '2026-11-24',
   title: '9 个词和一篇短文',
+  subtitle: null,
   counts: { words: 6, phrases: 2, grammar: 1, exercises: 8, items: 0 },
   readAt: null,
   pages: 3,
@@ -107,6 +108,13 @@ test('materialRow: a title is never empty; weekly is not printable', () => {
   assert.equal(row.printable, false)
   assert.equal(row.statusTone, '')
   assert.equal(row.key, 'weekly:2026-11-17')
+  assert.equal(row.subtitle, '')
+})
+
+test("materialRow: an extension's subtitle (its first reason) rides along", () => {
+  const reason = '最近 7 天你查了 deadline、postpone 等 6 个职场用词'
+  assert.equal(materialRow(item({ kind: 'extend', subtitle: reason }), ALL_PARTS).subtitle, reason)
+  assert.equal(materialRow(item({ kind: 'daily' }), ALL_PARTS).subtitle, '')
 })
 
 test('appendItems skips a kind and date already loaded', () => {

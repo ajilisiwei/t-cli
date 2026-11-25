@@ -33,6 +33,8 @@ export interface MaterialListItem {
   readonly date: string
   /** Built by the server in the explanation language. */
   readonly title: string
+  /** An extension's first reason; null for the other kinds. */
+  readonly subtitle: string | null
   readonly counts: MaterialCounts
   /** 学完了; null while unread. */
   readonly readAt: string | null
@@ -109,6 +111,16 @@ export interface Exercises {
   readonly fix: readonly FixExercise[]
 }
 
+/** Why a daily material or digest picked a word or phrase (counts within its range). */
+export interface UnitReason {
+  /** The unit's current stars (0–4). */
+  readonly stars: number
+  /** 忘记 ratings on its cards. */
+  readonly lapses: number
+  /** Lookups and records of it. */
+  readonly lookups: number
+}
+
 /** `GET /v1/materials/daily|digest`: a daily material, or a digest with its range and recap. */
 export interface PeriodicMaterial {
   readonly kind: PeriodicKind
@@ -121,6 +133,8 @@ export interface PeriodicMaterial {
   /** Digest only: units forgotten in the range (≤ 12). */
   readonly review: readonly ReviewRecap[]
   readonly exercises: Exercises
+  /** By item id, for the words and phrases; empty from an older server. */
+  readonly reasons: ReadonlyMap<string, UnitReason>
 }
 
 /** The digest-only fields, read beside the DailyMaterial part. */

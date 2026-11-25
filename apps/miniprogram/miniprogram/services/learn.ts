@@ -55,7 +55,8 @@ export async function fetchLearnSummary(): Promise<LearnSummary> {
   return summary
 }
 
-export type ListKind = 'all' | MaterialKind
+/** `periodic` = 周期资料: daily materials and digests together. */
+export type ListKind = 'all' | 'periodic' | MaterialKind
 
 /** Materials newest first; `before` (a date) pages further back. */
 export async function fetchMaterialList(
