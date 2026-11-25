@@ -104,14 +104,13 @@
             </view>
             <view class="note-actions">
               <view
-                class="btn btn-tonal btn-sm btn-icon-first"
+                class="icon-btn icon-btn-sm icon-btn-tonal"
                 data-id="{{item.id}}"
                 catchtap="onRowSpeak"
                 aria-role="button"
                 aria-label="{{speakKey === 'item-' + item.itemId && speakPhase !== 'idle' ? '停止朗读' : '朗读'}}"
               >
-                <t-speak-icon phase="{{item.itemId && speakKey === 'item-' + item.itemId ? speakPhase : 'idle'}}" tone="accent" size="28" />
-                <text>{{item.itemId && speakKey === 'item-' + item.itemId && speakPhase !== 'idle' ? '停止' : '朗读'}}</text>
+                <t-speak-icon phase="{{item.itemId && speakKey === 'item-' + item.itemId ? speakPhase : 'idle'}}" tone="accent" size="30" />
               </view>
               <view class="btn btn-danger btn-sm" data-id="{{item.id}}" catchtap="onRowDelete" aria-role="button" aria-label="删除这条笔记">
                 <text>删除</text>
