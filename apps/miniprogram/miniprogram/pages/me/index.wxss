@@ -1,4 +1,9 @@
-/* Shared styles live in app.wxss (rows, switch); the swatches and notes are page-only. */
+/* Layout only: rows, switches, section heads and type come from app.wxss (README "Design system"). */
+
+/* A settings group's heading: 32rpx plus .section-head's own room keeps groups ~48rpx apart. */
+.group-head {
+  margin-top: 32rpx;
+}
 
 .row-accent {
   color: var(--accent);
@@ -7,9 +12,6 @@
 .setting-note {
   display: block;
   padding: 16rpx 0 8rpx;
-  color: var(--muted);
-  font-size: 24rpx;
-  line-height: 1.6;
 }
 
 /* 主题色: five round swatches, the chosen one ringed in its own colour. */
@@ -17,7 +19,7 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 4rpx;
+  gap: 8rpx;
 }
 
 /* A 36 px target around a 24 px dot; px so the target keeps its size on every screen. */
@@ -56,7 +58,7 @@
   margin-top: 40rpx;
 }
 
-.saved-note-text {
-  color: var(--muted);
-  font-size: 24rpx;
+.server-label {
+  display: block;
+  margin-top: 48rpx;
 }

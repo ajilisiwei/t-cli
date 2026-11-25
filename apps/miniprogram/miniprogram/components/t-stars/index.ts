@@ -8,7 +8,11 @@
  * is the parent's layout. Each star is a tap target of at least 30×36 px.
  * Filled stars are <t-icon tone="accent">, so they follow the theme and the
  * accent (主题色) like every icon.
+ *
+ * A new level ticks a light haptic (confirmTap) here, for every page that
+ * shows stars: pages must not tick again in their `change` handlers.
  */
+import { confirmTap } from '../../services/haptics'
 
 const MAX_STARS = 4
 
@@ -43,6 +47,7 @@ Component({
       const n = Number(event.currentTarget.dataset.n)
       if (!Number.isInteger(n) || n < 1 || n > MAX_STARS) return
       if (n === clampLevel(this.data.level)) return
+      confirmTap()
       this.triggerEvent('change', { level: n })
     },
   },

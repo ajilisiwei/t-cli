@@ -115,6 +115,8 @@ test('themeModeSummary: the 深浅模式 row value', () => {
 test('readingType: usual sizes without 阅读模式; with it, every step larger than the last', () => {
   const normal = readingType(false, 3)
   assert.deepEqual(normal, readingType(false, 0))
+  // The usual sizes are steps of the type scale (README "Design system → Type").
+  assert.deepEqual(normal, { word: 56, body: 28, lineHeight: 1.7 })
   let previous = normal
   for (let step = 0; step < READING_STEPS; step += 1) {
     const type = readingType(true, step)

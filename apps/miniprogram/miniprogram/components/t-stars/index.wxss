@@ -14,3 +14,8 @@
   min-width: 30px;
   min-height: 36px;
 }
+
+/* app.wxss's .pressed does not reach into components: the same press state here. */
+.pressed {
+  opacity: 0.55;
+}

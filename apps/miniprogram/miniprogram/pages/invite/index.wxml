@@ -2,7 +2,7 @@
   <nav-bar title="t-cli" />
   <scroll-view class="body" scroll-y type="list" show-scrollbar="{{false}}">
     <view class="content">
-      <text class="notice">t-cli 目前仅限受邀使用。输入邀请码即可开始。</text>
+      <text class="t-secondary lead">t-cli 目前仅限受邀使用。输入邀请码即可开始。</text>
       <input
         class="field"
         value="{{code}}"
@@ -14,7 +14,14 @@
         bindinput="onInput"
         bindconfirm="onSubmit"
       />
-      <view class="btn btn-primary btn-block {{busy || !code ? 'btn-disabled' : ''}}" bindtap="onSubmit" aria-role="button">
+      <view
+        class="btn btn-primary btn-block {{busy || !code ? 'btn-disabled' : ''}}"
+        bindtap="onSubmit"
+        hover-class="{{busy || !code ? 'none' : 'pressed'}}"
+        hover-stay-time="80"
+        aria-role="button"
+        aria-disabled="{{busy || !code}}"
+      >
         <text>{{busy ? '请稍候…' : '开始使用'}}</text>
       </view>
       <text wx:if="{{errorText}}" class="error">{{errorText}}</text>
