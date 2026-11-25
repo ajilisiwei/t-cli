@@ -11,6 +11,7 @@
 import { ApiError, isApiError } from '../lib/api'
 import { badgeText, reminderAccepted, reminderTemplateToAsk } from '../lib/review-home'
 import { readDailyMaterialResponse } from '../lib/review-material'
+import type { ReviewScope } from '../lib/learn-types'
 import { createOutbox, type UndoOutcome } from '../lib/review-queue'
 import type { DailyMaterialResponse, MaterialDates, QueueCard, ReviewLog, ReviewSummary } from '../lib/review-types'
 import { ULID_ENTROPY_BYTES, ulid } from '../lib/review-ulid'
@@ -24,7 +25,7 @@ import {
 import { utcOffsetMinutes } from './platform'
 import { api } from './session'
 
-/** Position of 复习 in app.json's tab bar. */
+/** Position of 学习 (pages/review/index) in app.json's tab bar. */
 const REVIEW_TAB_INDEX = 2
 /** The queue serves at most 15 new + 60 review cards a day; 100 is the contract's maximum. */
 export const SESSION_CARD_LIMIT = 100
@@ -50,11 +51,15 @@ export async function fetchSummary(): Promise<ReviewSummary> {
   return summary
 }
 
-export async function fetchQueue(limit: number = SESSION_CARD_LIMIT): Promise<QueueCard[]> {
+/**
+ * The cards to review now. `scope` (v3) narrows them to notes (stars ≥ 1) or
+ * 3 星以上; `all` is sent as no scope at all, so an older server answers too.
+ */
+export async function fetchQueue(limit: number = SESSION_CARD_LIMIT, scope: ReviewScope = 'all'): Promise<QueueCard[]> {
   const data = await api.request<unknown>({
     method: 'GET',
     path: '/v1/review/queue',
-    query: { utcOffsetMinutes: utcOffsetMinutes(), limit },
+    query: { utcOffsetMinutes: utcOffsetMinutes(), limit, scope: scope === 'all' ? undefined : scope },
   })
   const cards = readQueueCards(data)
   if (cards === null) throw badResponse('review queue')
@@ -131,7 +136,7 @@ export type { UndoOutcome }
 
 // ---- tab badge ----
 
-/** Shows `due` on the 复习 tab (fails quietly while a non-tab page is on top). */
+/** Shows `due` on the 学习 tab (fails quietly while a non-tab page is on top). */
 export function applyBadge(due: number): void {
   const text = badgeText(due)
   if (text === null) wx.removeTabBarBadge({ index: REVIEW_TAB_INDEX, fail: () => undefined })

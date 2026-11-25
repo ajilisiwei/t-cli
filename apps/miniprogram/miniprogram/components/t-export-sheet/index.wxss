@@ -1,0 +1,317 @@
+/*
+ * 导出 PDF sheet. Buttons, switches, the meter and links come from app.wxss
+ * (styleIsolation apply-shared); this file places them and draws the choice
+ * rows, the segmented 版式 and the file card. Colours are the page root's
+ * CSS variables (they inherit into components). Skyline: one border colour
+ * per rounded box; motion on transform/opacity with keyframes in this file.
+ */
+.xs-scrim {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  background-color: rgba(29, 28, 26, 0.32);
+  animation-name: xs-fade;
+  animation-duration: 180ms;
+  animation-timing-function: ease-out;
+}
+
+.xs-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 21;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding: 16rpx 40rpx 0;
+  border: 1px solid var(--rule);
+  border-top-left-radius: 44rpx;
+  border-top-right-radius: 44rpx;
+  background-color: var(--surface);
+  box-shadow: 0 -16rpx 56rpx rgba(29, 28, 26, 0.12);
+  animation-name: xs-rise;
+  animation-duration: 200ms;
+  animation-timing-function: ease-out;
+}
+
+@keyframes xs-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes xs-rise {
+  from {
+    opacity: 0;
+    transform: translateY(48rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.xs-grip {
+  align-self: center;
+  width: 72rpx;
+  height: 10rpx;
+  border-radius: 5rpx;
+  background-color: var(--rule);
+}
+
+.xs-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12rpx;
+}
+
+.xs-title {
+  color: var(--ink);
+  font-size: 36rpx;
+  font-weight: 600;
+}
+
+.xs-close {
+  margin-right: -16rpx;
+}
+
+.xs-label {
+  display: block;
+  margin-top: 28rpx;
+  margin-bottom: 16rpx;
+  color: var(--muted);
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+/* ---- what to export: one radio row each ---- */
+.xs-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.xs-choice {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 24rpx;
+  padding: 20rpx 24rpx;
+  border: 1px solid var(--rule);
+  border-radius: 24rpx;
+  background-color: var(--surface);
+}
+
+.xs-choice-on {
+  border-color: var(--accent);
+  background-color: var(--accent-soft);
+}
+
+/* The radio dot: one border colour, thicker when chosen. */
+.xs-dot {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 18rpx;
+  border: 3rpx solid var(--muted);
+}
+
+.xs-dot-on {
+  border: 10rpx solid var(--accent);
+}
+
+.xs-choice-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.xs-choice-label {
+  color: var(--ink);
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.xs-choice-hint {
+  color: var(--muted);
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+
+/* ---- 版式: a segmented control ---- */
+.xs-seg {
+  display: flex;
+  flex-direction: row;
+  padding: 6rpx;
+  border-radius: 24rpx;
+  background-color: var(--rule);
+}
+
+.xs-seg-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 72rpx;
+  border-radius: 18rpx;
+  color: var(--muted);
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.xs-seg-on {
+  background-color: var(--surface);
+  color: var(--ink);
+}
+
+.xs-hint {
+  display: block;
+  margin-top: 12rpx;
+  color: var(--muted);
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+/* ---- switches ---- */
+.xs-toggles {
+  margin-top: 16rpx;
+}
+
+.xs-toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 88rpx;
+  border-top: 1px solid var(--rule);
+}
+
+.xs-toggle-label {
+  color: var(--ink);
+  font-size: 30rpx;
+}
+
+.xs-main {
+  margin-top: 24rpx;
+}
+
+.xs-second {
+  margin-top: 16rpx;
+}
+
+.xs-warn {
+  display: block;
+  margin-top: 12rpx;
+  color: var(--danger);
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+/* ---- working: an indeterminate meter ---- */
+.xs-working {
+  padding: 36rpx 0 16rpx;
+}
+
+.xs-working-title {
+  display: block;
+  color: var(--ink);
+  font-size: 30rpx;
+}
+
+.xs-meter {
+  margin-top: 28rpx;
+  overflow: hidden;
+}
+
+.xs-meter-fill {
+  width: 40%;
+  animation-name: xs-slide;
+  animation-duration: 1200ms;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+@keyframes xs-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+/* ---- done: the file card ---- */
+.xs-file {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 24rpx;
+  margin-top: 28rpx;
+  padding: 24rpx;
+  border: 1px solid var(--rule);
+  border-radius: 28rpx;
+  background-color: var(--bg);
+}
+
+.xs-file-badge {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 80rpx;
+  height: 96rpx;
+  padding-bottom: 12rpx;
+  border-radius: 12rpx;
+  background-color: var(--danger);
+}
+
+.xs-file-badge-text {
+  color: var(--bg);
+  font-size: 22rpx;
+  font-weight: 700;
+}
+
+.xs-file-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.xs-file-name {
+  color: var(--ink);
+  font-size: 30rpx;
+  font-weight: 600;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.xs-file-meta {
+  color: var(--muted);
+  font-size: 24rpx;
+}
+
+.xs-error {
+  margin-top: 28rpx;
+  line-height: 1.6;
+}
+
+.xs-center {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  margin-top: 16rpx;
+}

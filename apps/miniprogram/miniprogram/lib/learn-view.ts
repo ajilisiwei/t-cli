@@ -11,6 +11,7 @@ import type {
   PrintableKind,
   ReviewScope,
 } from './learn-types'
+import type { ExportMaterial } from './pdf-export'
 import type { MaterialFrequency, MaterialPart } from './types'
 
 // ---- calendar dates ----
@@ -242,6 +243,26 @@ export function thisWeekPrintable(items: readonly MaterialListItem[], today: str
   return items
     .filter((item) => isPrintable(item.kind) && item.date >= monday && item.date <= today)
     .slice(0, MAX_EXPORT_MATERIALS)
+}
+
+const EXPORT_LABELS: Readonly<Record<PrintableKind, string>> = { daily: '每日资料', digest: '每周合集', extend: '拓展资料' }
+
+/** A material for the export sheet: "11月24日 周二 每日资料", its pages and the cards it makes. */
+export function exportMaterial(kind: PrintableKind, date: string, pages: number, words: number): ExportMaterial {
+  return {
+    kind,
+    date,
+    pages: Math.max(1, Math.floor(pages)),
+    words: Math.max(0, Math.floor(words)),
+    label: `${materialDateLabel({ kind, date })} ${EXPORT_LABELS[kind]}`,
+  }
+}
+
+/** A list row for the export sheet; null for a report (no PDF). */
+export function exportMaterialOf(item: MaterialListItem): ExportMaterial | null {
+  if (!isPrintable(item.kind)) return null
+  const { counts } = item
+  return exportMaterial(item.kind, item.date, item.pages, counts.words + counts.phrases + counts.items)
 }
 
 // ---- today's review ----

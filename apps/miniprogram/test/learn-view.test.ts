@@ -5,6 +5,8 @@ import {
   addDays,
   appendItems,
   dayLabel,
+  exportMaterial,
+  exportMaterialOf,
   groupByWeek,
   homeDateLabel,
   localStamp,
@@ -198,4 +200,17 @@ test('planSummary and the empty-materials text', () => {
     '周期资料已关闭 · 拓展每周一份',
   )
   assert.match(noMaterialsText('off'), /学习计划/)
+})
+
+test('exportMaterialOf: label, pages and words; none for a report', () => {
+  assert.deepEqual(exportMaterialOf(item({})), {
+    kind: 'daily',
+    date: '2026-11-24',
+    pages: 3,
+    words: 8,
+    label: '11月24日 周二 每日资料',
+  })
+  assert.equal(exportMaterialOf(item({ kind: 'weekly' })), null)
+  assert.equal(exportMaterial('digest', '2026-11-24', 0, 20).label, '11月18日–24日 每周合集')
+  assert.equal(exportMaterial('extend', '2026-11-23', 0, 10).pages, 1)
 })
