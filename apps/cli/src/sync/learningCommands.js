@@ -9,6 +9,7 @@
  * where useful), so the local behaviour stays the fallback.
  */
 import { fetchDailyMaterial, fetchDayEntries, fetchDigest, fetchWeeklyReport, listMaterialDates } from './learning.js';
+import { SyncError } from './client.js';
 import { syncOffLines } from './status.js';
 import { DIGEST_DAYS, digestCovering, formatDailyMaterial, formatDigest, formatWeeklyReport, shiftDate, weekStartOf } from '../utils/materials.js';
 import { phoneEntries } from '../utils/historyMerge.js';
@@ -78,8 +79,9 @@ export function createLearningCommands({ client, server, say, withLoading, today
   }
 
   /**
-   * The digest covering `date`, or null: none, an older server without
-   * digests, or a network failure (the local flow then runs as before).
+   * The digest covering `date`, or null: none, or an older server without
+   * digests (400), silently; any other failure (network, session) with a
+   * dim note. The local flow then runs as before.
    * @param {SyncClient} api
    * @param {string} date
    */
@@ -87,7 +89,9 @@ export function createLearningCommands({ client, server, say, withLoading, today
     try {
       const end = digestCovering(await listMaterialDates(api, { kind: 'digest' }), date);
       return end ? await fetchDigest(api, end) : null;
-    } catch {
+    } catch (error) {
+      const expected = error instanceof SyncError && (error.status === 400 || error.status === 404);
+      if (!expected) say(`Cloud digest unavailable (${errorMessage(error)}).`, { dim: true });
       return null;
     }
   }

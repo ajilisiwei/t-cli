@@ -175,3 +175,11 @@ test('digestCovering / shiftDate: the earliest digest whose 7 days include the d
   assert.equal(digestCovering(dates, '2026-11-09'), null);
   assert.equal(digestCovering([], '2026-11-17'), null);
 });
+
+test('shiftDate / formatDigest: malformed dates never throw', () => {
+  assert.equal(shiftDate('', -6), '');
+  assert.equal(shiftDate('2026-1-1', 1), '2026-1-1');
+  assert.equal(shiftDate('not a date', 1), 'not a date');
+  const blocks = formatDigest({ date: '2026-11-23', content: { range: { start: 'x', end: '2026/11/23' } } });
+  assert.equal(blocks[0].text, '7-day digest · 2026-11-17 – 2026-11-23', 'a malformed range falls back to the material date');
+});

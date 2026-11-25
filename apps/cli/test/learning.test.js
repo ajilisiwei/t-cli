@@ -434,3 +434,12 @@ test('/notes listing: digests are listed by range; an older server without diges
   await legacy.commands.listDailyMaterials();
   assert.deepEqual(legacy.said.map((s) => s.text), ['Daily Materials (cloud)\n2026-11-19\nUse /notes <YYYY-MM-DD> to read.']);
 });
+
+test('/notes cloud: a digest lookup that fails for another reason than 400/404 leaves a dim note', async (t) => {
+  useTempConfig(t);
+  const api = await startFakeServer(t, (req) => (req.query.kind === 'digest' ? fail(500, 'INTERNAL') : fail(404, 'NOT_FOUND')));
+  const { commands, said } = commandHarness(loggedInClient(api.url));
+  assert.equal(await commands.showDailyMaterial('2026-11-19'), false);
+  assert.match(said[0].text, /^Cloud digest unavailable/);
+  assert.equal(said.at(-1).text, 'No cloud material for 2026-11-19; using local notes.');
+});

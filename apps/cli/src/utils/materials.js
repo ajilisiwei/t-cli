@@ -178,8 +178,8 @@ export function formatDailyMaterial({ date, content }) {
 export function formatDigest({ date, content }) {
   const digest = obj(content);
   const range = obj(digest.range);
-  const end = str(range.end) || date;
-  const start = str(range.start) || shiftDate(end, -(DIGEST_DAYS - 1));
+  const end = DATE_RE.test(str(range.end)) ? str(range.end) : date;
+  const start = DATE_RE.test(str(range.start)) ? str(range.start) : shiftDate(end, -(DIGEST_DAYS - 1));
   const recap = formatAll(arr(digest.review), formatRecap);
   return [
     { text: `7-day digest · ${start} – ${end}`, bold: true },
@@ -207,13 +207,17 @@ export function digestCovering(digestDates, date) {
 
 /**
  * `date` moved by `days` calendar days (YYYY-MM-DD, no time zone involved).
+ * Anything that is not a YYYY-MM-DD date comes back unchanged, so a
+ * malformed date from the server can never throw while rendering.
  * @param {string} date
  * @param {number} days
  * @returns {string}
  */
 export function shiftDate(date, days) {
-  const [y, m, d] = date.split('-').map(Number);
-  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+  const match = DATE_RE.exec(date);
+  if (!match) return date;
+  const shifted = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + days));
+  return Number.isNaN(shifted.getTime()) ? date : shifted.toISOString().slice(0, 10);
 }
 
 /**
