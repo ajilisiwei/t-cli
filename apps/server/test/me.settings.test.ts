@@ -120,6 +120,45 @@ describe('account settings: GET /v1/me and POST /v1/me/settings', { skip: skipWi
     assert.deepEqual(await storedSettings(account.userId), v2);
   });
 
+  test('v3 keys: an update stores and shows every one; bad values are 400 and change nothing', async () => {
+    const account = await createAccount(t.db, { now: clock() });
+    const v3 = {
+      materialFrequency: 'weekly',
+      materialWeekday: 0,
+      materialParts: ['words', 'exercises'],
+      extendEnabled: false,
+      extendTopics: ['work', 'tech'],
+      extendMuted: [{ topic: 'travel', until: '2026-12-24' }],
+      studyLevel: 'B2',
+    };
+    const res = await update(account, v3);
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.json().data.settings, v3);
+    assert.deepEqual((await me(account)).json().data.settings, v3);
+
+    const invalid: Record<string, unknown>[] = [
+      { materialFrequency: 'monthly' },
+      { materialWeekday: 7 },
+      { materialWeekday: -1 },
+      { materialParts: [] },
+      { materialParts: ['words', 'words'] },
+      { materialParts: ['video'] },
+      { extendEnabled: 'true' },
+      { extendTopics: ['other'] },
+      { extendTopics: ['work', 'work'] },
+      { extendMuted: [{ topic: 'work', until: '2026-02-30' }] },
+      { extendMuted: [{ topic: 'work', until: '2026-12-01', note: 'x' }] },
+      { extendMuted: [{ topic: 'work', until: '2026-12-01' }, { topic: 'work', until: '2026-12-02' }] },
+      { studyLevel: 'C2' },
+    ];
+    for (const payload of invalid) {
+      const bad = await update(account, payload);
+      assert.equal(bad.statusCode, 400, JSON.stringify(payload));
+      assert.equal(bad.json().error.code, 'VALIDATION_FAILED');
+    }
+    assert.deepEqual(await storedSettings(account.userId), v3);
+  });
+
   test('keys the API does not know are kept in storage but never shown', async () => {
     const account = await createAccount(t.db, { now: clock() });
     await t.db.update(users).set({ settings: { legacy: { a: 1 }, explanationLang: 'fr' } }).where(eq(users.id, account.userId));
