@@ -4,19 +4,21 @@
   <view class="xs-sheet" style="padding-bottom: {{safeBottom + 24}}px;" aria-role="dialog" aria-label="导出 PDF">
     <view class="xs-grip" />
     <view class="xs-head">
-      <text class="xs-title">{{step === 'done' ? '已生成' : '导出 PDF'}}</text>
-      <view class="icon-btn xs-close" bindtap="onClose" aria-role="button" aria-label="关闭">
+      <text class="t-heading">{{step === 'done' ? '已生成' : '导出 PDF'}}</text>
+      <view class="icon-btn xs-close" hover-class="pressed" hover-stay-time="80" bindtap="onClose" aria-role="button" aria-label="关闭">
         <t-icon name="close" tone="ink" size="36" />
       </view>
     </view>
 
     <block wx:if="{{step === 'options'}}">
-      <text class="xs-label">导出什么</text>
+      <text class="t-label xs-label">导出什么</text>
       <view class="xs-choices" aria-role="radiogroup" aria-label="导出什么">
         <view
           wx:for="{{choices}}"
           wx:key="id"
           class="xs-choice {{item.checked ? 'xs-choice-on' : ''}}"
+          hover-class="pressed"
+          hover-stay-time="80"
           data-id="{{item.id}}"
           bindtap="onPick"
           aria-role="radio"
@@ -25,19 +27,21 @@
         >
           <view class="xs-dot {{item.checked ? 'xs-dot-on' : ''}}" />
           <view class="xs-choice-text">
-            <text class="xs-choice-label">{{item.label}}</text>
-            <text class="xs-choice-hint">{{item.hint}}</text>
+            <text class="t-body xs-choice-label">{{item.label}}</text>
+            <text class="t-caption">{{item.hint}}</text>
           </view>
         </view>
       </view>
 
       <block wx:if="{{showLayout}}">
-        <text class="xs-label">版式</text>
+        <text class="t-label xs-label">版式</text>
         <view class="seg-control" aria-role="radiogroup" aria-label="版式">
           <view
             wx:for="{{layouts}}"
             wx:key="id"
             class="seg-option {{item.checked ? 'seg-option-on' : ''}}"
+            hover-class="pressed"
+            hover-stay-time="80"
             data-id="{{item.id}}"
             bindtap="onLayout"
             aria-role="radio"
@@ -46,58 +50,85 @@
             <text>{{item.label}}</text>
           </view>
         </view>
-        <text class="xs-hint">{{layoutHint}}</text>
+        <text class="t-caption xs-hint">{{layoutHint}}</text>
       </block>
 
       <view class="xs-toggles">
-        <view class="xs-toggle" data-key="ipa" bindtap="onToggle" aria-role="switch" aria-checked="{{ipa}}" aria-label="显示音标">
-          <text class="xs-toggle-label">显示音标</text>
+        <view
+          class="xs-toggle"
+          hover-class="pressed"
+          hover-stay-time="80"
+          data-key="ipa"
+          bindtap="onToggle"
+          aria-role="switch"
+          aria-checked="{{ipa}}"
+          aria-label="显示音标"
+        >
+          <text class="t-body">显示音标</text>
           <view class="switch {{ipa ? 'switch-on' : ''}}"><view class="knob {{ipa ? 'knob-on' : ''}}"></view></view>
         </view>
-        <view class="xs-toggle" data-key="large" bindtap="onToggle" aria-role="switch" aria-checked="{{large}}" aria-label="大字号">
-          <text class="xs-toggle-label">大字号（适合打印后手写）</text>
+        <view
+          class="xs-toggle"
+          hover-class="pressed"
+          hover-stay-time="80"
+          data-key="large"
+          bindtap="onToggle"
+          aria-role="switch"
+          aria-checked="{{large}}"
+          aria-label="大字号"
+        >
+          <text class="t-body">大字号（适合打印后手写）</text>
           <view class="switch {{large ? 'switch-on' : ''}}"><view class="knob {{large ? 'knob-on' : ''}}"></view></view>
         </view>
       </view>
 
-      <view class="btn btn-primary btn-lg xs-main {{choiceId ? '' : 'btn-disabled'}}" bindtap="onGenerate" aria-role="button">
+      <view
+        class="btn btn-primary btn-lg xs-main {{choiceId ? '' : 'btn-disabled'}}"
+        hover-class="{{choiceId ? 'pressed' : 'none'}}"
+        hover-stay-time="80"
+        bindtap="onGenerate"
+        aria-role="button"
+        aria-disabled="{{!choiceId}}"
+      >
         <text>生成 PDF · A4 约 {{pages}} 页</text>
       </view>
-      <text wx:if="{{pages > 40}}" class="xs-warn">约 {{pages}} 页，超过 40 页的上限，请少选几份或关掉大字号。</text>
+      <text wx:if="{{pages > 40}}" class="t-caption xs-warn">约 {{pages}} 页，超过 40 页的上限，请少选几份或关掉大字号。</text>
     </block>
 
     <view wx:elif="{{step === 'working'}}" class="xs-working" aria-role="status">
-      <text class="xs-working-title">正在排版，约 {{pages}} 页…</text>
+      <text class="t-body xs-block">正在排版，约 {{pages}} 页…</text>
       <view class="meter xs-meter"><view class="meter-fill xs-meter-fill" /></view>
-      <text class="xs-hint">一般 3–5 秒。可以先关掉这里，好了会出现在「导出记录」里。</text>
+      <text class="t-caption xs-hint">一般 3–5 秒。可以先关掉这里，好了会出现在「导出记录」里。</text>
     </view>
 
     <block wx:elif="{{step === 'done' && file}}">
       <view class="xs-file">
         <view class="xs-file-badge"><text class="xs-file-badge-text">PDF</text></view>
         <view class="xs-file-text">
-          <text class="xs-file-name">{{file.fileName}}</text>
-          <text class="xs-file-meta">{{file.summary}}</text>
+          <text class="t-body xs-file-name">{{file.fileName}}</text>
+          <text class="t-caption">{{file.summary}}</text>
         </view>
       </view>
-      <view class="btn btn-primary btn-lg xs-main" bindtap="onShare" aria-role="button" aria-label="发给微信好友">
+      <view class="btn btn-primary btn-lg xs-main" hover-class="pressed" hover-stay-time="80" bindtap="onShare" aria-role="button" aria-label="发给微信好友">
         <t-icon name="share" tone="accentInk" size="40" />
         <text>发给微信好友</text>
       </view>
-      <view class="btn btn-secondary btn-lg xs-second" bindtap="onPreview" aria-role="button">
+      <view class="btn btn-secondary btn-lg xs-second" hover-class="pressed" hover-stay-time="80" bindtap="onPreview" aria-role="button">
         <text>预览 · 保存到手机 / 打印</text>
       </view>
-      <text class="xs-hint">预览里点右上角「…」可以保存到手机、用其他应用打开或打印。</text>
+      <text class="t-caption xs-hint">预览里点右上角「…」可以保存到手机、用其他应用打开或打印。</text>
       <view class="xs-center">
-        <text class="link" bindtap="onRestart" aria-role="button">换个选项重新导出</text>
+        <view class="link xs-link" hover-class="pressed" hover-stay-time="80" bindtap="onRestart" aria-role="button"><text>换个选项重新导出</text></view>
       </view>
     </block>
 
     <block wx:elif="{{step === 'error'}}">
-      <text class="error xs-error">{{errorText}}</text>
-      <view class="btn btn-primary btn-lg xs-main" bindtap="onGenerate" aria-role="button"><text>重试</text></view>
+      <view class="state xs-state">
+        <text class="state-text state-error">{{errorText}}</text>
+      </view>
+      <view class="btn btn-primary btn-lg" hover-class="pressed" hover-stay-time="80" bindtap="onGenerate" aria-role="button"><text>重试</text></view>
       <view class="xs-center">
-        <text class="link" bindtap="onRestart" aria-role="button">换个选项</text>
+        <view class="link xs-link" hover-class="pressed" hover-stay-time="80" bindtap="onRestart" aria-role="button"><text>换个选项</text></view>
       </view>
     </block>
   </view>

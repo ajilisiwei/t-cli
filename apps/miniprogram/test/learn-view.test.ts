@@ -173,6 +173,19 @@ test('scope chips and the start button', () => {
       ['3 星以上 9', false],
     ],
   )
+  assert.deepEqual(
+    chips.map((chip) => chip.off),
+    [false, false, false],
+  )
+  // A scope with nothing due cannot be picked, unless it is the chosen one.
+  assert.deepEqual(
+    scopeChips({ all: 4, notes: 0, stars3: 0 }, 'stars3').map((chip) => [chip.id, chip.off]),
+    [
+      ['all', false],
+      ['notes', true],
+      ['stars3', false],
+    ],
+  )
   assert.equal(startLabel('all', 18), '开始复习 · 18 张')
   assert.equal(startLabel('notes', 7), '复习笔记本 · 7 张')
   assert.equal(startLabel('stars3', 9), '复习 3 星以上 · 9 张')

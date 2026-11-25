@@ -257,9 +257,10 @@ Page({
     }
   },
 
-  onScope(event: WechatMiniprogram.BaseEvent<Record<string, never>, { id?: string }>) {
-    const scope = event.currentTarget.dataset.id
-    if (!isReviewScope(scope) || scope === this.data.scope) return
+  onScope(event: WechatMiniprogram.BaseEvent<Record<string, never>, { id?: string; off?: boolean }>) {
+    const { id: scope, off } = event.currentTarget.dataset
+    // A scope with nothing due is shown for its count only.
+    if (!isReviewScope(scope) || scope === this.data.scope || off === true) return
     const due = this.review.dueByScope
     this.setData({ scope, scopes: scopeChips(due, scope), startText: startLabel(scope, due[scope]) })
   },

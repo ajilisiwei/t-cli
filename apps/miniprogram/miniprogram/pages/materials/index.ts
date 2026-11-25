@@ -39,6 +39,7 @@ import { storySegments, type StorySegment } from '../../lib/review-material'
 import type { MaterialMistake } from '../../lib/review-types'
 import { SPEECH_IDLE, type SpeechStatus } from '../../lib/speaker'
 import type { MaterialPart } from '../../lib/types'
+import { confirmTap } from '../../services/haptics'
 import { fetchPeriodic, fetchThisWeek, markRead } from '../../services/learn'
 import { safeBottomInset } from '../../services/platform'
 import { redirectIfInviteRequired } from '../../services/session'
@@ -287,6 +288,7 @@ Page({
     if (key === undefined || text === undefined) return
     const next = answerCloze(this.answers, this.exercises, key, text)
     if (next === this.answers) return
+    confirmTap()
     this.answers = next
     this.renderExercises()
   },
@@ -323,12 +325,13 @@ Page({
     const material = this.material
     if (material === null || this.data.marking) return
     const read = !this.data.done
+    confirmTap()
     this.setData({ done: read, marking: true })
     try {
       const readAt = await markRead(material.kind, material.date, read)
       this.material = { ...material, readAt }
       this.setData({ done: readAt !== null })
-      if (read) toast('学完了')
+      if (read) toast('已标记为学完')
     } catch (error: unknown) {
       this.setData({ done: !read })
       toast(errorMessage(error))

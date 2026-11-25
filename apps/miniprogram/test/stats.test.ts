@@ -169,9 +169,10 @@ test('retention bars cover 12 weeks ending this week', () => {
   assert.equal(bars[0]?.weekStart, '2026-08-31')
   assert.equal(bars[11]?.weekStart, '2026-11-16')
   assert.deepEqual(
-    { rate: bars[11]?.rate, height: bars[11]?.height, percent: bars[11]?.percent },
-    { rate: 0.92, height: 92, percent: '92%' },
+    { rate: bars[11]?.rate, height: bars[11]?.height, percent: bars[11]?.percent, mark: bars[11]?.mark },
+    { rate: 0.92, height: 92, percent: '92%', mark: '92' },
   )
+  assert.equal(bars[10]?.mark, '')
   assert.equal(bars[10]?.rate, null)
   assert.equal(bars[10]?.height, 0)
   assert.equal(bars[10]?.label, '11月9日那周 没有复习')

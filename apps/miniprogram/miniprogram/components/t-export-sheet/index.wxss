@@ -1,9 +1,10 @@
 /*
- * 导出 PDF sheet. Buttons, switches, the segmented 版式 (.seg-control), the
- * meter and links come from app.wxss (styleIsolation apply-shared); this file
- * places them and draws the choice rows and the file card. Colours are the page root's
- * CSS variables (they inherit into components). Skyline: one border colour
- * per rounded box; motion on transform/opacity with keyframes in this file.
+ * 导出 PDF sheet. Type (.t-*), buttons, switches, the segmented 版式
+ * (.seg-control), the meter, links and states come from app.wxss
+ * (styleIsolation apply-shared); this file places them and draws the
+ * choice rows and the file card. Colours are the page root's CSS variables
+ * (they inherit into components). Skyline: one border colour per rounded
+ * box; motion on transform/opacity with keyframes in this file.
  */
 .xs-scrim {
   position: absolute;
@@ -18,6 +19,7 @@
   animation-timing-function: ease-out;
 }
 
+/* padding-bottom is set inline: 24px plus the home indicator (safeBottom). */
 .xs-sheet {
   position: absolute;
   left: 0;
@@ -58,6 +60,7 @@
   }
 }
 
+/* The grip: a pill (radius = half its height). */
 .xs-grip {
   align-self: center;
   width: 72rpx;
@@ -74,23 +77,18 @@
   margin-top: 12rpx;
 }
 
-.xs-title {
-  color: var(--ink);
-  font-size: 36rpx;
-  font-weight: 600;
-}
-
 .xs-close {
   margin-right: -16rpx;
 }
 
 .xs-label {
   display: block;
-  margin-top: 28rpx;
+  margin-top: 24rpx;
   margin-bottom: 16rpx;
-  color: var(--muted);
-  font-size: 26rpx;
-  font-weight: 600;
+}
+
+.xs-block {
+  display: block;
 }
 
 /* ---- what to export: one radio row each ---- */
@@ -105,7 +103,7 @@
   flex-direction: row;
   align-items: center;
   gap: 24rpx;
-  padding: 20rpx 24rpx;
+  padding: 16rpx 24rpx;
   border: 1px solid var(--rule);
   border-radius: 24rpx;
   background-color: var(--surface);
@@ -139,22 +137,12 @@
 
 .xs-choice-label {
   color: var(--ink);
-  font-size: 30rpx;
   font-weight: 600;
-}
-
-.xs-choice-hint {
-  color: var(--muted);
-  font-size: 24rpx;
-  line-height: 1.5;
 }
 
 .xs-hint {
   display: block;
   margin-top: 12rpx;
-  color: var(--muted);
-  font-size: 24rpx;
-  line-height: 1.6;
 }
 
 /* ---- switches ---- */
@@ -171,11 +159,6 @@
   border-top: 1px solid var(--rule);
 }
 
-.xs-toggle-label {
-  color: var(--ink);
-  font-size: 30rpx;
-}
-
 .xs-main {
   margin-top: 24rpx;
 }
@@ -188,23 +171,15 @@
   display: block;
   margin-top: 12rpx;
   color: var(--danger);
-  font-size: 24rpx;
-  line-height: 1.6;
 }
 
 /* ---- working: an indeterminate meter ---- */
 .xs-working {
-  padding: 36rpx 0 16rpx;
-}
-
-.xs-working-title {
-  display: block;
-  color: var(--ink);
-  font-size: 30rpx;
+  padding: 32rpx 0 16rpx;
 }
 
 .xs-meter {
-  margin-top: 28rpx;
+  margin-top: 24rpx;
   overflow: hidden;
 }
 
@@ -231,10 +206,10 @@
   flex-direction: row;
   align-items: center;
   gap: 24rpx;
-  margin-top: 28rpx;
+  margin-top: 24rpx;
   padding: 24rpx;
   border: 1px solid var(--rule);
-  border-radius: 28rpx;
+  border-radius: 32rpx;
   background-color: var(--bg);
 }
 
@@ -253,8 +228,9 @@
 
 .xs-file-badge-text {
   color: var(--bg);
-  font-size: 22rpx;
-  font-weight: 700;
+  font-size: 24rpx;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .xs-file-text {
@@ -265,22 +241,16 @@
 }
 
 .xs-file-name {
-  color: var(--ink);
-  font-size: 30rpx;
-  font-weight: 600;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  color: var(--ink);
+  font-weight: 600;
 }
 
-.xs-file-meta {
-  color: var(--muted);
-  font-size: 24rpx;
-}
-
-.xs-error {
-  margin-top: 28rpx;
-  line-height: 1.6;
+/* ---- error: the message as a state, 重试 under it ---- */
+.xs-state {
+  padding: 32rpx 0 24rpx;
 }
 
 .xs-center {
@@ -288,4 +258,13 @@
   flex-direction: row;
   justify-content: center;
   margin-top: 16rpx;
+}
+
+/* A centred link with a 64rpx target. */
+.xs-link {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  min-height: 64rpx;
+  padding: 0 24rpx;
 }

@@ -7,30 +7,42 @@
         <view class="xt-head">
           <view class="xt-tags">
             <text class="label-tag label-tag-accent">{{tagLabel}}</text>
-            <text class="xt-meta">{{meta}}</text>
+            <text class="t-caption">{{meta}}</text>
           </view>
-          <text class="xt-title">{{title}}</text>
+          <text class="t-title xt-title">{{title}}</text>
         </view>
 
         <view wx:if="{{reasons.length}}" class="card-surface xt-why">
           <view class="xt-why-head">
             <t-icon name="info" tone="accent" size="32" />
-            <text class="xt-why-title">为什么推荐给你</text>
+            <text class="t-label">为什么推荐给你</text>
           </view>
           <view wx:for="{{reasons}}" wx:key="*this" class="xt-reason">
             <view class="xt-dot" />
-            <text class="xt-reason-text">{{item}}</text>
+            <text class="t-secondary xt-reason-text">{{item}}</text>
           </view>
         </view>
 
-        <view class="xt-list-head">
-          <text class="xt-section-title">勾选要加入复习的</text>
-          <text wx:if="{{hasSelectable}}" class="link link-strong" bindtap="onPickAll" aria-role="button">{{pickAllLabel}}</text>
+        <view class="section-head xt-section">
+          <text class="t-label">勾选要加入复习的</text>
+          <view
+            wx:if="{{hasSelectable}}"
+            class="link link-strong xt-link"
+            hover-class="pressed"
+            hover-stay-time="80"
+            bindtap="onPickAll"
+            aria-role="button"
+          >
+            <text>{{pickAllLabel}}</text>
+          </view>
         </view>
+        <!-- An item already in review cannot be ticked, so it does not dim. -->
         <view
           wx:for="{{rows}}"
           wx:key="index"
           class="xt-item"
+          hover-class="{{item.known ? 'none' : 'pressed'}}"
+          hover-stay-time="80"
           data-index="{{item.index}}"
           bindtap="onToggleItem"
           aria-role="checkbox"
@@ -38,20 +50,24 @@
           aria-disabled="{{item.known}}"
           aria-label="{{item.known ? item.text + '，已在复习' : item.aria}}"
         >
-          <text wx:if="{{item.known}}" class="xt-known">已在复习</text>
+          <text wx:if="{{item.known}}" class="t-caption xt-known">已在复习</text>
           <view wx:else class="tick {{item.checked ? 'tick-on' : ''}}">
             <t-icon wx:if="{{item.checked}}" name="check" tone="accentInk" size="32" />
           </view>
           <view class="xt-item-main">
+            <!-- Item and gloss: centred, never baseline-aligned (two fonts, two sizes). -->
             <view class="xt-item-line">
-              <text class="xt-item-text serif {{item.known ? 'xt-item-known' : ''}}" user-select>{{item.text}}</text>
-              <text class="xt-item-gloss">{{item.gloss}}</text>
+              <text class="serif xt-item-text {{item.known ? 'xt-item-known' : ''}}" user-select>{{item.text}}</text>
+              <text class="t-secondary">{{item.gloss}}</text>
             </view>
-            <text wx:if="{{item.exampleEn}}" class="xt-example serif" user-select>{{item.exampleEn}}</text>
-            <text wx:if="{{item.exampleZh}}" class="xt-example-zh">{{item.exampleZh}}</text>
+            <text wx:if="{{item.exampleEn}}" class="t-secondary serif" user-select>{{item.exampleEn}}</text>
+            <text wx:if="{{item.exampleZh}}" class="t-caption">{{item.exampleZh}}</text>
           </view>
           <view
             class="icon-btn icon-btn-sm icon-btn-tonal"
+            hover-class="pressed"
+            hover-stay-time="80"
+            hover-stop-propagation
             data-index="{{item.index}}"
             data-key="{{item.key}}"
             catchtap="onPlayItem"
@@ -63,14 +79,24 @@
         </view>
 
         <view wx:if="{{passage}}" class="card-surface xt-passage">
-          <view class="xt-passage-head">
-            <text class="xt-section-title xt-flat">{{passage.title || '放进一段短文里看'}}</text>
+          <view class="section-head">
+            <text class="t-label">{{passage.title || '放进一段短文里看'}}</text>
             <view class="xt-passage-tools">
-              <view wx:if="{{passage.zh}}" class="btn btn-secondary btn-sm" bindtap="onTogglePassageZh" aria-role="button" aria-pressed="{{showPassageZh}}">
+              <view
+                wx:if="{{passage.zh}}"
+                class="btn btn-secondary btn-sm"
+                hover-class="pressed"
+                hover-stay-time="80"
+                bindtap="onTogglePassageZh"
+                aria-role="button"
+                aria-pressed="{{showPassageZh}}"
+              >
                 <text>{{showPassageZh ? '隐藏中文' : '看中文'}}</text>
               </view>
               <view
                 class="icon-btn icon-btn-sm icon-btn-tonal"
+                hover-class="pressed"
+                hover-stay-time="80"
                 bindtap="onPlayPassage"
                 aria-role="button"
                 aria-label="{{speech.key === passageKey ? '停止朗读' : '朗读短文'}}"
@@ -79,51 +105,73 @@
               </view>
             </view>
           </view>
-          <text class="xt-passage-text serif" user-select>{{passage.text}}</text>
-          <text wx:if="{{showPassageZh}}" class="xt-passage-zh">{{passage.zh}}</text>
+          <text class="t-reading xt-passage-text" user-select>{{passage.text}}</text>
+          <text wx:if="{{showPassageZh}}" class="t-secondary xt-passage-zh">{{passage.zh}}</text>
         </view>
 
         <view wx:if="{{grammar}}" class="xt-grammar">
-          <text class="xt-section-title">语法提示</text>
-          <text wx:if="{{grammar.rule}}" class="xt-rule">{{grammar.rule}}</text>
+          <view class="section-head"><text class="t-label">语法提示</text></view>
+          <text wx:if="{{grammar.rule}}" class="t-secondary xt-block">{{grammar.rule}}</text>
           <view wx:for="{{grammar.examples}}" wx:key="wrong" class="xt-pair">
             <view class="mark-line">
               <view class="mark-icon"><t-icon name="close" tone="danger" size="28" /></view>
-              <text class="xt-wrong serif">{{item.wrong}}</text>
+              <text class="t-body serif xt-wrong">{{item.wrong}}</text>
             </view>
             <view class="mark-line">
               <view class="mark-icon"><t-icon name="check" tone="accent" size="30" /></view>
-              <text class="xt-right serif">{{item.right}}</text>
+              <text class="t-body serif xt-right">{{item.right}}</text>
             </view>
           </view>
         </view>
 
-        <text wx:if="{{dismissed}}" class="xt-notice" aria-role="status">{{dismissNotice}}</text>
+        <text wx:if="{{dismissed}}" class="t-secondary xt-notice" aria-role="status">{{dismissNotice}}</text>
       </block>
 
-      <view wx:elif="{{phase === 'none'}}" class="xt-none">
-        <text class="xt-none-title">{{noneText}}</text>
-        <text class="xt-none-note">开启拓展资料后，每周一早上会按你最近查的词和复习情况推荐一份。</text>
+      <view wx:elif="{{phase === 'none'}}" class="state">
+        <text class="state-text">{{noneText}}</text>
+        <text class="t-caption">开启拓展资料后，每周一早上会按你最近查的词和复习情况推荐一份。</text>
       </view>
 
-      <view wx:elif="{{phase === 'error'}}" class="xt-none">
-        <text class="error">{{errorText}}</text>
-        <view class="xt-retry">
-          <view class="btn btn-secondary btn-sm" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+      <view wx:elif="{{phase === 'error'}}" class="state">
+        <text class="state-text state-error">{{errorText}}</text>
+        <view class="btn btn-secondary btn-sm" hover-class="pressed" hover-stay-time="80" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+      </view>
+
+      <!-- Loading: the head, the reasons card and a few item rows. -->
+      <view wx:else aria-label="加载中">
+        <view class="skel skel-line xt-skel-tag" />
+        <view class="skel xt-skel-title" />
+        <view class="skel skel-block xt-skel-why" />
+        <view class="skel skel-line xt-skel-label" />
+        <view wx:for="{{[1, 2, 3, 4]}}" wx:key="*this" class="xt-skel-row">
+          <view class="skel xt-skel-tick" />
+          <view class="xt-skel-text">
+            <view class="skel skel-line xt-skel-word" />
+            <view class="skel skel-line" />
+          </view>
         </view>
       </view>
-
-      <text wx:else class="empty">加载中…</text>
     </view>
   </scroll-view>
 
   <view wx:if="{{phase === 'ready'}}" class="bottom-bar" style="padding-bottom: {{safeBottom + 8}}px;" aria-role="toolbar">
-    <text wx:if="{{canDismiss}}" class="link xt-dismiss" bindtap="onDismiss" aria-role="button">{{dismissing ? '…' : dismissed ? '撤销' : '不感兴趣'}}</text>
-    <view class="icon-btn xt-pdf" bindtap="onExport" aria-role="button" aria-label="导出 PDF">
+    <view
+      wx:if="{{canDismiss}}"
+      class="link xt-link xt-dismiss"
+      hover-class="pressed"
+      hover-stay-time="80"
+      bindtap="onDismiss"
+      aria-role="button"
+    >
+      <text>{{dismissing ? '…' : dismissed ? '撤销' : '不感兴趣'}}</text>
+    </view>
+    <view class="icon-btn xt-pdf" hover-class="pressed" hover-stay-time="80" bindtap="onExport" aria-role="button" aria-label="导出 PDF">
       <t-icon name="printer" tone="accent" size="36" />
     </view>
     <view
       class="btn btn-primary xt-grow {{addCount && !adding ? '' : 'btn-disabled'}}"
+      hover-class="{{addCount && !adding ? 'pressed' : 'none'}}"
+      hover-stay-time="80"
       bindtap="onAdd"
       aria-role="button"
       aria-disabled="{{!addCount}}"

@@ -6,26 +6,36 @@
         <view class="ex-file">
           <view class="ex-badge"><text class="ex-badge-text">PDF</text></view>
           <view class="ex-text">
-            <text class="ex-name">{{item.fileName}}</text>
-            <text class="ex-meta">{{item.meta}}</text>
-            <text class="ex-left">{{item.left}}</text>
+            <text class="t-body ex-name">{{item.fileName}}</text>
+            <text class="t-caption">{{item.meta}}</text>
+            <text class="t-caption">{{item.left}}</text>
           </view>
         </view>
         <view class="ex-actions">
-          <view class="btn btn-primary btn-sm btn-icon-first" data-path="{{item.path}}" bindtap="onShare" aria-role="button" aria-label="发给微信好友">
+          <view
+            class="btn btn-primary btn-sm btn-icon-first"
+            hover-class="pressed"
+            hover-stay-time="80"
+            data-path="{{item.path}}"
+            bindtap="onShare"
+            aria-role="button"
+            aria-label="发给微信好友"
+          >
             <t-icon name="share" tone="accentInk" size="28" />
             <text>发送</text>
           </view>
-          <view class="btn btn-secondary btn-sm" data-path="{{item.path}}" bindtap="onPreview" aria-role="button"><text>预览</text></view>
-          <text class="link link-danger ex-remove" data-path="{{item.path}}" bindtap="onRemove" aria-role="button">删除</text>
+          <view class="btn btn-secondary btn-sm" hover-class="pressed" hover-stay-time="80" data-path="{{item.path}}" bindtap="onPreview" aria-role="button"><text>预览</text></view>
+          <view class="link link-danger ex-remove" hover-class="pressed" hover-stay-time="80" data-path="{{item.path}}" bindtap="onRemove" aria-role="button">
+            <text>删除</text>
+          </view>
         </view>
       </view>
 
-      <view wx:if="{{loaded && !rows.length}}" class="ex-empty">
-        <text class="ex-empty-title">还没有导出过 PDF</text>
-        <text class="ex-empty-note">在学习资料里点「导出 PDF」。导出的文件在这台手机上保留 7 天。</text>
+      <view wx:if="{{loaded && !rows.length}}" class="state">
+        <text class="state-text">还没有导出过 PDF</text>
+        <text class="t-caption">在学习资料里点「导出 PDF」。导出的文件在这台手机上保留 7 天。</text>
       </view>
-      <text wx:elif="{{rows.length}}" class="ex-note">文件只存在这台手机上，7 天后自动删除。预览里点右上角「…」可以保存到手机或打印。</text>
+      <text wx:elif="{{rows.length}}" class="t-caption ex-note">文件只存在这台手机上，7 天后自动删除。预览里点右上角「…」可以保存到手机或打印。</text>
     </view>
   </scroll-view>
 </view>
