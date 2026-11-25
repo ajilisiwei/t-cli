@@ -461,3 +461,137 @@ Daily material (nightly pipeline) picks 4 ★ items first, then 3 ★, for its w
 | 422 | `NOT_A_WORD` | `POST /v1/lookup`: no English word or phrase recognized |
 | 409 | `NOTE_CONFLICT` | `PUT /v1/notes/:id`: the id exists with another `kind`, `text` or `lang` |
 | 422 | `PART_OUT_OF_RANGE` | `POST /v1/tts`: `part` ≥ the number of parts (`details.parts`) |
+
+## v3 (M12–M17)
+
+Additive: every v1 and v2 endpoint keeps its behaviour for old clients unless a line below says otherwise. Design: `docs/v3-plan.html`. Tables: `lookup_events`; `materials.kind` gains `digest` and `extend`; `materials.read_at` (migration `0003_v3_learn`). Shapes in code: `apps/server/src/modules/pipeline/learnContent.ts` (digest, extension, exercises).
+
+### Settings (v3 keys)
+
+Same rules as the v2 settings (strict, local first, defaults applied by clients).
+
+| Key | Values | Default |
+|---|---|---|
+| `materialFrequency` | `daily` \| `weekly` \| `off` — 周期资料 | `daily` |
+| `materialWeekday` | integer 0–6, 0 = Sunday — the day a `weekly` digest comes out | `1` |
+| `materialParts` | non-empty subset of `words`, `phrases`, `grammar`, `story`, `exercises` (no duplicates) | all five |
+| `extendEnabled` | boolean — 拓展资料 | `true` |
+| `extendTopics` | subset of `work`, `travel`, `exam`, `daily`, `tech`, `culture`, `finance`, `health` (≤ 8, no duplicates); `[]` = topics found in the account's data only | `[]` |
+| `extendMuted` | `{ topic, until: "YYYY-MM-DD" }[]` (≤ 8; `topic` as in `ExtendTopic`) — topics not recommended until that local day (exclusive) | `[]` |
+| `studyLevel` | `auto` \| `A2` \| `B1` \| `B2` \| `C1` | `auto` |
+
+`materialParts` without `story` → no story is generated (no model call for it). The other parts are always built; clients and the PDF show only the parts listed.
+
+### Lookup events
+
+`POST /v1/lookup` responds as before. After a `200`, the server records a lookup event for the caller: `{ lemmaKey, explainLang, createdAt }`, where `lemmaKey` is the lexicon key of the answer's `lemma`. No sentence and no `entryId` are stored. At most one event per account and lemma key per 10 minutes. Recording runs after the answer is decided; a failure is logged (no user text) and never changes the response. Events older than 180 days are deleted by the nightly job.
+
+### Review scope
+
+`GET /v1/review/queue?scope=all|notes|stars3` (default `all`): `notes` = cards whose item has `stars ≥ 1`, `stars3` = `stars ≥ 3`. The scope filters due and new cards alike; daily limits and order are unchanged.
+`GET /v1/review/summary` gains `dueByScope: { all, notes, stars3 }` (each computed with the same limits; `all` = `due`).
+
+### Learn summary
+
+`GET /v1/learn/summary?utcOffsetMinutes=` → `LearnSummary` — everything the 学习 tab's first screen needs in one call:
+```ts
+type LearnSummary = {
+  review: { dueByScope: { all: number; notes: number; stars3: number };
+            doneToday: number; estimatedMinutes: number; streakDays: number };   // as GET /v1/review/summary
+  materials: MaterialListItem[];          // the 3 latest of any kind, newest first (date desc, then kind order: extend, digest, daily, weekly)
+  plan: { materialFrequency: 'daily' | 'weekly' | 'off'; materialWeekday: number; extendEnabled: boolean };   // defaults applied
+  level: { setting: 'auto' | StudyLevel; effective: StudyLevel; retention30: number | null; reviews30: number };
+};
+type StudyLevel = 'A2' | 'B1' | 'B2' | 'C1';
+```
+`level.effective` = the setting, or with `auto`: `B1`, then `C1` when `retention30 ≥ 0.93` and `reviews30 ≥ 300`, else `B2` when `retention30 ≥ 0.88` and `reviews30 ≥ 150`, else `A2` when `retention30 < 0.70` and `reviews30 ≥ 50`. `retention30` = share of ratings ≥ 2 on non-new cards in the last 30 days (`null` without such ratings).
+
+### Materials (v3)
+
+Kinds: `daily` (每日资料), `digest` (每周模式的 7 天合集), `extend` (拓展资料), `weekly` (周报, unchanged). `date`: daily = the day the material covers; digest = the last day of its range; extend = the local day it was generated (a Monday); weekly = the week's Monday (unchanged).
+
+`GET /v1/materials?kind=all|daily|digest|extend|weekly&before=YYYY-MM-DD&limit=` (1–60, default 30) → `{ dates: string[], items: MaterialListItem[], nextBefore: string | null }`. `items` is new; `dates` stays for old clients (with `kind=all` it lists each date once). Order: date desc, then kind order as above.
+```ts
+type MaterialListItem = {
+  kind: 'daily' | 'digest' | 'extend' | 'weekly';
+  date: string;
+  title: string;          // built by the server in the explanation language, e.g. "9 个词和一篇短文", "7 天合集：18 个词", the extension's title, "复习 126 次，记住 82%"
+  counts: { words: number; phrases: number; grammar: number; exercises: number; items: number };   // items = extension items; 0 where not applicable
+  readAt: string | null;  // 学完了
+  pages: number;          // estimated A4 pages of its PDF (practice layout); 0 for weekly
+  createdAt: string;
+};
+```
+
+`GET /v1/materials/daily?date=`, `GET /v1/materials/digest?date=`, `GET /v1/materials/extend?date=` (omit `date` → latest), `GET /v1/materials/weekly?date=` →
+```ts
+type MaterialResponse = {
+  date: string; kind: string; createdAt: string; readAt: string | null;
+  content: DailyMaterial | DigestMaterial | ExtendMaterial | WeeklyReport;
+  exercises?: Exercises;   // daily and digest: derived from the content (exercisesFor), never stored
+  known?: boolean[];       // extend: per item, true when the account already has a unit with that text (same type and key)
+};
+type DigestMaterial = DailyMaterial & {
+  range: { start: string; end: string };                   // 7 local days, end = date
+  review: { itemId: string; display: string; gloss: string; lapses: number }[];   // ≤ 12, forgotten (忘记) in the range
+};   // caps: words 20, phrases 10, grammar 6, mistakes 8
+type ExtendMaterial = {
+  focus: 'topic' | 'family' | 'grammar' | 'reading';
+  topic: 'work' | 'travel' | 'exam' | 'daily' | 'tech' | 'culture' | 'finance' | 'health' | 'other';
+  title: string; level: StudyLevel;
+  reasons: string[];       // 1–4, written by the server from evidence and statistics (never by the model)
+  evidence: string[];      // ≤ 12 lemmas from the account's own data
+  items: { text: string; kind: 'word' | 'phrase'; gloss: string; example: { en: string; zh: string } }[];   // 6–10
+  passage: { title: string; text: string; zh: string } | null;
+  grammar: { rule: string; examples: { wrong: string; right: string }[] } | null;
+};
+type Exercises = {
+  bank: string[];   // cloze word bank: the bases used plus at most one spare, sorted
+  cloze: { itemId: string; before: string; after: string; answer: string; base: string; zh: string }[];   // ≤ 8
+  translate: { itemId: string; zh: string; answer: string }[];   // ≤ 3
+  fix: { itemId: string; wrong: string; right: string }[];       // ≤ 4
+};
+```
+
+`POST /v1/materials/:kind/:date/read` — Body `{ read: boolean }` → `{ readAt: string | null }`; unknown material → 404.
+
+`POST /v1/materials/extend/:date/adopt` — Body `{ indexes: number[] }` (1–10 distinct, each < the item count) → `{ added: number[], known: number[] }` (indexes). Each chosen item becomes a unit of the account: `word` → type `word` (key as for words), `phrase` → type `phrase` (key as for phrases). A unit that already exists is `known` (its counters are not changed). A new word with a lexicon entry in the account's explanation language is created `ready` with its content and cards at once; any other new unit is `pending` and gets content and cards in the next nightly run. Idempotent.
+
+`POST /v1/materials/extend/:date/dismiss` — Body `{ undo?: boolean }` → `{ extendMuted: { topic, until }[] }`: adds (or with `undo`, removes) the material's topic in `settings.extendMuted` with `until` = the local day 30 days later; an entry already there for that topic is replaced. Topic `other` is never muted (→ `{ extendMuted }` unchanged).
+
+### Pipeline (v3)
+
+Per account, in this order:
+0. **Lookup events → units.** Events since the last run, merged by `lemmaKey`: an existing `word` unit gets `lookupCount += n` and `lastSeenAt`; otherwise a new `word` unit is created — `ready` with content and cards when the lexicon has the entry, else `pending`. Events older than 180 days are deleted.
+1–2. Unchanged (extraction, content and cards — including `pending` units from step 0 and from adoption).
+3. **周期资料 by `materialFrequency`.** `daily`: the previous local day's material, built only when that day had activity. `weekly`: when the local weekday today is `materialWeekday`, a digest over the 7 days ending yesterday — always built for an active account; with no new units it consists of `review`. `off`: nothing. Activity = a record, a lookup event, a note saved or changed, or a review. A day's units are those with a source record that day, a note saved or changed that day, or a lookup event that day.
+4. Weekly report on Sundays, unchanged.
+5. **拓展资料** when the local day is a Monday, `extendEnabled` is true and the account had activity in the last 30 days. Signals sent to the model: lemmas looked up or recorded in the last 14 days (≤ 60), grammar points with error counts, units forgotten in review in the last 14 days (≤ 10), units with ≥ 3 stars, the effective level, `extendTopics`, muted topics. Never a user sentence. The answer is validated (`ExtendContentSchema`); evidence not in the given lemmas is dropped; fewer than 2 evidence lemmas → one retry, then no extension that week.
+
+Accounts with no activity in the last 30 days skip steps 3 and 5.
+
+### PDF export
+
+`POST /v1/exports/pdf` — Body:
+```ts
+type PdfExportRequest = {
+  scope: 'material' | 'cards' | 'checklist';
+  materials?: { kind: 'daily' | 'digest' | 'extend'; date: string }[];   // 1–8; required for material and cards; optional for checklist
+  layout?: 'read' | 'practice';   // material only; default practice (answers in a last section after a cut line)
+  ipa?: boolean;                  // default true
+  large?: boolean;                // default false: larger type for handwriting
+};
+```
+- `material`: each material becomes a section, in the given order (one material = 这一份, several = 合集).
+- `cards`: 单词卡 from the materials' words, phrases and extension items, 6 per A4 page.
+- `checklist`: 自测清单 from the materials' words and phrases; without `materials`, from the account's units due today and those forgotten ≥ 2 times in the last 30 days (≤ 24).
+
+→ `200 application/pdf` with `Content-Disposition: attachment; filename*=UTF-8''<name>.pdf` and `X-Pdf-Pages: <n>`. Names: `学习资料_MMDD.pdf`, `学习资料合集_MMDD-MMDD.pdf`, `单词卡_MMDD.pdf`, `自测清单_MMDD.pdf` (dates of the materials, or today). The PDF is never stored on the server. At most 10 exports per account per hour; at most 40 pages.
+
+### New error codes (v3)
+
+| Status | Code | When |
+|---|---|---|
+| 422 | `TOO_MANY_PAGES` | `POST /v1/exports/pdf`: more than 40 pages (`details.pages`) |
+| 502 | `EXPORT_FAILED` | `POST /v1/exports/pdf`: the renderer failed or took longer than 15 s |
+| 503 | `EXPORT_UNAVAILABLE` | `POST /v1/exports/pdf`: the renderer is not installed (local development) |
