@@ -31,6 +31,7 @@ import {
   type ScopeChoice,
   type SheetScope,
 } from '../../lib/pdf-export'
+import { confirmTap } from '../../services/haptics'
 import { exportFileExists, exportPdf, openExportFile, shareExportFile } from '../../services/pdf'
 import { safeBottomInset } from '../../services/platform'
 import { toast } from '../../services/ui'
@@ -206,6 +207,7 @@ Component({
           toast('PDF 已生成，在导出记录里')
           return
         }
+        confirmTap()
         this.setData({
           step: 'done',
           file: { path: record.path, fileName: record.fileName, summary: fileSummary(record.pages, formatBytes(record.bytes)) },
