@@ -1,0 +1,981 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>随手译记 v3 实现计划</title>
+<style>
+  :root {
+    --bg: #fbfaf7; --surface: #ffffff; --text: #1f2328; --muted: #656d76;
+    --border: #e4e2dc; --accent: #2f6feb; --accent-soft: #e8f0fe;
+    --warn: #b35900; --warn-soft: #fff4e5; --ok: #1a7f37; --ok-soft: #e6f4ea;
+    --code-bg: #f3f2ee;
+    /* Diagram palette (consumed by scripts/render_diagrams.mjs SVGs and classDefs) */
+    --dg-bg: #ffffff; --dg-fg: #1f2328; --dg-line: #8c959f; --dg-accent: #2f6feb;
+    --dg-muted: #656d76; --dg-node: #f4f7fd; --dg-border: #9db7ec;
+    --dg-new-bg: #e6f4ea; --dg-new: #1a7f37; --dg-chg-bg: #fff4e5; --dg-chg: #b35900;
+    --dg-old-bg: #f1f1ef; --dg-old: #8c959f; --dg-ext-bg: #f3eefc; --dg-ext: #8250df;
+    --dg-bad-bg: #fdecea; --dg-bad: #cf222e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #15171a; --surface: #1d2024; --text: #e6e6e6; --muted: #9aa3ad;
+      --border: #30343a; --accent: #6ea8fe; --accent-soft: #1d2a40;
+      --warn: #f0a050; --warn-soft: #3a2a17; --ok: #5cc27a; --ok-soft: #173322;
+      --code-bg: #24282d;
+      --dg-bg: #1d2024; --dg-fg: #e6e6e6; --dg-line: #7d8590; --dg-accent: #6ea8fe;
+      --dg-muted: #9aa3ad; --dg-node: #222a36; --dg-border: #3d5a8a;
+      --dg-new-bg: #173322; --dg-new: #5cc27a; --dg-chg-bg: #3a2a17; --dg-chg: #f0a050;
+      --dg-old-bg: #2a2d31; --dg-old: #7d8590; --dg-ext-bg: #2b2140; --dg-ext: #b392f0;
+      --dg-bad-bg: #3d1c1f; --dg-bad: #ff7b72;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #15171a; --surface: #1d2024; --text: #e6e6e6; --muted: #9aa3ad;
+    --border: #30343a; --accent: #6ea8fe; --accent-soft: #1d2a40;
+    --warn: #f0a050; --warn-soft: #3a2a17; --ok: #5cc27a; --ok-soft: #173322;
+    --code-bg: #24282d;
+    --dg-bg: #1d2024; --dg-fg: #e6e6e6; --dg-line: #7d8590; --dg-accent: #6ea8fe;
+    --dg-muted: #9aa3ad; --dg-node: #222a36; --dg-border: #3d5a8a;
+    --dg-new-bg: #173322; --dg-new: #5cc27a; --dg-chg-bg: #3a2a17; --dg-chg: #f0a050;
+    --dg-old-bg: #2a2d31; --dg-old: #7d8590; --dg-ext-bg: #2b2140; --dg-ext: #b392f0;
+    --dg-bad-bg: #3d1c1f; --dg-bad: #ff7b72;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.7 -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  }
+  #progress { position: fixed; top: 0; left: 0; height: 3px; background: var(--accent); width: 0; transition: width .2s; z-index: 10; }
+  .layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); max-width: 1180px; margin: 0 auto; gap: 32px; padding: 32px 16px 96px; }
+  nav.toc { position: sticky; top: 24px; align-self: start; font-size: 14px; }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; counter-reset: s; }
+  nav.toc li { counter-increment: s; }
+  nav.toc a { display: block; padding: 6px 10px; border-radius: 6px; color: var(--muted); text-decoration: none; }
+  nav.toc a::before { content: counter(s) ". "; }
+  nav.toc a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .toolbar { margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+  button { font: inherit; font-size: 13px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  main { min-width: 0; overflow-wrap: anywhere; }
+  header h1 { font-size: 30px; line-height: 1.3; margin: 0 0 8px; }
+  header .meta { color: var(--muted); font-size: 14px; }
+  .summary { margin: 24px 0 8px; padding: 16px 20px; border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; }
+  .summary strong:first-child { display: block; margin-bottom: 4px; }
+  section.step { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px 28px; margin: 24px 0; scroll-margin-top: 24px; }
+  section.step h2 { margin: 0 0 4px; font-size: 22px; }
+  section.step .lead { color: var(--muted); margin: 0 0 16px; }
+  body.step-mode section.step { display: none; }
+  body.step-mode section.step.current { display: block; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; margin: 12px 0; display: block; overflow-x: auto; }
+  th, td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--code-bg); }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; font-size: .9em; font-family: "SF Mono", Menlo, Consolas, monospace; }
+  pre { background: var(--code-bg); padding: 12px 16px; border-radius: 8px; overflow-x: auto; }
+  pre code { padding: 0; background: none; }
+  .diagram { margin: 16px 0; padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--dg-bg); overflow-x: auto; text-align: center; }
+  .diagram svg { max-width: 100%; height: auto; }
+  .diagram-src { border: 0; padding: 0; margin: 8px 0 0; text-align: left; }
+  .diagram-src > summary { font-size: 12px; font-weight: 400; color: var(--muted); }
+  .diagram-src pre { font-size: 12px; }
+  .diagram pre.mermaid { color: var(--bad, #cf222e); text-align: left; } /* unrendered = build step was skipped */
+  .diagram-caption { font-size: 13px; color: var(--muted); text-align: center; margin-top: -8px; }
+  details { border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; margin: 12px 0; }
+  details > summary { cursor: pointer; font-weight: 600; }
+  .callout { padding: 12px 16px; border-radius: 8px; margin: 12px 0; }
+  .callout.warn { background: var(--warn-soft); border-left: 4px solid var(--warn); }
+  .callout.ok { background: var(--ok-soft); border-left: 4px solid var(--ok); }
+  .tag { display: inline-block; font-size: 12px; padding: 0 6px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); }
+  .tag.infer { color: var(--warn); border-color: var(--warn); }
+  .tag.todo { color: var(--accent); border-color: var(--accent); }
+  .step-nav { display: none; justify-content: space-between; margin-top: 16px; }
+  body.step-mode .step-nav { display: flex; }
+  @media (max-width: 820px) {
+    .layout { grid-template-columns: minmax(0, 1fr); padding-top: 16px; }
+    nav.toc { position: static; }
+    section.step { padding: 18px 16px; }
+  }
+  @media print {
+    nav.toc, .toolbar, .step-nav, #progress { display: none !important; }
+    .layout { display: block; }
+    body.step-mode section.step { display: block; }
+    details { display: block; }
+  }
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div class="layout">
+  <nav class="toc">
+    <ol id="toc"></ol>
+    <div class="toolbar">
+      <!-- Chrome strings are filled from <html lang> by applyUI(); do not hand-write them. -->
+      <button id="btn-mode"></button>
+      <button id="btn-expand"></button>
+      <button id="btn-theme"></button>
+    </div>
+  </nav>
+
+  <main>
+    <header>
+      <h1>随手译记 v3 实现计划：学习模块</h1>
+      <div class="meta">技术方案 · 2026-11-25 · 来源：学习模块原型（claude.ai/artifact/Xh9dzUYGheN32HfwayT7c7）、代码库 main 分支（7008c0c）</div>
+      <div class="summary">
+        <strong data-ui="summary"></strong>
+        v3 把「复习」tab 改成「学习」：复习不变，新增按频率生成的周期资料、每周一份的拓展资料，以及 A4 PDF 导出。
+        服务端先做数据和生成（M12–M14），PDF 渲染（M15）和小程序（M16）同时开发，最后联调发布（M17）。
+        PDF 用 Typst 在服务端排版：实测一份 4 页资料约 0.1 秒，峰值内存约 50 MB。
+      </div>
+    </header>
+
+    <section class="step" id="s1" data-title="范围与已定设计">
+      <h2>1. 范围与已定设计</h2>
+      <p class="lead">v3 包含 8 项改动，设计已在原型里定稿；下表是每项的最终设计。</p>
+      <table>
+        <thead><tr><th>改动</th><th>定下的设计</th><th>原型画板</th></tr></thead>
+        <tbody>
+          <tr><td>学习 tab</td><td>「复习」改名「学习」，图标换成打开的书。路由仍是 <code>pages/review/index</code>，因为复习提醒消息打开这个页面。首页四块：今日复习、学习资料、打印与导出、学习计划入口</td><td>学习 · 首页</td></tr>
+          <tr><td>复习范围</td><td>全部到期 / 只复习笔记本（星级 ≥ 1）/ 3 星以上。复习引擎和排期不变</td><td>学习 · 首页</td></tr>
+          <tr><td>周期资料</td><td>频率：每天（默认）/ 每周（选星期几，默认周一）/ 关闭。内容可选：重点词、词组与句型、语法与易错、情景短文、练习题。每个词标明入选原因</td><td>周期资料 · 详情、学习计划</td></tr>
+          <tr><td>拓展资料</td><td>每周一出一份。每份写明推荐理由。勾选后才加入复习。「不感兴趣」让这个主题 30 天内不再推荐。方向可以自己选，AI 也会从查询里识别</td><td>拓展资料 · 详情</td></tr>
+          <tr><td>点词计入学习</td><td>点词查词成功后记一条查词事件，只存词和时间，不存句子。夜间转成学习单元</td><td>—</td></tr>
+          <tr><td>PDF 导出</td><td>范围：这一份 / 本周合集 / 单词卡 / 自测清单。版式：阅读版 / 练习版。选项：显示音标、大字号。A4，不显示昵称。导出后可以预览、发给微信好友、保存到手机</td><td>导出 PDF、PDF 样张 4 页</td></tr>
+          <tr><td>难度</td><td>自动（按最近 30 天记住率估计）或手动 A2–C1。短文、练习和拓展资料按这个难度出</td><td>学习计划</td></tr>
+          <tr><td>朗读按钮</td><td>全部只用喇叭图标，不带文字（已完成，提交 <code>3e08fa4</code>）</td><td>—</td></tr>
+        </tbody>
+      </table>
+      <div class="callout warn"><strong>不在 v3 里：</strong>PDF 里的小程序码、笔记本导出 PDF、新资料出来时的提醒、CLI 导出 PDF。这些放第二期。</div>
+    </section>
+
+    <section class="step" id="s2" data-title="现状与约束">
+      <h2>2. 现状与约束</h2>
+      <p class="lead">复习、每日材料、周报和导出文件的路径都能复用；缺口是点词不进学习数据、资料只有一种频率、服务端不能出 PDF。</p>
+      <table>
+        <thead><tr><th>约束</th><th>来源</th></tr></thead>
+        <tbody>
+          <tr><td>复习 tab 现在有：复习进度环、当日材料卡片、词库和周报入口</td><td><code>apps/miniprogram/miniprogram/pages/review/index.wxml:50-86</code></td></tr>
+          <tr><td>夜间任务每天 05:00（UTC+8）按账号依次跑：抽取 → 生成内容和卡片 → 前一天的每日材料 → 周日出周报</td><td><code>apps/server/src/modules/pipeline/index.ts:18-28</code>、<code>run.ts:120-159</code></td></tr>
+          <tr><td>当天没有记录就不出每日材料；笔记和点词不算</td><td><code>apps/server/src/modules/pipeline/materials.ts:308</code></td></tr>
+          <tr><td>点词查词不写任何记录，夜间任务看不到</td><td><code>apps/server/src/modules/lookup/service.ts</code></td></tr>
+          <tr><td>每日材料和周报是 TS 接口；只有模型写的部分（短文、易错说明、周报总结）有 zod 校验</td><td><code>apps/server/src/modules/pipeline/materials.ts:38-56</code>、<code>schemas.ts:101-119</code></td></tr>
+          <tr><td><code>materials</code> 表主键是 (user_id, kind, date)，kind 只有 daily / weekly</td><td><code>apps/server/src/db/schema.ts:263</code></td></tr>
+          <tr><td>学习单元的星级 = 它的有效笔记里的最高星；复习按星级定记住率</td><td><code>apps/server/src/db/schema.ts:158</code>、<code>review/fsrs.ts:18-38</code></td></tr>
+          <tr><td>设置字段严格校验，一个键一个 schema</td><td><code>apps/server/src/modules/auth/settings.ts:20-46</code></td></tr>
+          <tr><td>夜间任务每个账号每次最多 20 万 token；交互 AI 每天 30 万</td><td><code>apps/server/src/config.ts:54-56</code></td></tr>
+          <tr><td>已有一条下发文件的路径：<code>wx.request</code> 取字节 → 写到 <code>USER_DATA_PATH</code> → <code>wx.shareFileMessage</code>。downloadFile 域名特意留空</td><td><code>apps/miniprogram/miniprogram/pages/account/index.ts:82-104</code></td></tr>
+          <tr><td>容器是 node:24-alpine，内存上限 256 MB，镜像里没有中文字体；主机 2 核 1.6 GB，和别的应用共用</td><td><code>apps/server/Dockerfile</code>、<code>deploy/docker-compose.prod.yml:35</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="step" id="s3" data-title="目标架构">
+      <h2>3. 目标架构</h2>
+      <p class="lead">服务端新增查词事件、学习接口、两种资料和 PDF 导出；夜间任务多出「点词转单元」和「拓展资料」两步，资料按各人的频率生成。</p>
+      <!-- mermaid:begin -->
+<div class="diagram rendered">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 727.486 429.84999999999997" width="727.486" height="429.84999999999997" style="--bg:var(--dg-bg);--fg:var(--dg-fg);--line:var(--dg-line);--accent:var(--dg-accent);--muted:var(--dg-muted);--surface:var(--dg-node);--border:var(--dg-border)">
+<style>
+
+  text { font-family: var(--dg-font, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif); }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<polyline class="edge" data-from="APP" data-to="LOOK" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="237.862,248.6 258.2325,248.6 258.2325,42.45 278.60300000000007,42.45" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="APP" data-to="LEARN" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="237.862,248.6 258.2325,248.6 258.2325,203.7 278.60300000000007,203.7" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="APP" data-to="MATS" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="237.862,248.6 258.2325,248.6 258.2325,293.5 278.60300000000007,293.5" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="APP" data-to="PDF" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="237.862,248.6 258.2325,248.6 258.2325,375.7 278.60300000000007,375.7" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="LOOK" data-to="EV" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="416.14200000000005,42.44999999999999 455.40100000000007,42.450000000000045" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="LEARN" data-to="IT" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="462.08400000000006,203.7 521.3430000000001,203.7 521.3430000000001,171.50833333333333 533.3430000000001,171.50833333333333" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="MATS" data-to="MT" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="462.82500000000005,293.5 534.084,293.5" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="PDF" data-to="MT" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="443.5590000000001,375.7 472.82150000000007,375.7 472.82150000000007,293.5 534.084,293.5" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="PDF" data-to="TYP" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="443.5590000000001,375.7 472.82150000000007,375.7 472.82150000000007,381.84999999999997 502.08400000000006,381.84999999999997" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="NIGHT" data-to="EV" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="414.6600000000001,122.34999999999998 435.0305000000001,122.34999999999998 435.0305000000001,50.93333333333335 455.40100000000007,50.93333333333335" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="NIGHT" data-to="IT" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="414.6600000000001,122.34999999999998 435.0305000000001,122.34999999999998 435.0305000000001,163.02499999999998 533.3430000000001,163.02499999999998" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="NIGHT" data-to="MT" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="414.6600000000001,122.34999999999998 435.0305000000001,122.34999999999998 435.0305000000001,293.5 534.084,293.5" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="node" data-id="APP" data-label="小程序
+学习首页 · 资料 · 导出面板" data-shape="rectangle">
+  <rect x="24" y="221.7" width="213.862" height="53.800000000000004" rx="0" ry="0" fill="var(--dg-chg-bg)" stroke="var(--dg-chg)" stroke-width="1.5px" />
+  <text x="130.93099999999998" y="248.6" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="130.93099999999998" dy="-3.9000000000000012">小程序</tspan><tspan x="130.93099999999998" dy="16.900000000000002">学习首页 · 资料 · 导出面板</tspan></text>
+</g>
+<g class="node" data-id="NIGHT" data-label="夜间任务 05:00" data-shape="rectangle">
+  <rect x="278.60300000000007" y="103.89999999999998" width="136.05700000000002" height="36.900000000000006" rx="0" ry="0" fill="var(--dg-chg-bg)" stroke="var(--dg-chg)" stroke-width="1.5px" />
+  <text x="346.6315000000001" y="122.34999999999998" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">夜间任务 05:00</text>
+</g>
+<g class="node" data-id="LOOK" data-label="POST /v1/lookup" data-shape="rectangle">
+  <rect x="278.60300000000007" y="24" width="137.539" height="36.900000000000006" rx="0" ry="0" fill="var(--dg-chg-bg)" stroke="var(--dg-chg)" stroke-width="1.5px" />
+  <text x="347.37250000000006" y="42.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">POST /v1/lookup</text>
+</g>
+<g class="node" data-id="LEARN" data-label="学习接口
+summary · queue scope" data-shape="rectangle">
+  <rect x="278.60300000000007" y="176.79999999999998" width="183.481" height="53.800000000000004" rx="0" ry="0" fill="var(--dg-new-bg)" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <text x="370.34350000000006" y="203.7" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="370.34350000000006" dy="-3.9000000000000012">学习接口</tspan><tspan x="370.34350000000006" dy="16.900000000000002">summary · queue scope</tspan></text>
+</g>
+<g class="node" data-id="MATS" data-label="资料接口
+列表 · 内容 · 加入复习" data-shape="rectangle">
+  <rect x="278.60300000000007" y="266.6" width="184.22199999999998" height="53.800000000000004" rx="0" ry="0" fill="var(--dg-chg-bg)" stroke="var(--dg-chg)" stroke-width="1.5px" />
+  <text x="370.71400000000006" y="293.5" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="370.71400000000006" dy="-3.9000000000000012">资料接口</tspan><tspan x="370.71400000000006" dy="16.900000000000002">列表 · 内容 · 加入复习</tspan></text>
+</g>
+<g class="node" data-id="PDF" data-label="POST /v1/exports/pdf" data-shape="rectangle">
+  <rect x="278.60300000000007" y="357.25" width="164.95600000000002" height="36.900000000000006" rx="0" ry="0" fill="var(--dg-new-bg)" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <text x="361.0810000000001" y="375.7" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">POST /v1/exports/pdf</text>
+</g>
+<g class="node" data-id="EV" data-label="lookup_events" data-shape="cylinder">
+  <rect x="455.40100000000007" y="32.48333333333335" width="129.388" height="36.900000000000006" fill="var(--dg-new-bg)" stroke="none" />
+  <line x1="455.40100000000007" y1="32.48333333333335" x2="455.40100000000007" y2="69.38333333333335" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <line x1="584.7890000000001" y1="32.48333333333335" x2="584.7890000000001" y2="69.38333333333335" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <ellipse cx="520.095" cy="69.38333333333335" rx="64.694" ry="7" fill="var(--dg-new-bg)" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <ellipse cx="520.095" cy="32.48333333333335" rx="64.694" ry="7" fill="var(--dg-new-bg)" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <text x="520.095" y="50.93333333333335" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">lookup_events</text>
+</g>
+<g class="node" data-id="IT" data-label="items · cards" data-shape="cylinder">
+  <rect x="533.3430000000001" y="144.575" width="119.01400000000001" height="36.900000000000006" fill="var(--_node-fill)" stroke="none" />
+  <line x1="533.3430000000001" y1="144.575" x2="533.3430000000001" y2="181.475" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="652.3570000000001" y1="144.575" x2="652.3570000000001" y2="181.475" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="592.8500000000001" cy="181.475" rx="59.507000000000005" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="592.8500000000001" cy="144.575" rx="59.507000000000005" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="592.8500000000001" y="163.02499999999998" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">items · cards</text>
+</g>
+<g class="node" data-id="MT" data-label="materials
+daily · digest · extend" data-shape="cylinder">
+  <rect x="534.084" y="266.6" width="169.402" height="53.80000000000001" fill="var(--dg-chg-bg)" stroke="none" />
+  <line x1="534.084" y1="266.6" x2="534.084" y2="320.40000000000003" stroke="var(--dg-chg)" stroke-width="1.5px" />
+  <line x1="703.4859999999999" y1="266.6" x2="703.4859999999999" y2="320.40000000000003" stroke="var(--dg-chg)" stroke-width="1.5px" />
+  <ellipse cx="618.785" cy="320.40000000000003" rx="84.701" ry="7" fill="var(--dg-chg-bg)" stroke="var(--dg-chg)" stroke-width="1.5px" />
+  <ellipse cx="618.785" cy="266.6" rx="84.701" ry="7" fill="var(--dg-chg-bg)" stroke="var(--dg-chg)" stroke-width="1.5px" />
+  <text x="618.785" y="293.5" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="618.785" dy="-3.9000000000000012">materials</tspan><tspan x="618.785" dy="16.900000000000002">daily · digest · extend</tspan></text>
+</g>
+<g class="node" data-id="TYP" data-label="Typst 排版" data-shape="rectangle">
+  <rect x="502.08400000000006" y="363.4" width="107.899" height="36.900000000000006" rx="0" ry="0" fill="var(--dg-new-bg)" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <text x="556.0335" y="381.84999999999997" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Typst 排版</text>
+</g>
+</svg>
+<details class="diagram-src"><summary>Mermaid 源码</summary>
+<pre class="mermaid-src">flowchart LR
+  APP["小程序&lt;br/&gt;学习首页 · 资料 · 导出面板"]:::chg
+  NIGHT["夜间任务 05:00"]:::chg
+  LOOK["POST /v1/lookup"]:::chg
+  LEARN["学习接口&lt;br/&gt;summary · queue scope"]:::new
+  MATS["资料接口&lt;br/&gt;列表 · 内容 · 加入复习"]:::chg
+  PDF["POST /v1/exports/pdf"]:::new
+  EV[("lookup_events")]:::new
+  IT[("items · cards")]
+  MT[("materials&lt;br/&gt;daily · digest · extend")]:::chg
+  TYP["Typst 排版"]:::new
+  APP --&gt; LOOK
+  APP --&gt; LEARN
+  APP --&gt; MATS
+  APP --&gt; PDF
+  LOOK --&gt; EV
+  LEARN --&gt; IT
+  MATS --&gt; MT
+  PDF --&gt; MT
+  PDF --&gt; TYP
+  NIGHT --&gt; EV
+  NIGHT --&gt; IT
+  NIGHT --&gt; MT
+  classDef new fill:var(--dg-new-bg),stroke:var(--dg-new),stroke-width:1.5px
+  classDef chg fill:var(--dg-chg-bg),stroke:var(--dg-chg),stroke-width:1.5px</pre>
+</details>
+</div>
+<!-- mermaid:end -->
+      <p class="lead">图例：绿色是新增，黄色是改动，白色不变。夜间任务调用 DeepSeek 生成短文、易错说明和拓展资料，图里省略。</p>
+    </section>
+
+    <section class="step" id="s4" data-title="数据模型">
+      <h2>4. 数据模型</h2>
+      <p class="lead">一张新表、<code>materials</code> 两处改动、七个新设置。迁移 0003 只加不删，旧客户端不受影响。</p>
+      <table>
+        <thead><tr><th>改动</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td><code>lookup_events</code>（新表）</td><td>列：user_id、id（ULID）、lemma_key（与 <code>lexicon.lemma</code> 同一规则）、explain_lang、created_at。主键 (user_id, id)，索引 (user_id, created_at)。不存句子，不存 entryId。同一账号同一个词 10 分钟内只记一次。180 天前的事件由夜间任务删除</td></tr>
+          <tr><td><code>materials.kind</code></td><td>增加 <code>digest</code>（每周模式的 7 天合集）和 <code>extend</code>（拓展资料）。date 的含义：daily 是内容所属的那天；digest 是覆盖区间的最后一天；extend 是生成那天；weekly 不变</td></tr>
+          <tr><td><code>materials.read_at</code>（新列）</td><td>timestamptz，可空。「学完了」写入，撤销清空</td></tr>
+          <tr><td><code>items</code></td><td>不加列。点词转来的单元和加入复习的拓展条目都用现有的 lookupCount、stars、status</td></tr>
+        </tbody>
+      </table>
+      <h3>新设置（<code>POST /v1/me/settings</code>，先存本地再同步）</h3>
+      <table>
+        <thead><tr><th>键</th><th>取值</th><th>默认</th></tr></thead>
+        <tbody>
+          <tr><td><code>materialFrequency</code></td><td>daily / weekly / off</td><td>daily</td></tr>
+          <tr><td><code>materialWeekday</code></td><td>0–6，0 是周日</td><td>1（周一）</td></tr>
+          <tr><td><code>materialParts</code></td><td>words、phrases、grammar、story、exercises 的子集，至少 1 项</td><td>全部</td></tr>
+          <tr><td><code>extendEnabled</code></td><td>true / false</td><td>true</td></tr>
+          <tr><td><code>extendTopics</code></td><td>work、travel、exam、daily、tech、culture、finance、health 的子集；空表示只用自动识别</td><td>[]</td></tr>
+          <tr><td><code>extendMuted</code></td><td>[{topic, until: "YYYY-MM-DD"}]，最多 8 条</td><td>[]</td></tr>
+          <tr><td><code>studyLevel</code></td><td>auto / A2 / B1 / B2 / C1</td><td>auto</td></tr>
+        </tbody>
+      </table>
+      <details><summary>资料内容的结构</summary>
+        <ul>
+          <li><strong>daily</strong>：沿用 <code>DailyMaterial</code>，不变。</li>
+          <li><strong>digest</strong>：<code>DailyMaterial</code> 的字段，加上 <code>range: {start, end}</code>；上限放宽到单词 20、词组 10、语法 6、易错 8；另加 <code>review</code>（最多 12 个本周复习时忘过的单元），一周没有新内容时它就是主体。</li>
+          <li><strong>extend</strong>：<code>{focus, topic, title, level, reasons[], evidence[], items[6–10]{text, kind, gloss, example{en, zh}}, passage | null, grammar | null}</code>。<code>focus</code> 是 topic / family / grammar / reading 之一。</li>
+          <li><strong>练习不存库</strong>：选词填空从单词和词组的例句里挖空，中译英用例句的中英对照，改错沿用语法点自带的练习。一个纯函数 <code>exercisesFor(material)</code> 同时供接口和 PDF 使用，不调用模型。</li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="step" id="s5" data-title="接口">
+      <h2>5. 接口</h2>
+      <p class="lead">四个新接口，五个改动接口；契约写进 <code>docs/api-v1.md</code> 的新章节「v3 (M12–M17)」。</p>
+      <table>
+        <thead><tr><th>接口</th><th>做什么</th><th>要点</th></tr></thead>
+        <tbody>
+          <tr><td><code>POST /v1/lookup</code></td><td>响应不变；成功后写一条查词事件</td><td>写失败只记日志，不影响响应；不增加查词耗时</td></tr>
+          <tr><td><code>GET /v1/learn/summary</code>（新）</td><td>学习首页一次取齐</td><td>dueByScope {all, notes, stars3}、doneToday、streakDays、估计分钟数、最近 3 份资料、计划摘要、level {setting, effective, retention30}</td></tr>
+          <tr><td><code>GET /v1/review/queue?scope=</code></td><td>按范围取复习队列</td><td>all（默认）/ notes（星级 ≥ 1）/ stars3（星级 ≥ 3）</td></tr>
+          <tr><td><code>GET /v1/materials?kind=</code></td><td>资料列表</td><td>kind = all / daily / digest / extend / weekly；按 date 倒序翻页；每项带 title、counts、readAt、估计页数</td></tr>
+          <tr><td><code>GET /v1/materials/:kind?date=</code></td><td>资料内容</td><td>新增 digest、extend；带推导出的 exercises；extend 的每一条带 known（已在复习）</td></tr>
+          <tr><td><code>POST /v1/materials/:kind/:date/read</code>（新）</td><td>学完了 / 撤销</td><td>body <code>{read: boolean}</code></td></tr>
+          <tr><td><code>POST /v1/materials/extend/:date/adopt</code>（新）</td><td>把勾选的条目加入复习</td><td>body <code>{indexes: number[]}</code> → <code>{added, known}</code>；可重复调用。词库里有这个词的当场出卡片，其余次日夜间出</td></tr>
+          <tr><td><code>POST /v1/materials/extend/:date/dismiss</code></td><td>不感兴趣 / 撤销</td><td>把这份资料的 topic 写进 <code>extendMuted</code>，30 天后自动失效</td></tr>
+          <tr><td><code>POST /v1/exports/pdf</code>（新）</td><td>生成 PDF</td><td>见第 8 节。返回 <code>application/pdf</code>；每账号每小时 10 次；最多 40 页</td></tr>
+          <tr><td><code>POST /v1/me/settings</code></td><td>接受第 4 节的新键</td><td>旧客户端不发这些键，行为不变</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="step" id="s6" data-title="关键链路：夜间任务">
+      <h2>6. 关键链路：夜间任务</h2>
+      <p class="lead">每个账号多两步：第 0 步把点词转成学习单元，第 5 步出拓展资料；第 3 步按频率决定今天出什么。30 天没有活动的账号跳过第 3 步和第 5 步。</p>
+      <!-- mermaid:begin -->
+<div class="diagram rendered">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 555.588 675.415" width="555.588" height="675.415" style="--bg:var(--dg-bg);--fg:var(--dg-fg);--line:var(--dg-line);--accent:var(--dg-accent);--muted:var(--dg-muted);--surface:var(--dg-node);--border:var(--dg-border)">
+<style>
+
+  text { font-family: var(--dg-font, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif); }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<polyline class="edge" data-from="S0" data-to="S12" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="308.175,77.80000000000001 308.175,133.8" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="S12" data-to="F" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="308.175,187.60000000000002 308.175,243.60000000000008" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="F" data-to="D" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="308.17499999999995,431.815 308.17499999999995,459.815 104.255,459.815 104.255,487.815" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="F" data-to="W" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="308.17499999999995,431.815 308.17499999999995,459.815 308.17499999999995,459.815 308.17499999999995,487.815" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="F" data-to="O" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="308.17499999999995,431.815 308.17499999999995,459.815 481.71399999999994,459.815 481.71399999999994,536.715" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="D" data-to="S45" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="104.255,541.615 104.255,585.615 300.43050000000005,585.615 300.43050000000005,597.615" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="W" data-to="S45" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="308.17499999999995,541.615 308.17499999999995,585.615 300.43050000000005,585.615 300.43050000000005,597.615" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="O" data-to="S45" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="481.71399999999994,573.615 481.71399999999994,585.615 300.43050000000005,585.615 300.43050000000005,597.615" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="node" data-id="S0" data-label="0 点词转单元
+按词合并查词事件" data-shape="rectangle">
+  <rect x="227.92" y="24" width="160.51" height="53.800000000000004" rx="0" ry="0" fill="var(--dg-new-bg)" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <text x="308.17499999999995" y="50.900000000000006" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="308.17499999999995" dy="-3.9000000000000012">0 点词转单元</tspan><tspan x="308.17499999999995" dy="16.900000000000002">按词合并查词事件</tspan></text>
+</g>
+<g class="node" data-id="S12" data-label="1–2 抽取记录、生成内容和卡片
+（不变）" data-shape="rectangle">
+  <rect x="188.27650000000003" y="133.8" width="239.79699999999994" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="308.175" y="160.70000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="308.175" dy="-3.9000000000000012">1–2 抽取记录、生成内容和卡片</tspan><tspan x="308.175" dy="16.900000000000002">（不变）</tspan></text>
+</g>
+<g class="node" data-id="F" data-label="3 materialFrequency" data-shape="diamond">
+  <polygon points="308.17499999999995,243.6 402.2824999999999,337.7075 308.17499999999995,431.81499999999994 214.06749999999997,337.7075" fill="var(--dg-chg-bg)" stroke="var(--dg-chg)" stroke-width="1.5px" />
+  <text x="308.17499999999995" y="337.7075" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">3 materialFrequency</text>
+</g>
+<g class="node" data-id="D" data-label="daily：每日资料
+前一天有活动才出" data-shape="rectangle">
+  <rect x="24" y="487.815" width="160.51" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="104.255" y="514.715" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="104.255" dy="-3.9000000000000012">daily：每日资料</tspan><tspan x="104.255" dy="16.900000000000002">前一天有活动才出</tspan></text>
+</g>
+<g class="node" data-id="W" data-label="weekly：7 天合集
+到了选定的星期就出" data-shape="rectangle">
+  <rect x="220.51" y="487.815" width="175.32999999999998" height="53.800000000000004" rx="0" ry="0" fill="var(--dg-new-bg)" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <text x="308.17499999999995" y="514.715" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="308.17499999999995" dy="-3.9000000000000012">weekly：7 天合集</tspan><tspan x="308.17499999999995" dy="16.900000000000002">到了选定的星期就出</tspan></text>
+</g>
+<g class="node" data-id="O" data-label="off：不出" data-shape="rectangle">
+  <rect x="431.84" y="536.715" width="99.74799999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="481.71399999999994" y="555.1650000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">off：不出</text>
+</g>
+<g class="node" data-id="S45" data-label="4 周日出周报（不变）
+5 周一出拓展资料（开启时）" data-shape="rectangle">
+  <rect x="185.71900000000005" y="597.615" width="229.423" height="53.800000000000004" rx="0" ry="0" fill="var(--dg-new-bg)" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <text x="300.43050000000005" y="624.515" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="300.43050000000005" dy="-3.9000000000000012">4 周日出周报（不变）</tspan><tspan x="300.43050000000005" dy="16.900000000000002">5 周一出拓展资料（开启时）</tspan></text>
+</g>
+</svg>
+<details class="diagram-src"><summary>Mermaid 源码</summary>
+<pre class="mermaid-src">flowchart TD
+  S0["0 点词转单元&lt;br/&gt;按词合并查词事件"]:::new
+  S12["1–2 抽取记录、生成内容和卡片&lt;br/&gt;（不变）"]
+  F{"3 materialFrequency"}:::chg
+  D["daily：每日资料&lt;br/&gt;前一天有活动才出"]
+  W["weekly：7 天合集&lt;br/&gt;到了选定的星期就出"]:::new
+  O["off：不出"]
+  S45["4 周日出周报（不变）&lt;br/&gt;5 周一出拓展资料（开启时）"]:::new
+  S0 --&gt; S12 --&gt; F
+  F --&gt; D
+  F --&gt; W
+  F --&gt; O
+  D --&gt; S45
+  W --&gt; S45
+  O --&gt; S45
+  classDef new fill:var(--dg-new-bg),stroke:var(--dg-new),stroke-width:1.5px
+  classDef chg fill:var(--dg-chg-bg),stroke:var(--dg-chg),stroke-width:1.5px</pre>
+</details>
+</div>
+<!-- mermaid:end -->
+      <ul>
+        <li><strong>第 0 步</strong>：上次运行以来的查词事件按 lemma_key 合并。已有单元的 lookupCount 加上次数，并更新 lastSeenAt；没有的新建 word 单元。词库里有这个词时，单元直接是 ready 并出卡片；没有时是 pending，交给第 2 步。</li>
+        <li><strong>活动</strong>：记录、查词事件、笔记、复习，任意一种都算。每日资料原来只看记录，现在四种都算。</li>
+        <li><strong>每周合集</strong>：在选定星期的早上出，覆盖前 7 天。这一周没有新内容时，主体是「本周复习时忘过的」。</li>
+        <li><strong>难度（auto）</strong>：默认 B1。最近 30 天记住率 ≥ 88% 且复习 ≥ 150 次 → B2；≥ 93% 且 ≥ 300 次 → C1；低于 70% → A2；复习少于 50 次保持 B1。</li>
+        <li><strong>materialParts</strong>：关掉「情景短文」就不调用模型写短文，省下这次调用。</li>
+      </ul>
+    </section>
+
+    <section class="step" id="s7" data-title="关键链路：拓展资料">
+      <h2>7. 关键链路：拓展资料</h2>
+      <p class="lead">模型只挑方向和内容；推荐理由由服务端用统计数字拼出来，所以理由不会编造。</p>
+      <!-- mermaid:begin -->
+<div class="diagram rendered">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 566.615 515" width="566.615" height="515" style="--bg:var(--dg-bg);--fg:var(--dg-fg);--line:var(--dg-line);--accent:var(--dg-accent);--muted:var(--dg-muted);--surface:var(--dg-node);--border:var(--dg-border)">
+<style>
+
+  text { font-family: var(--dg-font, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif); }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="seq-arrow" markerWidth="8" markerHeight="5" refX="8" refY="2.5" orient="auto-start-reverse">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" />
+  </marker>
+  <marker id="seq-arrow-open" markerWidth="8" markerHeight="5" refX="8" refY="2.5" orient="auto-start-reverse">
+    <polyline points="0 0, 8 2.5, 0 5" fill="none" stroke="var(--_arrow)" stroke-width="1" />
+  </marker>
+</defs>
+<line class="lifeline" data-actor="N" x1="76.615" y1="70" x2="76.615" y2="485" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="DB" x1="216.615" y1="70" x2="216.615" y2="485" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="AI" x1="356.615" y1="70" x2="356.615" y2="485" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="A" x1="496.615" y1="70" x2="496.615" y2="485" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<g class="message" data-from="N" data-to="DB" data-label="读信号（只取词、语法点标题和次数）" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="76.615" y1="90" x2="216.615" y2="90" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="146.615" y="80" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">读信号（只取词、语法点标题和次数）</text>
+</g>
+<g class="message" data-from="N" data-to="AI" data-label="一次 JSON 调用" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="76.615" y1="130" x2="356.615" y2="130" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="216.615" y="120" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">一次 JSON 调用</text>
+</g>
+<g class="message" data-from="AI" data-to="N" data-label="focus、topic、evidence、条目" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="356.615" y1="170" x2="76.615" y2="170" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#seq-arrow)" />
+  <text x="216.615" y="160" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">focus、topic、evidence、条目</text>
+</g>
+<g class="message" data-from="N" data-to="N" data-label="校验；evidence 不在给出的词里就删掉" data-line-style="solid" data-arrow-head="filled" data-self="true">
+  <polyline points="76.615,210 106.615,210 106.615,230 76.615,230" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="114.615" y="220" font-size="11" text-anchor="start" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">校验；evidence 不在给出的词里就删掉</text>
+</g>
+<g class="message" data-from="N" data-to="N" data-label="用 evidence 和统计数字拼推荐理由" data-line-style="solid" data-arrow-head="filled" data-self="true">
+  <polyline points="76.615,280 106.615,280 106.615,300 76.615,300" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="114.615" y="290" font-size="11" text-anchor="start" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">用 evidence 和统计数字拼推荐理由</text>
+</g>
+<g class="message" data-from="N" data-to="DB" data-label="存 materials(extend)" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="76.615" y1="350" x2="216.615" y2="350" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="146.615" y="340" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">存 materials(extend)</text>
+</g>
+<g class="message" data-from="A" data-to="DB" data-label="读拓展资料（每条标 known）" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="496.615" y1="390" x2="216.615" y2="390" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="356.615" y="380" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">读拓展资料（每条标 known）</text>
+</g>
+<g class="message" data-from="A" data-to="DB" data-label="adopt 勾选的条目" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="496.615" y1="430" x2="216.615" y2="430" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="356.615" y="420" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">adopt 勾选的条目</text>
+</g>
+<g class="note" data-position="over" data-actors="DB">
+  <polygon points="138.45,438 288.78,438 294.78,444 294.78,461 138.45,461" fill="var(--bg)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <polygon points="288.78,438 294.78,444 288.78,444" fill="var(--_inner-stroke)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="216.615" y="449.5" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">次日夜间生成内容和卡片</text>
+</g>
+<g class="actor" data-id="N" data-label="夜间任务" data-type="participant">
+  <rect x="30" y="30" width="93.22999999999999" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="76.615" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">夜间任务</text>
+</g>
+<g class="actor" data-id="DB" data-label="数据库" data-type="participant">
+  <rect x="176.615" y="30" width="80" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="216.615" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">数据库</text>
+</g>
+<g class="actor" data-id="AI" data-label="DeepSeek" data-type="participant">
+  <rect x="308.51800000000003" y="30" width="96.194" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="356.615" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">DeepSeek</text>
+</g>
+<g class="actor" data-id="A" data-label="小程序" data-type="participant">
+  <rect x="456.615" y="30" width="80" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="496.615" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">小程序</text>
+</g>
+</svg>
+<details class="diagram-src"><summary>Mermaid 源码</summary>
+<pre class="mermaid-src">sequenceDiagram
+  participant N as 夜间任务
+  participant DB as 数据库
+  participant AI as DeepSeek
+  participant A as 小程序
+  N-&gt;&gt;DB: 读信号（只取词、语法点标题和次数）
+  N-&gt;&gt;AI: 一次 JSON 调用
+  AI--&gt;&gt;N: focus、topic、evidence、条目
+  N-&gt;&gt;N: 校验；evidence 不在给出的词里就删掉
+  N-&gt;&gt;N: 用 evidence 和统计数字拼推荐理由
+  N-&gt;&gt;DB: 存 materials(extend)
+  A-&gt;&gt;DB: 读拓展资料（每条标 known）
+  A-&gt;&gt;DB: adopt 勾选的条目
+  Note over DB: 次日夜间生成内容和卡片</pre>
+</details>
+</div>
+<!-- mermaid:end -->
+      <ul>
+        <li><strong>信号</strong>：14 天内查过和记录里出现的词（最多 60 个）、纠错里的语法点和次数、复习时忘过的单元（最多 10 个）、3 星以上的单元、难度、方向、被静音的主题。不发任何用户句子。</li>
+        <li><strong>校验</strong>：zod 校验结构；evidence 至少要有 2 个来自给出的词，否则重试一次，还不行就这周不出。</li>
+        <li><strong>理由模板</strong>：「最近 7 天你查了 X、Y 等 N 个职场用词」「X 在复习时忘了 2 次」「纠错里『冠词』出现了 4 次」「按你最近 82% 的记住率，难度定在 B1–B2」。</li>
+        <li><strong>成本</strong>：每账号每周一次调用，约 3 千 token，在每次 20 万 token 的预算里。</li>
+      </ul>
+    </section>
+
+    <section class="step" id="s8" data-title="PDF 导出">
+      <h2>8. PDF 导出</h2>
+      <p class="lead">服务端用 Typst 排版，数据只通过 JSON 文件进入模板；小程序拿到字节后写成本地文件，再预览或转发。</p>
+      <!-- mermaid:begin -->
+<div class="diagram rendered">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 462.88 490" width="462.88" height="490" style="--bg:var(--dg-bg);--fg:var(--dg-fg);--line:var(--dg-line);--accent:var(--dg-accent);--muted:var(--dg-muted);--surface:var(--dg-node);--border:var(--dg-border)">
+<style>
+
+  text { font-family: var(--dg-font, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif); }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="seq-arrow" markerWidth="8" markerHeight="5" refX="8" refY="2.5" orient="auto-start-reverse">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" />
+  </marker>
+  <marker id="seq-arrow-open" markerWidth="8" markerHeight="5" refX="8" refY="2.5" orient="auto-start-reverse">
+    <polyline points="0 0, 8 2.5, 0 5" fill="none" stroke="var(--_arrow)" stroke-width="1" />
+  </marker>
+</defs>
+<line class="lifeline" data-actor="A" x1="70" y1="70" x2="70" y2="460" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="S" x1="210" y1="70" x2="210" y2="460" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="T" x1="350" y1="70" x2="350" y2="460" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<g class="message" data-from="A" data-to="S" data-label="POST /v1/exports/pdf（范围、版式、选项）" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="70" y1="90" x2="210" y2="90" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="140" y="80" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">POST /v1/exports/pdf（范围、版式、选项）</text>
+</g>
+<g class="message" data-from="S" data-to="S" data-label="读资料，推导练习，组装 data.json" data-line-style="solid" data-arrow-head="filled" data-self="true">
+  <polyline points="210,130 240,130 240,150 210,150" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="248" y="140" font-size="11" text-anchor="start" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">读资料，推导练习，组装 data.json</text>
+</g>
+<g class="message" data-from="S" data-to="T" data-label="临时目录里编译固定模板" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="210" y1="200" x2="350" y2="200" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="280" y="190" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">临时目录里编译固定模板</text>
+</g>
+<g class="message" data-from="T" data-to="S" data-label="PDF 字节（stdout）" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="350" y1="240" x2="210" y2="240" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#seq-arrow)" />
+  <text x="280" y="230" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">PDF 字节（stdout）</text>
+</g>
+<g class="message" data-from="S" data-to="A" data-label="application/pdf" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="210" y1="280" x2="70" y2="280" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#seq-arrow)" />
+  <text x="140" y="270" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">application/pdf</text>
+</g>
+<g class="message" data-from="A" data-to="A" data-label="写到 USER_DATA_PATH/exports" data-line-style="solid" data-arrow-head="filled" data-self="true">
+  <polyline points="70,320 100,320 100,340 70,340" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="108" y="330" font-size="11" text-anchor="start" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">写到 USER_DATA_PATH/exports</text>
+</g>
+<g class="message" data-from="A" data-to="A" data-label="预览 openDocument 或 发送 shareFileMessage" data-line-style="solid" data-arrow-head="filled" data-self="true">
+  <polyline points="70,390 100,390 100,410 70,410" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="108" y="400" font-size="11" text-anchor="start" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">预览 openDocument 或 发送 shareFileMessage</text>
+</g>
+<g class="actor" data-id="A" data-label="小程序" data-type="participant">
+  <rect x="30" y="30" width="80" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="70" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">小程序</text>
+</g>
+<g class="actor" data-id="S" data-label="API" data-type="participant">
+  <rect x="170" y="30" width="80" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="210" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">API</text>
+</g>
+<g class="actor" data-id="T" data-label="Typst" data-type="participant">
+  <rect x="310" y="30" width="80" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="350" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">Typst</text>
+</g>
+</svg>
+<details class="diagram-src"><summary>Mermaid 源码</summary>
+<pre class="mermaid-src">sequenceDiagram
+  participant A as 小程序
+  participant S as API
+  participant T as Typst
+  A-&gt;&gt;S: POST /v1/exports/pdf（范围、版式、选项）
+  S-&gt;&gt;S: 读资料，推导练习，组装 data.json
+  S-&gt;&gt;T: 临时目录里编译固定模板
+  T--&gt;&gt;S: PDF 字节（stdout）
+  S--&gt;&gt;A: application/pdf
+  A-&gt;&gt;A: 写到 USER_DATA_PATH/exports
+  A-&gt;&gt;A: 预览 openDocument 或 发送 shareFileMessage</pre>
+</details>
+</div>
+<!-- mermaid:end -->
+      <table>
+        <thead><tr><th>方面</th><th>做法</th></tr></thead>
+        <tbody>
+          <tr><td>渲染器</td><td>Typst 0.13.1 静态二进制（musl，x86_64），版本和 sha256 固定在 Dockerfile 里</td></tr>
+          <tr><td>字体</td><td>思源宋体 SC（Noto Serif SC）常规和粗体，Source Serif 4 常规、斜体、半粗、粗体；都用静态字重文件（Typst 0.13 只认可变字体的默认字重）；OFL 许可文件一起放；镜像约增大 60 MB</td></tr>
+          <tr><td>安全</td><td>模板是仓库里的固定文件；用户数据只写进 <code>data.json</code>，模板用 <code>json()</code> 读入，按纯文本排版，排版指令不会被执行（已实测）。每次请求一个临时目录，<code>--root</code> 指向它，<code>--ignore-system-fonts</code>；15 秒超时就结束进程；同时最多 2 个渲染；PDF 不在服务端保存</td></tr>
+          <tr><td>实测</td><td>本机 0.13.1：4 页带中文和音标，约 0.1 秒，峰值约 50 MB，PDF 37–60 KB（字体只嵌入用到的字）</td></tr>
+          <tr><td>版式</td><td>A4，页边 19 mm；页眉资料名和日期，页脚页码；正文 11.5 pt。练习版的答案在最后一节，前面有一条剪切线。单词卡每页 6 张，实线剪开、竖线对折（左右翻面时背面是正的）。自测清单沿中间虚线对折。只有标题编号用靛青，黑白打印也清楚</td></tr>
+          <tr><td>小程序</td><td><code>wx.request</code>（arraybuffer）→ 写到 <code>USER_DATA_PATH/exports/</code> → <code>wx.openDocument({showMenu: true})</code> 预览。「发给微信好友」在点击回调里直接调 <code>wx.shareFileMessage</code>。导出记录存在本地，7 天后删除文件</td></tr>
+          <tr><td>错误</td><td>超过频率限制返回 429；超过 40 页返回 422 TOO_MANY_PAGES；渲染失败或超时返回 502 EXPORT_FAILED。日志只记页数、耗时和结果，不记内容</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="step" id="s9" data-title="小程序改动">
+      <h2>9. 小程序改动</h2>
+      <p class="lead">一个页面改造、三个新页面、一个新组件；纯逻辑放在 <code>lib/</code>，每个都配单元测试。</p>
+      <table>
+        <thead><tr><th>位置</th><th>改动</th></tr></thead>
+        <tbody>
+          <tr><td>tab 栏</td><td>「复习」改「学习」，换打开的书图标；图标脚本加 book，按主题和主题色生成 tab PNG</td></tr>
+          <tr><td><code>pages/review/index</code></td><td>改成学习首页，路由不变；复习范围选择把 scope 传给复习页</td></tr>
+          <tr><td><code>pages/review-session/index</code></td><td>接收 scope 参数</td></tr>
+          <tr><td><code>pages/learn-materials/index</code>（新）</td><td>资料列表：按类型筛选、按周分组、多选合并导出</td></tr>
+          <tr><td><code>pages/materials/index</code></td><td>周期资料详情：支持 daily 和 digest；练习可以作答；底部是朗读、导出 PDF、学完了；按 materialParts 显示</td></tr>
+          <tr><td><code>pages/extend/index</code>（新）</td><td>拓展资料：推荐理由、勾选加入复习、不感兴趣、导出</td></tr>
+          <tr><td><code>pages/learn-plan/index</code>（新）</td><td>学习计划：频率、星期、内容、拓展方向、难度、提醒；沿用现有的「先存本地再同步」</td></tr>
+          <tr><td><code>components/t-export-sheet</code>（新）</td><td>导出面板：选项 → 生成中 → 完成（发送 / 预览）；导出记录页 <code>pages/exports/index</code> 列本地文件</td></tr>
+          <tr><td><code>lib/</code></td><td>资料标题和计数、练习判分、导出选项转请求体、页数估算、文件名、本地记录清理</td></tr>
+        </tbody>
+      </table>
+      <p class="lead">CLI 只做一处小改动：每周模式下没有每日资料，<code>/notes</code> 改为显示最近一份合集。</p>
+    </section>
+
+    <section class="step" id="s10" data-title="里程碑与验收">
+      <h2>10. 里程碑与验收</h2>
+      <p class="lead">三条线同时开发：服务端学习（M12–M14）、PDF（M15）、小程序（M16）；M17 联调后发布。</p>
+      <!-- mermaid:begin -->
+<div class="diagram rendered">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 728.2280000000001 236.25" width="728.2280000000001" height="236.25" style="--bg:var(--dg-bg);--fg:var(--dg-fg);--line:var(--dg-line);--accent:var(--dg-accent);--muted:var(--dg-muted);--surface:var(--dg-node);--border:var(--dg-border)">
+<style>
+
+  text { font-family: var(--dg-font, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif); }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<polyline class="edge" data-from="M12" data-to="M13" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="193.402,42.45 249.402,42.45" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="M13" data-to="M14" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="374.344,42.45 437.754,42.45" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="M14" data-to="M17" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="562.696,42.45 570.991,42.45 570.991,115.35000000000001 579.2860000000001,115.35000000000001" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="M15" data-to="M17" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="523.2860000000001,115.35000000000001 570.991,115.35000000000001 570.991,115.35000000000001 579.2860000000001,115.35000000000001" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="M16" data-to="M17" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="547.876,188.25 570.991,188.25 570.991,115.35000000000001 579.2860000000001,115.35000000000001" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="node" data-id="M12" data-label="M12 数据与接口地基" data-shape="rectangle">
+  <rect x="24" y="24" width="169.402" height="36.900000000000006" rx="0" ry="0" fill="var(--dg-new-bg)" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <text x="108.701" y="42.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">M12 数据与接口地基</text>
+</g>
+<g class="node" data-id="M13" data-label="M13 周期资料" data-shape="rectangle">
+  <rect x="249.402" y="24" width="124.942" height="36.900000000000006" rx="0" ry="0" fill="var(--dg-new-bg)" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <text x="311.873" y="42.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">M13 周期资料</text>
+</g>
+<g class="node" data-id="M14" data-label="M14 拓展资料" data-shape="rectangle">
+  <rect x="437.754" y="24" width="124.942" height="36.900000000000006" rx="0" ry="0" fill="var(--dg-new-bg)" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <text x="500.225" y="42.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">M14 拓展资料</text>
+</g>
+<g class="node" data-id="M15" data-label="M15 PDF 导出" data-shape="rectangle">
+  <rect x="399.08500000000004" y="96.9" width="124.20099999999998" height="36.900000000000006" rx="0" ry="0" fill="var(--dg-new-bg)" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <text x="461.18550000000005" y="115.35000000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">M15 PDF 导出</text>
+</g>
+<g class="node" data-id="M16" data-label="M16 小程序" data-shape="rectangle">
+  <rect x="437.754" y="169.8" width="110.122" height="36.900000000000006" rx="0" ry="0" fill="var(--dg-new-bg)" stroke="var(--dg-new)" stroke-width="1.5px" />
+  <text x="492.815" y="188.25" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">M16 小程序</text>
+</g>
+<g class="node" data-id="M17" data-label="M17 联调发布" data-shape="rectangle">
+  <rect x="579.2860000000001" y="96.9" width="124.942" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="641.7570000000001" y="115.35000000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">M17 联调发布</text>
+</g>
+</svg>
+<details class="diagram-src"><summary>Mermaid 源码</summary>
+<pre class="mermaid-src">flowchart LR
+  M12["M12 数据与接口地基"]:::new --&gt; M13["M13 周期资料"]:::new --&gt; M14["M14 拓展资料"]:::new
+  M15["M15 PDF 导出"]:::new
+  M16["M16 小程序"]:::new
+  M14 --&gt; M17["M17 联调发布"]
+  M15 --&gt; M17
+  M16 --&gt; M17
+  classDef new fill:var(--dg-new-bg),stroke:var(--dg-new),stroke-width:1.5px</pre>
+</details>
+</div>
+<!-- mermaid:end -->
+      <table>
+        <thead><tr><th>里程碑</th><th>内容</th><th>验收</th></tr></thead>
+        <tbody>
+          <tr><td>M12 数据与接口地基</td><td>迁移 0003；新设置键；点词写事件；复习范围；<code>/v1/learn/summary</code>；资料列表和「学完了」；<code>api-v1.md</code> 的 v3 章节</td><td>单元测试和数据库测试通过；查词响应时间不变</td></tr>
+          <tr><td>M13 周期资料</td><td>夜间第 0 步；频率和合集；活动判定；难度估计；练习推导</td><td>每天、每周、关闭三种账号的夜间结果都对；没有活动的日子不出资料</td></tr>
+          <tr><td>M14 拓展资料</td><td>信号、提示词、校验、理由拼接；加入复习和不感兴趣</td><td>假模型测试通过；对真实 API 跑 3 个样本账号，人工检查</td></tr>
+          <tr><td>M15 PDF 导出</td><td>Typst 和字体进镜像；渲染模块；资料、合集、单词卡、自测清单 4 种模板；导出接口；CI 装 Typst</td><td>样张和原型一致；镜像里限 256 MB、2 个并发不被 OOM 杀掉；注入测试通过</td></tr>
+          <tr><td>M16 小程序</td><td>第 9 节的全部页面；本地导出记录</td><td>类型检查、单元测试、编译通过；真机上导出、预览、转发都能用</td></tr>
+          <tr><td>M17 联调发布</td><td>部署服务端（迁移 0003）；体验版 0.4.0</td><td>真机走完：首页 → 资料 → 导出 → 打印预览</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="step" id="s11" data-title="风险与应对">
+      <h2>11. 风险与应对</h2>
+      <table>
+        <thead><tr><th>风险</th><th>应对</th></tr></thead>
+        <tbody>
+          <tr><td>渲染占内存，256 MB 的容器被 OOM 杀掉</td><td>同时最多 2 个渲染；M15 在镜像里按 256 MB 实测。不够时把上限调到 384 MB，这要你确认（主机约有 890 MB 空闲）</td></tr>
+          <tr><td>镜像增大约 60 MB</td><td>只放两个中文字重；Typst 用静态二进制；字体单独一层，构建时走缓存</td></tr>
+          <tr><td>AI 成本增加</td><td>拓展资料每周一份；30 天没有活动的账号不生成；合集只多一次短文调用；都在每个账号每次 20 万 token 的预算里</td></tr>
+          <tr><td>推荐理由编造</td><td>理由由服务端用统计数字拼出；模型只能从给出的词里选依据，不在列表里的会被删掉</td></tr>
+          <tr><td>查词事件太多</td><td>同一个词 10 分钟内只记一次；只存 lemma key 和时间；180 天后删除</td></tr>
+          <tr><td>隐私</td><td>事件不存句子；PDF 不在服务端保存；日志不记内容</td></tr>
+          <tr><td>导出被滥用</td><td>每账号每小时 10 次，最多 40 页</td></tr>
+          <tr><td>微信文件接口的限制</td><td><code>shareFileMessage</code> 必须在点击回调里同步调用；<code>openDocument</code> 只接受本地路径，所以先写文件再打开</td></tr>
+          <tr><td>字体许可</td><td>思源宋体和 Source Serif 都是 OFL 1.1，许可文件随字体放进镜像</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="step" id="s12" data-title="已定的决策">
+      <h2>12. 已定的决策</h2>
+      <p class="lead">以下 8 项已在 2026-11-25 确认，实现按此执行。</p>
+      <table>
+        <thead><tr><th>问题</th><th>结论</th></tr></thead>
+        <tbody>
+          <tr><td>点词查词算不算学习数据</td><td>算，只记词和时间，不存句子</td></tr>
+          <tr><td>周期资料的默认频率</td><td>每天；每周模式默认周一</td></tr>
+          <tr><td>拓展资料怎么加入复习</td><td>手动勾选</td></tr>
+          <tr><td>PDF 第一期做哪些</td><td>资料的阅读版和练习版、单词卡、自测清单；笔记本导出放第二期</td></tr>
+          <tr><td>PDF 里放小程序码</td><td>第二期</td></tr>
+          <tr><td>PDF 显示昵称</td><td>不显示</td></tr>
+          <tr><td>服务端怎么排版</td><td>Typst + 思源宋体 / Source Serif；内存上限按 M15 实测再定</td></tr>
+          <tr><td>朗读按钮</td><td>只用喇叭图标（已完成）</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="step" id="s13" data-title="术语表">
+      <h2>13. 术语表</h2>
+      <table>
+        <thead><tr><th>术语</th><th>含义</th></tr></thead>
+        <tbody>
+          <tr><td>周期资料</td><td>按你设的频率出的资料。每天模式是每日资料（daily），每周模式是 7 天合集（digest）</td></tr>
+          <tr><td>拓展资料</td><td>AI 推荐的、你还没接触到的相关内容（extend），每周一份</td></tr>
+          <tr><td>查词事件</td><td>点词查词成功后记下的一条记录：什么时候查了哪个词</td></tr>
+          <tr><td>学习单元</td><td>一个词、词组、语法点或句子（item）；复习卡片从它生成</td></tr>
+          <tr><td>复习范围</td><td>全部到期、只复习笔记本、3 星以上</td></tr>
+          <tr><td>阅读版 / 练习版</td><td>PDF 的两种版式。阅读版直接给出释义和答案；练习版把答案放在最后一节</td></tr>
+          <tr><td>单词卡</td><td>可以剪开、对折的卡片，正面单词，背面释义</td></tr>
+          <tr><td>自测清单</td><td>左栏单词、右栏释义，对折遮住右栏自测</td></tr>
+          <tr><td>Typst</td><td>服务端用来把数据排成 PDF 的排版程序</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <div class="step-nav">
+      <button id="btn-prev"></button>
+      <span id="step-indicator"></span>
+      <button id="btn-next"></button>
+    </div>
+  </main>
+</div>
+
+<script>
+(() => {
+  const steps = [...document.querySelectorAll("section.step")];
+  const toc = document.getElementById("toc");
+  const root = document.documentElement;
+  let current = 0;
+
+  // Chrome strings follow <html lang>: set lang="en" and the nav, the buttons
+  // and the summary label switch together. Never hand-write them in the markup.
+  const UI = {
+    zh: { toc: "目录", step: "分步模式", scroll: "滚动模式", expand: "展开全部", theme: "切换主题",
+          prev: "← 上一步", next: "下一步 →", summary: "核心结论",
+          keyS: "快捷键 S", keyE: "快捷键 E", keyT: "快捷键 T" },
+    en: { toc: "Contents", step: "Step mode", scroll: "Scroll mode", expand: "Expand all", theme: "Toggle theme",
+          prev: "← Previous", next: "Next →", summary: "Key takeaway",
+          keyS: "Shortcut S", keyE: "Shortcut E", keyT: "Shortcut T" },
+  }[docLang()];
+
+  // <html lang> decides. A page published as a fragment carries none, so the
+  // text itself is the fallback.
+  function docLang() {
+    if (root.lang) return root.lang.toLowerCase().startsWith("en") ? "en" : "zh";
+    // Read <main> only: body.textContent would also count this script's own dictionary.
+    const text = (document.querySelector("main") || document.body).textContent || "";
+    return ((text.match(/[\u4e00-\u9fff]/g) || []).length > 20) ? "zh" : "en";
+  }
+
+  function applyUI() {
+    const set = (id, text, title) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = text;
+      if (title) el.title = title;
+    };
+    document.querySelector("nav.toc")?.setAttribute("aria-label", UI.toc);
+    set("btn-mode", UI.step, UI.keyS);
+    set("btn-expand", UI.expand, UI.keyE);
+    set("btn-theme", UI.theme, UI.keyT);
+    set("btn-prev", UI.prev);
+    set("btn-next", UI.next);
+    const label = document.querySelector('[data-ui="summary"]');
+    if (label) label.textContent = UI.summary;
+  }
+
+  steps.forEach((s, i) => {
+    const li = document.createElement("li");
+    const a = document.createElement("a");
+    a.href = `#${s.id}`;
+    a.textContent = s.dataset.title || s.querySelector("h2")?.textContent || `Step ${i + 1}`;
+    a.addEventListener("click", (e) => {
+      if (document.body.classList.contains("step-mode")) { e.preventDefault(); show(i); }
+    });
+    li.appendChild(a);
+    toc.appendChild(li);
+  });
+  const links = [...toc.querySelectorAll("a")];
+
+  const setActive = (i) => links.forEach((a, j) => a.classList.toggle("active", j === i));
+
+  function show(i) {
+    current = Math.max(0, Math.min(steps.length - 1, i));
+    steps.forEach((s, j) => s.classList.toggle("current", j === current));
+    setActive(current);
+    document.getElementById("step-indicator").textContent = `${current + 1} / ${steps.length}`;
+    updateProgress();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function updateProgress() {
+    const bar = document.getElementById("progress");
+    if (document.body.classList.contains("step-mode")) {
+      bar.style.width = `${((current + 1) / steps.length) * 100}%`;
+      return;
+    }
+    const max = document.documentElement.scrollHeight - innerHeight;
+    bar.style.width = `${max > 0 ? (scrollY / max) * 100 : 100}%`;
+  }
+
+  const observer = new IntersectionObserver((entries) => {
+    if (document.body.classList.contains("step-mode")) return;
+    entries.forEach((e) => { if (e.isIntersecting) setActive(steps.indexOf(e.target)); });
+  }, { rootMargin: "-30% 0px -60% 0px" });
+  steps.forEach((s) => observer.observe(s));
+
+  const toggleMode = () => {
+    const on = document.body.classList.toggle("step-mode");
+    document.getElementById("btn-mode").textContent = on ? UI.scroll : UI.step;
+    on ? show(current) : updateProgress();
+  };
+  const toggleExpand = () => {
+    const all = [...document.querySelectorAll("details")];
+    const open = !all.every((d) => d.open);
+    all.forEach((d) => { d.open = open; });
+  };
+  const toggleTheme = () => {
+    const dark = root.dataset.theme
+      ? root.dataset.theme === "dark"
+      : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+  };
+
+  document.getElementById("btn-mode").onclick = toggleMode;
+  document.getElementById("btn-expand").onclick = toggleExpand;
+  document.getElementById("btn-theme").onclick = toggleTheme;
+  document.getElementById("btn-prev").onclick = () => show(current - 1);
+  document.getElementById("btn-next").onclick = () => show(current + 1);
+  addEventListener("scroll", updateProgress, { passive: true });
+  addEventListener("keydown", (e) => {
+    if (e.target.closest("input, textarea")) return;
+    const stepMode = document.body.classList.contains("step-mode");
+    if (e.key === "ArrowRight" && stepMode) show(current + 1);
+    else if (e.key === "ArrowLeft" && stepMode) show(current - 1);
+    else if (e.key.toLowerCase() === "s") toggleMode();
+    else if (e.key.toLowerCase() === "e") toggleExpand();
+    else if (e.key.toLowerCase() === "t") toggleTheme();
+  });
+
+  applyUI();
+  setActive(0);
+  updateProgress();
+})();
+</script>
+</body>
+</html>
