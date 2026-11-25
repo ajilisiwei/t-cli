@@ -1,11 +1,12 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { estimatePages, PAGE_LINES } from '../src/modules/library/materialPages.ts';
+import { estimatePages, PAGE_BODY_PT } from '../src/modules/library/materialPages.ts';
 import { reasonRangeOf, reasonUnitIds } from '../src/modules/library/materialReasons.ts';
 import { countsOf, exercisesOf, extendItemsOf, practicableOf, subtitleOf, titleOf, toListItem } from '../src/modules/library/materialView.ts';
 import type { MaterialKind, MaterialRow } from '../src/modules/library/materials.ts';
 import { cannedGrammar, cannedPhrase, cannedWord } from './helpers/pipeline.ts';
 import { extendMaterial } from './helpers/learning.ts';
+import { renderedSizes } from './helpers/materialSizes.ts';
 
 const row = (kind: MaterialKind, content: Record<string, unknown>): MaterialRow => ({
   kind,
@@ -85,14 +86,23 @@ describe('material views (pure)', () => {
   test('pages: at least 1, grow with the content, 0 for weekly', () => {
     assert.equal(estimatePages('weekly', { totals: {} }, null), 0);
     assert.equal(estimatePages('daily', {}, null), 1);
-    const small = row('daily', { words: words(2) });
+    assert.equal(estimatePages('extend', {}, null), 1);
+    // One word fits on a page; two already spill over (their exercises, checklist and answers).
+    const small = row('daily', { words: words(1) });
     const large = row('digest', { words: words(20), story: { ...story, text: 'word '.repeat(300) } });
     const smallPages = estimatePages('daily', small.content, exercisesOf(small));
     const largePages = estimatePages('digest', large.content, exercisesOf(large));
     assert.equal(smallPages, 1);
     assert.ok(largePages > smallPages, `${largePages} > ${smallPages}`);
-    assert.ok(largePages >= Math.ceil((20 * 6) / PAGE_LINES));
     assert.ok(estimatePages('extend', extendMaterial(), null) >= 1);
+    assert.equal(PAGE_BODY_PT, 706, 'A4 less the template margins');
+  });
+
+  test('pages match what the export renders (practice layout): a typical daily material is 3 pages', () => {
+    for (const size of renderedSizes()) {
+      const exercises = exercisesOf({ kind: size.kind, content: size.content });
+      assert.equal(estimatePages(size.kind, size.content, exercises), size.pages, size.name);
+    }
   });
 
   test("subtitle: an extension's first non-empty reason, else null; null for the other kinds", () => {
