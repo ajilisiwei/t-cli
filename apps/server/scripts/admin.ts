@@ -116,6 +116,7 @@ function summaryRow(summary: AccountRunSummary): Record<string, string | number>
     daily: summary.daily ? `${summary.daily.date} ${summary.daily.outcome}` : '',
     digest: summary.digest ? `${summary.digest.date} ${summary.digest.outcome}` : '',
     weekly: summary.weekly ? `${summary.weekly.date} ${summary.weekly.outcome}` : '',
+    extend: summary.extend ? `${summary.extend.date} ${summary.extend.outcome}` : '',
     tokens: summary.tokens,
     seconds: Math.round(summary.ms / 100) / 10,
   };

@@ -11,6 +11,8 @@ import type { StudyLevelSetting } from './plan.ts';
 
 export const LEVEL_WINDOW_DAYS = 30;
 export const DEFAULT_LEVEL: StudyLevel = 'B1';
+/** Below this many reviews auto always stays at DEFAULT_LEVEL (the lowest count any rule needs). */
+export const LEVEL_MIN_REVIEWS = 50;
 
 export interface LevelStats {
   /** Share of ratings ≥ 2 on non-new cards in the window (4 decimals); null without such ratings. */
@@ -35,7 +37,7 @@ export function effectiveLevel(setting: StudyLevelSetting, { retention30, review
   if (retention30 === null) return DEFAULT_LEVEL;
   if (retention30 >= 0.93 && reviews30 >= 300) return 'C1';
   if (retention30 >= 0.88 && reviews30 >= 150) return 'B2';
-  if (retention30 < 0.7 && reviews30 >= 50) return 'A2';
+  if (retention30 < 0.7 && reviews30 >= LEVEL_MIN_REVIEWS) return 'A2';
   return DEFAULT_LEVEL;
 }
 

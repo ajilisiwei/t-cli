@@ -4,10 +4,11 @@ import type { Config } from '../../config.ts';
 import type { Database } from '../../db/client.ts';
 import { AppError, loggableError } from '../../http/errors.ts';
 import type { Alerter, Clock, LlmClient } from '../../ports.ts';
-import { accountLevel } from '../learn/level.ts';
+import { accountLevel, type LevelView } from '../learn/level.ts';
 import type { LearnPlan } from '../learn/plan.ts';
 import { addDays, localDateOf, weekdayOf } from './dates.ts';
 import { buildDigest } from './digest.ts';
+import { buildExtension, type ExtendOutcome } from './extend.ts';
 import { extractBatch, sliceBatches } from './extract.ts';
 import { generateItems } from './generate.ts';
 import { createTokenBudget, MAX_ATTEMPTS, TokenBudgetExceeded, type RunContext } from './llmJson.ts';
@@ -76,6 +77,8 @@ export interface AccountRunSummary {
   daily: { date: string; outcome: MaterialOutcome } | null;
   digest: { date: string; outcome: MaterialOutcome } | null;
   weekly: { date: string; outcome: MaterialOutcome } | null;
+  /** Step 5 (v3): the extension material of a Monday. */
+  extend: { date: string; outcome: ExtendOutcome } | null;
   tokens: number;
   ms: number;
 }
@@ -113,6 +116,7 @@ const emptySummary = (userId: string): AccountRunSummary => ({
   daily: null,
   digest: null,
   weekly: null,
+  extend: null,
   tokens: 0,
   ms: 0,
 });
@@ -175,6 +179,18 @@ async function periodicMaterial(ctx: RunContext, plan: LearnPlan, options: Mater
   }
 }
 
+/** Step 5: on a local Monday, the extension material (when the plan has it on). */
+async function extension(ctx: RunContext, plan: LearnPlan, level: LevelView, progress: Progress, update: Update): Promise<void> {
+  const today = localDateOf(ctx.now, ctx.utcOffsetMinutes);
+  if (!plan.extendEnabled || weekdayOf(today) !== 1) return;
+  const result = await buildExtension(ctx, today, { plan, level });
+  const rejected = result.failures.reduce<Record<string, number>>(
+    (counts, failure) => ({ ...counts, [`extend:${failure}`]: (counts[`extend:${failure}`] ?? 0) + 1 }),
+    { ...progress.current.rejected },
+  );
+  update({ extend: { date: today, outcome: result.outcome }, rejected });
+}
+
 /** Steps 0–5 for one account; updates `progress` as it goes, so a stop keeps the counts. */
 async function processAccount(ctx: RunContext, plan: LearnPlan, progress: Progress): Promise<void> {
   const { db, userId, now } = ctx;
@@ -187,14 +203,16 @@ async function processAccount(ctx: RunContext, plan: LearnPlan, progress: Progre
 
   const active = await hadActivity(db, userId, { start: new Date(now.getTime() - ACTIVE_WINDOW_DAYS * 86_400_000), end: now });
   update({ active });
-  const level = active ? (await accountLevel(db, userId, now, plan.studyLevel)).effective : null;
-  if (level) await periodicMaterial(ctx, plan, { story: plan.materialParts.includes('story'), level }, update);
+  const level = active ? await accountLevel(db, userId, now, plan.studyLevel) : null;
+  if (level) await periodicMaterial(ctx, plan, { story: plan.materialParts.includes('story'), level: level.effective }, update);
 
   // 4. The weekly report when yesterday was a Sunday (unchanged).
   const yesterday = addDays(localDateOf(now, ctx.utcOffsetMinutes), -1);
   if (weekdayOf(yesterday) === 0) {
     update({ weekly: { date: addDays(yesterday, -6), outcome: await buildWeeklyReport(ctx, yesterday) } });
   }
+
+  if (level) await extension(ctx, plan, level, progress, update);
 }
 
 async function alertOutcome(deps: PipelineDeps, summary: AccountRunSummary, limit: number): Promise<void> {
