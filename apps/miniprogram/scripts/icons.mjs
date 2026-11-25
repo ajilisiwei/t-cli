@@ -36,6 +36,10 @@ import {
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 export const ICON_DIR = path.join(ROOT, 'miniprogram', 'assets', 'icons')
 
+/** An open book: the 学习 tab and its links (shared with scripts/tab-icons.mjs). */
+export const BOOK_SHAPE =
+  '<path d="M3 5.5c3-1.2 6-1.2 9 .6 3-1.8 6-1.8 9-.6V19c-3-1.2-6-1.2-9 .6-3-1.8-6-1.8-9-.6z"/><path d="M12 6.1v13.5"/>'
+
 /** Inner SVG per icon; `{c}` is the colour. Strokes by default, `fill` where noted. */
 const SHAPES = {
   // A filled cone and two sound waves.
@@ -65,6 +69,25 @@ const SHAPES = {
   swap: '<path d="M5 8.5h13.5M15 5l3.5 3.5L15 12"/><path d="M19 15.5H5.5M9 12l-3.5 3.5L9 19"/>',
   // A cloud with a check: settings are saved to the account.
   'cloud-check': '<path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a4 4 0 0 1-.5 7.97"/><path d="M9.5 15.5l2 2 3.5-3.5"/>',
+  book: BOOK_SHAPE,
+  // 导出 PDF / 打印.
+  printer: '<path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/>',
+  // A page with lines: 本周合集.
+  doc: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M10 13h6M10 17h6"/>',
+  // Four cards: 单词卡.
+  cards:
+    '<rect x="3" y="5" width="8" height="6" rx="1"/><rect x="13" y="5" width="8" height="6" rx="1"/>' +
+    '<rect x="3" y="13" width="8" height="6" rx="1"/><rect x="13" y="13" width="8" height="6" rx="1"/>',
+  // A sheet folded down the middle: 自测清单.
+  checklist:
+    '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M12 3v18" stroke-dasharray="2 2"/>' +
+    '<path d="M7 8h2M7 12h2M7 16h2"/>',
+  // 为什么推荐给你.
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7.5v.5"/>',
+  // A speech bubble with an arrow: 发给微信好友.
+  share:
+    '<path d="M21 12.5c0 3.6-3.6 6.5-8 6.5-1 0-2-.1-2.9-.4L6 20l1-3.3C5.2 15.5 4 14.1 4 12.5 4 8.9 7.6 6 12 6"/>' +
+    '<path d="M16 3l5 4-5 4"/>',
 }
 
 /** A 24×24 icon document: `shape` (with `{c}` for the colour) stroked in `color`. Also used for the tab icons. */

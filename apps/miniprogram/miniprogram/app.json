@@ -48,7 +48,7 @@
         "pagePath": "pages/review/index",
         "iconPath": "@tabIconReview",
         "selectedIconPath": "@tabIconReviewOn",
-        "text": "复习"
+        "text": "学习"
       },
       {
         "pagePath": "pages/me/index",

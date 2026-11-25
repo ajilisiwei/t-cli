@@ -131,6 +131,13 @@ export const ICON_NAMES = [
   'arrow-up',
   'swap',
   'cloud-check',
+  'book',
+  'printer',
+  'doc',
+  'cards',
+  'checklist',
+  'info',
+  'share',
 ] as const
 
 export type IconName = (typeof ICON_NAMES)[number]
