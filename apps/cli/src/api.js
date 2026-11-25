@@ -3,27 +3,43 @@ import process from 'node:process';
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 
 /**
- * 无状态调用 DeepSeek API（流式输出）
- * @param {string} systemPrompt 系统提示词，用于设定角色和规则
- * @param {string} userText 用户输入的文本
- * @param {function} onChunk 当接收到新的文本块时的回调函数
- * @returns {Promise<void>}
+ * The request body of a streamed chat completion.
+ * `thinking` switches the model's reasoning on or off (DeepSeek's `thinking`
+ * field); omitted, the model's default applies (deepseek-v4-flash reasons).
+ * Reasoning is never shown, so it only delays the first visible text.
+ * @param {string} systemPrompt
+ * @param {string} userText
+ * @param {{ thinking?: boolean }} [options]
+ * @returns {Record<string, unknown>}
  */
-export async function callDeepSeekStream(systemPrompt, userText, onChunk) {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) {
-    throw new Error('DEEPSEEK_API_KEY environment variable not found');
-  }
-
-  const payload = {
+export function buildStreamPayload(systemPrompt, userText, { thinking } = {}) {
+  return {
     model: process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash',
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userText }
     ],
     temperature: 0.3,
-    stream: true
+    stream: true,
+    ...(thinking === undefined ? {} : { thinking: { type: thinking ? 'enabled' : 'disabled' } })
   };
+}
+
+/**
+ * 无状态调用 DeepSeek API（流式输出）
+ * @param {string} systemPrompt 系统提示词，用于设定角色和规则
+ * @param {string} userText 用户输入的文本
+ * @param {function} onChunk 当接收到新的文本块时的回调函数
+ * @param {{ thinking?: boolean }} [options] 见 buildStreamPayload
+ * @returns {Promise<void>}
+ */
+export async function callDeepSeekStream(systemPrompt, userText, onChunk, options = {}) {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) {
+    throw new Error('DEEPSEEK_API_KEY environment variable not found');
+  }
+
+  const payload = buildStreamPayload(systemPrompt, userText, options);
 
   const response = await fetch(DEEPSEEK_API_URL, {
     method: 'POST',
