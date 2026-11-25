@@ -2,136 +2,166 @@
   <nav-bar title="学习单元" back />
   <scroll-view class="body" scroll-y type="list" show-scrollbar="{{false}}">
     <view class="content">
-      <text wx:if="{{loading && !loaded}}" class="empty">加载中…</text>
-      <view wx:if="{{errorText && !loaded}}" class="failed">
-        <text class="error">{{errorText}}</text>
-        <view class="btn btn-secondary btn-block" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+      <!-- Skeleton shaped like a unit: head word, meta, meanings, a section -->
+      <view wx:if="{{loading && !loaded}}" class="hero" aria-label="加载中">
+        <view class="skel skel-line skel-pulse it-skel-head" />
+        <view class="skel skel-line skel-pulse it-w40" />
+        <view class="skel skel-line skel-pulse it-skel-gap" />
+        <view class="skel skel-line skel-pulse it-w72" />
+        <view class="skel skel-block skel-pulse it-skel-gap" />
+      </view>
+      <view wx:if="{{errorText && !loaded}}" class="state">
+        <text class="state-text state-error">{{errorText}}</text>
+        <view class="btn btn-secondary btn-sm" hover-class="pressed" hover-stay-time="80" bindtap="onRetry" aria-role="button"><text>重试</text></view>
       </view>
 
-      <text wx:if="{{loaded && notice}}" class="status">{{notice}}</text>
+      <text wx:if="{{loaded && notice}}" class="t-secondary status">{{notice}}</text>
 
       <!-- 单词 -->
       <view wx:if="{{word}}" class="hero">
-        <view class="headline">
-          <text class="head serif" user-select>{{word.headword}}</text>
-          <text wx:if="{{word.ipa}}" class="ipa serif">/{{word.ipa}}/</text>
-          <view class="icon-btn icon-btn-sm icon-btn-tonal speak" bindtap="onSpeak" aria-role="button" aria-label="{{speakPhase === 'idle' ? '朗读 ' + word.headword : '停止朗读'}}">
+        <view class="it-headline">
+          <text class="t-headword it-head" user-select>{{word.headword}}</text>
+          <text wx:if="{{word.ipa}}" class="t-secondary">/{{word.ipa}}/</text>
+          <view
+            class="icon-btn icon-btn-sm icon-btn-tonal"
+            hover-class="pressed"
+            hover-stay-time="80"
+            bindtap="onSpeak"
+            aria-role="button"
+            aria-label="{{speakPhase === 'idle' ? '朗读 ' + word.headword : '停止朗读'}}"
+          >
             <t-speak-icon phase="{{speakPhase}}" tone="accent" size="30" />
           </view>
         </view>
-        <text class="meta">{{meta}}</text>
+        <text class="t-caption meta">{{meta}}</text>
         <view class="meanings">
-          <text wx:for="{{word.meanings}}" wx:key="key" class="meaning"><text class="pos serif">{{item.pos}}</text>{{item.zh}}</text>
+          <text wx:for="{{word.meanings}}" wx:key="key" class="t-body meaning"><text class="serif pos">{{item.pos}}</text>{{item.zh}}</text>
         </view>
 
         <block wx:if="{{word.examples.length > 0}}">
-          <text class="section-title">例句</text>
+          <view class="section-head it-sec"><text class="t-label">例句</text></view>
           <view wx:for="{{word.examples}}" wx:key="key" class="example {{item.fromUser ? 'example-mine' : ''}}">
-            <text wx:if="{{item.fromUser}}" class="mine">你的句子</text>
-            <text class="example-en serif" user-select>{{item.en}}</text>
-            <text wx:if="{{item.zh}}" class="example-zh">{{item.zh}}</text>
+            <text wx:if="{{item.fromUser}}" class="t-caption mine">你的句子</text>
+            <text class="t-reading example-en" user-select>{{item.en}}</text>
+            <text wx:if="{{item.zh}}" class="t-secondary example-zh">{{item.zh}}</text>
           </view>
         </block>
 
         <block wx:if="{{word.collocations.length > 0}}">
-          <text class="section-title">搭配</text>
+          <view class="section-head it-sec"><text class="t-label">搭配</text></view>
           <view class="lines">
-            <text wx:for="{{word.collocations}}" wx:key="*this" class="line serif">{{item}}</text>
+            <text wx:for="{{word.collocations}}" wx:key="*this" class="t-body serif line">{{item}}</text>
           </view>
         </block>
 
         <block wx:if="{{word.synonyms.length > 0}}">
-          <text class="section-title">近义词</text>
+          <view class="section-head it-sec"><text class="t-label">近义词</text></view>
           <view class="lines">
-            <text wx:for="{{word.synonyms}}" wx:key="key" class="line"><text class="serif term">{{item.word}}</text><text class="note">{{item.note ? '  ' + item.note : ''}}</text></text>
+            <text wx:for="{{word.synonyms}}" wx:key="key" class="t-body line"><text class="serif">{{item.word}}</text><text class="note">{{item.note ? '  ' + item.note : ''}}</text></text>
           </view>
         </block>
 
         <block wx:if="{{word.family}}">
-          <text class="section-title">词族</text>
-          <text class="line serif">{{word.family}}</text>
+          <view class="section-head it-sec"><text class="t-label">词族</text></view>
+          <text class="t-body serif line">{{word.family}}</text>
         </block>
       </view>
 
       <!-- 句型 -->
       <view wx:if="{{phrase}}" class="hero">
-        <view class="headline">
-          <text class="phrase-text serif" user-select>{{phrase.phrase}}</text>
-          <view class="icon-btn icon-btn-sm icon-btn-tonal speak" bindtap="onSpeak" aria-role="button" aria-label="{{speakPhase === 'idle' ? '朗读 ' + phrase.phrase : '停止朗读'}}">
+        <view class="it-headline">
+          <text class="t-headword it-head it-phrase" user-select>{{phrase.phrase}}</text>
+          <view
+            class="icon-btn icon-btn-sm icon-btn-tonal"
+            hover-class="pressed"
+            hover-stay-time="80"
+            bindtap="onSpeak"
+            aria-role="button"
+            aria-label="{{speakPhase === 'idle' ? '朗读 ' + phrase.phrase : '停止朗读'}}"
+          >
             <t-speak-icon phase="{{speakPhase}}" tone="accent" size="30" />
           </view>
         </view>
-        <text wx:if="{{phrase.zh}}" class="gloss">{{phrase.zh}}</text>
-        <text class="meta">{{meta}}{{phrase.register ? ' · ' + phrase.register : ''}}</text>
+        <text wx:if="{{phrase.zh}}" class="t-body it-gloss">{{phrase.zh}}</text>
+        <text class="t-caption meta">{{meta}}{{phrase.register ? ' · ' + phrase.register : ''}}</text>
 
         <block wx:if="{{phrase.alternatives.length > 0}}">
-          <text class="section-title">换个说法</text>
+          <view class="section-head it-sec"><text class="t-label">换个说法</text></view>
           <view class="lines">
             <view wx:for="{{phrase.alternatives}}" wx:key="key" class="alternative">
-              <text class="serif term">≈ {{item.en}}</text>
-              <text wx:if="{{item.note}}" class="note-block">{{item.note}}</text>
+              <text class="t-body serif">≈ {{item.en}}</text>
+              <text wx:if="{{item.note}}" class="t-secondary note-block">{{item.note}}</text>
             </view>
           </view>
         </block>
 
         <block wx:if="{{phrase.examples.length > 0}}">
-          <text class="section-title">例句</text>
+          <view class="section-head it-sec"><text class="t-label">例句</text></view>
           <view wx:for="{{phrase.examples}}" wx:key="key" class="example {{item.fromUser ? 'example-mine' : ''}}">
-            <text wx:if="{{item.fromUser}}" class="mine">你的句子</text>
-            <text class="example-en serif" user-select>{{item.en}}</text>
-            <text wx:if="{{item.zh}}" class="example-zh">{{item.zh}}</text>
+            <text wx:if="{{item.fromUser}}" class="t-caption mine">你的句子</text>
+            <text class="t-reading example-en" user-select>{{item.en}}</text>
+            <text wx:if="{{item.zh}}" class="t-secondary example-zh">{{item.zh}}</text>
           </view>
         </block>
       </view>
 
       <!-- 语法 -->
       <view wx:if="{{grammar}}" class="hero">
-        <text class="grammar-title">{{grammar.title}}</text>
-        <text class="meta">{{meta}}</text>
-        <text wx:if="{{grammar.rule}}" class="grammar-rule">{{grammar.rule}}</text>
-        <view wx:if="{{grammar.wrong || grammar.right}}" class="contrast">
+        <text class="t-title grammar-title">{{grammar.title}}</text>
+        <text class="t-caption meta">{{meta}}</text>
+        <text wx:if="{{grammar.rule}}" class="t-body grammar-rule">{{grammar.rule}}</text>
+        <view wx:if="{{grammar.wrong || grammar.right}}" class="card-surface contrast">
           <view wx:if="{{grammar.wrong}}" class="contrast-line" aria-label="错误：{{grammar.wrong}}">
             <view class="mark-icon"><t-icon name="close" tone="danger" size="28" /></view>
-            <text class="wrong serif">{{grammar.wrong}}</text>
+            <text class="t-body serif wrong">{{grammar.wrong}}</text>
           </view>
           <view wx:if="{{grammar.right}}" class="contrast-line contrast-right" aria-label="正确：{{grammar.right}}">
             <view class="mark-icon"><t-icon name="check" tone="accent" size="30" /></view>
-            <text class="right serif" user-select>{{grammar.right}}</text>
-            <view class="icon-btn icon-btn-sm icon-btn-tonal speak" bindtap="onSpeak" aria-role="button" aria-label="{{speakPhase === 'idle' ? '朗读正确的句子' : '停止朗读'}}">
+            <text class="t-body serif right" user-select>{{grammar.right}}</text>
+            <view
+              class="icon-btn icon-btn-sm icon-btn-tonal"
+              hover-class="pressed"
+              hover-stay-time="80"
+              bindtap="onSpeak"
+              aria-role="button"
+              aria-label="{{speakPhase === 'idle' ? '朗读正确的句子' : '停止朗读'}}"
+            >
               <t-speak-icon phase="{{speakPhase}}" tone="accent" size="30" />
             </view>
           </view>
         </view>
 
         <block wx:if="{{exercises.length > 0}}">
-          <text class="section-title">练习 · 点一下看答案</text>
+          <view class="section-head it-sec"><text class="t-label">练习 · 点一下看答案</text></view>
           <view
             wx:for="{{exercises}}"
             wx:key="key"
             class="exercise"
+            hover-class="pressed"
+            hover-stay-time="80"
             data-index="{{index}}"
             bindtap="onReveal"
             aria-role="button"
             aria-label="第 {{index + 1}} 题：{{item.wrong}}{{item.revealed ? '。答案：' + item.right : '。点一下看答案'}}"
           >
-            <text class="exercise-wrong serif">{{index + 1}}. {{item.wrong}}</text>
+            <text class="t-body serif exercise-wrong">{{index + 1}}. {{item.wrong}}</text>
             <view wx:if="{{item.revealed}}" class="mark-line exercise-right">
               <view class="mark-icon"><t-icon name="check" tone="accent" size="30" /></view>
-              <text class="exercise-right-text serif">{{item.right}}</text>
+              <text class="t-body serif right">{{item.right}}</text>
             </view>
-            <text wx:else class="exercise-hint">看答案</text>
+            <text wx:else class="t-secondary exercise-hint">看答案</text>
           </view>
         </block>
       </view>
 
       <!-- No content yet: the unit's name and why. -->
       <view wx:if="{{loaded && !word && !phrase && !grammar}}" class="hero">
-        <text class="head serif">{{display}}</text>
-        <text class="meta">{{meta}}</text>
+        <text class="t-headword it-head">{{display}}</text>
+        <text class="t-caption meta">{{meta}}</text>
       </view>
 
       <block wx:if="{{cards.length > 0}}">
-        <text class="section-title">复习卡片</text>
+        <view class="section-head it-sec-major"><text class="t-label">复习卡片</text></view>
         <view wx:for="{{cards}}" wx:key="id" class="row">
           <text class="row-label {{item.resting ? 'resting' : ''}}">{{item.typeLabel}}<text class="card-state"> · {{item.stateLabel}}</text></text>
           <text class="row-value">{{item.dueLabel}}</text>
@@ -139,10 +169,10 @@
       </block>
 
       <block wx:if="{{sources.length > 0}}">
-        <text class="section-title">来自这些记录</text>
+        <view class="section-head it-sec-major"><text class="t-label">来自这些记录</text></view>
         <view wx:for="{{sources}}" wx:key="id" class="source">
-          <text class="source-input">{{item.input}}</text>
-          <text wx:if="{{item.time}}" class="source-time">{{item.time}}</text>
+          <text class="t-body source-input">{{item.input}}</text>
+          <text wx:if="{{item.time}}" class="t-caption source-time">{{item.time}}</text>
         </view>
       </block>
     </view>
