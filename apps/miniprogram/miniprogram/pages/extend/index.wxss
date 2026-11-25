@@ -172,6 +172,15 @@
   gap: 16rpx;
 }
 
+/* 看中文 and 朗读, side by side at the end of the head. */
+.xt-passage-tools {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+}
+
 .xt-passage-text {
   display: block;
   margin-top: 16rpx;

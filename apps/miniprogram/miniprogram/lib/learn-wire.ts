@@ -28,6 +28,7 @@ import type {
   PeriodicMaterial,
   ReviewRecap,
   TranslateExercise,
+  UnitReason,
 } from './learn-types'
 import type { DailyMaterial } from './review-types'
 import type { MaterialFrequency, MaterialTopic, StudyLevel, StudyLevelSetting } from './types'
@@ -79,10 +80,12 @@ export function readMaterialListItem(value: unknown): MaterialListItem | null {
   const kind = value['kind']
   const date = value['date']
   if (!oneOf(KINDS, kind) || !isDate(date)) return null
+  const subtitle = text(value['subtitle'])
   return {
     kind,
     date,
     title: text(value['title']),
+    subtitle: subtitle === '' ? null : subtitle,
     counts: readCounts(value['counts']),
     readAt: timestampOrNull(value['readAt']),
     pages: count(value['pages']),
@@ -207,6 +210,23 @@ export function readDigestExtras(value: unknown): DigestExtras {
   }
 }
 
+const MAX_STARS = 4
+
+/** A material's `reasons` by item id; malformed entries are skipped, absent counts are 0. */
+export function readReasons(value: unknown): Map<string, UnitReason> {
+  const reasons = new Map<string, UnitReason>()
+  if (!isRecord(value)) return reasons
+  for (const [itemId, entry] of Object.entries(value)) {
+    if (itemId === '' || !isRecord(entry)) continue
+    reasons.set(itemId, {
+      stars: Math.min(MAX_STARS, count(entry['stars'])),
+      lapses: count(entry['lapses']),
+      lookups: count(entry['lookups']),
+    })
+  }
+  return reasons
+}
+
 /**
  * `GET /v1/materials/daily|digest` → the material; null when the date or the
  * content is unusable. `readDaily` reads the DailyMaterial part.
@@ -230,6 +250,7 @@ export function readPeriodicMaterial(
     range: extras.range,
     review: extras.review,
     exercises: readExercises(value['exercises']),
+    reasons: readReasons(value['reasons']),
   }
 }
 

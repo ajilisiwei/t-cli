@@ -2,9 +2,10 @@
  * 周期资料 (`?kind=daily|digest&date=YYYY-MM-DD&pages=n`; without a date the
  * latest): one scrolling page — the counts, 重点词, 词组与句型, 语法与易错,
  * 情景短文, 练习 (选词填空 answered here, 中译英 and 改错 on tap) and, for a
- * digest, 本周复习时忘过的. The parts follow 学习计划 › 资料里放什么
- * (`materialParts`). The bar at the bottom: 朗读 the story (daily only: the
- * speech endpoint reads a daily story), 导出 PDF, 学完了.
+ * digest, 本周复习时忘过的. Each word and phrase carries one tag saying why it
+ * was picked (复习时忘了 N 次 / 笔记本 · N 星 / 查了 N 次). The parts follow
+ * 学习计划 › 资料里放什么 (`materialParts`). The bar at the bottom: 朗读 the
+ * story, 导出 PDF, 学完了.
  */
 import { errorMessage } from '../../lib/api'
 import {
@@ -100,7 +101,7 @@ interface MaterialsData extends Look {
   translate: RevealView[]
   fix: RevealView[]
   revealed: Record<string, boolean>
-  /** 朗读 the story from the bar: a daily story that is shown. */
+  /** 朗读 the story from the bar: a story that is shown. */
   canSpeakStory: boolean
   speech: SpeechStatus
   done: boolean
@@ -231,8 +232,8 @@ Page({
       phase: 'ready',
       headLine: headLine(material),
       title: periodicTitle(material),
-      words: wordRows(content.words, itemKey),
-      phrases: phraseRows(content.phrases, itemKey),
+      words: wordRows(content.words, itemKey, material.reasons),
+      phrases: phraseRows(content.phrases, itemKey, material.reasons),
       grammar: content.grammar.map((point) => ({
         itemId: point.itemId,
         title: point.title,
@@ -268,7 +269,7 @@ Page({
     this.setData({
       show,
       cells: material === null ? [] : countCells(material, exerciseCount(material.exercises), currentSettings().materialParts),
-      canSpeakStory: material?.kind === 'daily' && material.content.story !== null && show.story,
+      canSpeakStory: material !== null && material.content.story !== null && show.story,
     })
   },
 
@@ -309,8 +310,8 @@ Page({
   onPlayStory() {
     const story = this.data.story
     const material = this.material
-    if (story === null || material === null || material.kind !== 'daily') return
-    this.play({ material: { kind: 'daily', date: material.date, section: 'story' } }, story.key)
+    if (story === null || material === null) return
+    this.play({ material: { kind: material.kind, date: material.date, section: 'story' } }, story.key)
   },
 
   /** Plays `source`; tapping what loads or plays stops it. */

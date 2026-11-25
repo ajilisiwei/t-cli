@@ -149,6 +149,18 @@
   line-height: 1.4;
 }
 
+/* An extension's first reason, under its title: one line. */
+.lh-material-subtitle {
+  display: block;
+  margin-top: 8rpx;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink-soft);
+  font-size: 26rpx;
+  line-height: 1.5;
+}
+
 .lh-material-meta {
   display: block;
   margin-top: 8rpx;

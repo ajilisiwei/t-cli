@@ -123,7 +123,7 @@ of page-local look-alikes; a page's own wxss only lays things out.
 
 | Piece | Classes | Use |
 | --- | --- | --- |
-| Colour | `--bg --surface --ink --ink-soft --muted --rule --accent --accent-soft --accent-ink --danger` | CSS variables on the page root: `theme-light` / `theme-dark`, then `accent-<accent>-<theme>` (主题色: indigo, pine, plum, ochre, ink) overriding the three accent variables; `lib/palette.ts` mirrors them for JS. See "Theme and accent on a page" |
+| Colour | `--bg --surface --ink --ink-soft --muted --rule --accent --accent-soft --accent-ink --danger --danger-soft` | CSS variables on the page root: `theme-light` / `theme-dark`, then `accent-<accent>-<theme>` (主题色: indigo, pine, plum, ochre, ink) overriding the three accent variables; `lib/palette.ts` mirrors them for JS. See "Theme and accent on a page" |
 | Button | `.btn` + `.btn-primary` / `.btn-secondary` / `.btn-tonal` / `.btn-danger`, sizes `.btn-sm` / `.btn-lg`, `.btn-block`, `.btn-disabled` | Pill. One primary per screen; tonal for inline actions (复制, 显示译文); an icon comes first, with `.btn-icon-first` on a small pill |
 | Icon button | `.icon-btn` (+ `.icon-btn-sm`, `.icon-btn-tonal`, `.icon-btn-off`) | A round target around one icon: 朗读 next to a word, clear, date steppers |
 | Icon | `<t-icon name tone size>` | `name`: speaker, stop, copy, close, check, chevron-left, chevron-right, mic, bookmark, bookmark-filled, star, star-filled, calendar, search, arrow-up, swap, cloud-check, book, printer, doc, cards, checklist, info, share. `tone`: ink, muted, accent, danger, accentInk (= `--accent-ink`, only on an accent fill); `accent` follows the current 主题色. `size` in rpx |
@@ -135,7 +135,7 @@ of page-local look-alikes; a page's own wxss only lays things out.
 | Marks | `.mark-line` + `.mark-icon` | ✓ / ✗ in front of a sentence (check accent, close danger) |
 | Progress | `.meter` + `.meter-fill` | A rounded bar (today's review on 学习, the export sheet's 正在排版) |
 | Card | `.card-surface` | A surface panel with a hairline: a material, a settings group |
-| Label | `.label-tag` (+ `-accent`, `-soft`, `-plain`, `-danger`) | A small label: 每日资料, 拓展 (accent), 未读 (soft), 已学完 (plain), 忘了 2 次 (danger) |
+| Label | `.label-tag` (+ `-accent`, `-soft`, `-plain`, `-danger`, `-danger-soft`) | A small label: 每日资料, 拓展 (accent), 未读 (soft), 已学完 (plain), 忘了 2 次 (danger); a word's reason in a material: 复习时忘了 2 次 (danger-soft), 笔记本 · 3 星 (soft), 查了 2 次 (the bare `.label-tag`) |
 | Choice chip | `.choice-chips` row of `.choice-chip` (+ `.choice-chip-on`) | A pill to pick: 复习范围, 资料里放什么, 拓展方向, cloze choices |
 | Checkbox | `.tick` (+ `.tick-on`, `.tick-round`) with `<t-icon name="check" tone="accentInk">` inside when on | 拓展资料 items; round when selecting materials |
 | Segmented | `.seg-control` of `.seg-option` (+ `.seg-option-on`) | 资料类型, 生成频率, 版式 |

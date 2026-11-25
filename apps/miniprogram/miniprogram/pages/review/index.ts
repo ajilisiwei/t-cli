@@ -48,6 +48,8 @@ interface MaterialCard {
   status: string
   statusTone: string
   title: string
+  /** An extension's first reason; '' otherwise. */
+  subtitle: string
   meta: string
   url: string
 }
@@ -109,6 +111,7 @@ const cardOf = (item: MaterialListItem, today: string): MaterialCard => {
     status: status?.text ?? '',
     statusTone: status?.tone ?? '',
     title: item.title === '' ? KIND_LABELS[item.kind] : item.title,
+    subtitle: item.subtitle ?? '',
     meta: materialMeta(item, currentSettings().materialParts),
     url: materialUrl(item),
   }

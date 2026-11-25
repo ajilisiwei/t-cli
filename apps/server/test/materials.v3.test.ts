@@ -2,13 +2,14 @@ import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { FastifyInstance } from 'fastify';
 import { and, eq } from 'drizzle-orm';
-import { items, users } from '../src/db/schema.ts';
+import { ulid } from '@t-cli/core/ulid';
+import { items, lookupEvents, users } from '../src/db/schema.ts';
 import { ExtendContentSchema, exercisesFor } from '../src/modules/pipeline/learnContent.ts';
 import { buildTestApp, fixedClock, type TestClock } from './helpers/app.ts';
 import { createTestDatabase, skipWithoutDb, type TestDatabase } from './helpers/db.ts';
 import type { TestAccount } from './helpers/fixtures.ts';
-import { cardsOf, cannedGrammar, cannedPhrase, cannedWord } from './helpers/pipeline.ts';
-import { createLearner, dailyMaterial, extendMaterial, seedItem, seedMaterial } from './helpers/learning.ts';
+import { cardsOf, cannedGrammar, cannedPhrase, cannedWord, seedRecords } from './helpers/pipeline.ts';
+import { createLearner, dailyMaterial, extendMaterial, seedItem, seedLog, seedMaterial, seedSource } from './helpers/learning.ts';
 import { lexiconEntry, seedLexicon } from './helpers/notes.ts';
 
 /** A daily material (or digest) with real words, phrases and grammar, so exercises can be derived. */
@@ -96,6 +97,11 @@ describe('materials (v3): list items, digest, extend, read, adopt, dismiss', { s
     assert.ok(daily.pages >= 1 && extend.pages >= 1);
     assert.equal(daily.readAt, null);
     assert.equal(daily.createdAt, '2026-11-23T22:00:00.000Z');
+    assert.equal(extend.subtitle, '最近 14 天你查了 airport、flight 等 3 个旅行用词', "an extension's first reason");
+    assert.deepEqual(
+      data.items.filter((item: { kind: string }) => item.kind !== 'extend').map((item: { subtitle: unknown }) => item.subtitle),
+      [null, null, null, null],
+    );
 
     await setLang(account, 'en');
     const en = (await get(account, '/v1/materials?kind=all')).json().data;
@@ -119,6 +125,99 @@ describe('materials (v3): list items, digest, extend, read, adopt, dismiss', { s
     assert.deepEqual(digests.items.map((item: { kind: string }) => item.kind), ['digest']);
   });
 
+  test('kind=periodic: daily and digest only, paged by whole dates like the others', async () => {
+    const account = await learner();
+    await seedAll(account);
+    // Dates with only an extension or a report never make an empty periodic page.
+    await seedMaterial(t.db, account.userId, { kind: 'extend', date: '2026-11-16', content: extendMaterial() });
+    await seedMaterial(t.db, account.userId, { date: '2026-11-15', content: dailyMaterial('2026-11-15') });
+
+    const all = (await get(account, '/v1/materials?kind=periodic')).json().data;
+    assert.deepEqual(all.dates, ['2026-11-23', '2026-11-22', '2026-11-15']);
+    assert.deepEqual(
+      all.items.map((item: { kind: string; date: string }) => [item.kind, item.date]),
+      [
+        ['daily', '2026-11-23'],
+        ['digest', '2026-11-22'],
+        ['daily', '2026-11-22'],
+        ['daily', '2026-11-15'],
+      ],
+    );
+    assert.equal(all.nextBefore, null);
+
+    const page1 = (await get(account, '/v1/materials?kind=periodic&limit=2')).json().data;
+    assert.deepEqual(page1.dates, ['2026-11-23', '2026-11-22']);
+    assert.equal(page1.items.length, 3, 'the digest and the daily material of 11-22 stay together');
+    assert.equal(page1.nextBefore, '2026-11-22');
+    const page2 = (await get(account, `/v1/materials?kind=periodic&limit=2&before=${page1.nextBefore}`)).json().data;
+    assert.deepEqual(page2.items.map((item: { date: string }) => item.date), ['2026-11-15']);
+    assert.equal(page2.nextBefore, null);
+
+    assert.equal((await get(account, '/v1/materials?kind=story')).statusCode, 400);
+  });
+
+  test('reasons: stars now, 忘记 ratings, lookup events and source records within the day or the digest range', async () => {
+    const account = await learner();
+    const other = await learner();
+    const at = (iso: string) => new Date(iso);
+    // The account's offset is +08:00 (its records'); 2026-11-23 local = [11-22T16:00Z, 11-23T16:00Z).
+    const lapsed = await seedItem(t.db, account.userId, { type: 'word', display: 'mitigate', stars: 1 });
+    const starred = await seedItem(t.db, account.userId, { type: 'word', display: 'concise', stars: 3 });
+    const looked = await seedItem(t.db, account.userId, { type: 'word', display: 'deadline' });
+    const phrase = await seedItem(t.db, account.userId, { type: 'phrase', display: 'circle back' });
+    const quiet = await seedItem(t.db, account.userId, { type: 'word', display: 'quiet' });
+
+    // 忘记 on two cards of `lapsed` that day, one the day before, a 困难 that day.
+    await seedLog(t.db, account.userId, { cardId: lapsed.cardIds[0]!, rating: 1, reviewedAt: at('2026-11-22T17:00:00Z') });
+    await seedLog(t.db, account.userId, { cardId: lapsed.cardIds[1]!, rating: 1, reviewedAt: at('2026-11-23T15:59:00Z') });
+    await seedLog(t.db, account.userId, { cardId: lapsed.cardIds[0]!, rating: 1, reviewedAt: at('2026-11-22T15:59:00Z') });
+    await seedLog(t.db, account.userId, { cardId: lapsed.cardIds[2]!, rating: 2, reviewedAt: at('2026-11-23T01:00:00Z') });
+    await seedLog(t.db, account.userId, { cardId: phrase.cardIds[0]!, rating: 1, reviewedAt: at('2026-11-20T01:00:00Z') });
+
+    // Two lookup events of `deadline` that day and one the next day; a source record of it and of the phrase.
+    await t.db.insert(lookupEvents).values([
+      { userId: account.userId, id: ulid(), lemmaKey: 'deadline', explainLang: 'zh', createdAt: at('2026-11-23T02:00:00Z') },
+      { userId: account.userId, id: ulid(), lemmaKey: 'deadline', explainLang: 'zh', createdAt: at('2026-11-23T03:00:00Z') },
+      { userId: account.userId, id: ulid(), lemmaKey: 'deadline', explainLang: 'zh', createdAt: at('2026-11-23T17:00:00Z') },
+      { userId: other.userId, id: ulid(), lemmaKey: 'deadline', explainLang: 'zh', createdAt: at('2026-11-23T02:00:00Z') },
+    ]);
+    // Records at +08:00, so the account's local days stay at that offset.
+    const [lookedUp, phrased] = await seedRecords(t.db, account.userId, [
+      { input: 'deadline', output: '截止日期', at: '2026-11-23T12:00:00+08:00' },
+      { input: 'circle back', output: '回头再讨论', at: '2026-11-18T12:00:00+08:00' },
+    ]);
+    await seedSource(t.db, account.userId, looked.itemId, lookedUp!.id);
+    await seedSource(t.db, account.userId, phrase.itemId, phrased!.id);
+
+    const unit = (item: { itemId: string }, word: string) => ({ itemId: item.itemId, ...cannedWord(word) });
+    const content = {
+      ...dailyMaterial('2026-11-23'),
+      words: [unit(lapsed, 'mitigate'), unit(starred, 'concise'), unit(looked, 'deadline'), unit(quiet, 'quiet'), { itemId: 'gone', ...cannedWord('gone') }],
+      phrases: [{ itemId: phrase.itemId, ...cannedPhrase('circle back') }],
+    };
+    await seedMaterial(t.db, account.userId, { date: '2026-11-23', content });
+    await seedMaterial(t.db, account.userId, { kind: 'digest', date: '2026-11-23', content: { ...content, range: { start: '2026-11-17', end: '2026-11-23' }, review: [] } });
+    // Another account's material naming the same item ids reads nothing of this account.
+    await seedMaterial(t.db, other.userId, { date: '2026-11-23', content });
+
+    const daily = (await get(account, '/v1/materials/daily?date=2026-11-23')).json().data;
+    assert.deepEqual(daily.reasons, {
+      [lapsed.itemId]: { stars: 1, lapses: 2, lookups: 0 },
+      [starred.itemId]: { stars: 3, lapses: 0, lookups: 0 },
+      [looked.itemId]: { stars: 0, lapses: 0, lookups: 3 },
+      [quiet.itemId]: { stars: 0, lapses: 0, lookups: 0 },
+      [phrase.itemId]: { stars: 0, lapses: 0, lookups: 0 },
+    });
+
+    const digest = (await get(account, '/v1/materials/digest?date=2026-11-23')).json().data;
+    assert.deepEqual(digest.reasons[lapsed.itemId], { stars: 1, lapses: 3, lookups: 0 });
+    assert.deepEqual(digest.reasons[looked.itemId], { stars: 0, lapses: 0, lookups: 3 });
+    assert.deepEqual(digest.reasons[phrase.itemId], { stars: 0, lapses: 1, lookups: 1 });
+
+    const theirs = (await get(other, '/v1/materials/daily?date=2026-11-23')).json().data;
+    assert.deepEqual(theirs.reasons, {});
+  });
+
   test('daily and digest carry derived exercises; extend carries known; weekly neither', async () => {
     const account = await learner();
     await seedAll(account);
@@ -126,7 +225,7 @@ describe('materials (v3): list items, digest, extend, read, adopt, dismiss', { s
     await seedItem(t.db, account.userId, { type: 'phrase', display: 'jet lag' });
 
     const daily = (await get(account, '/v1/materials/daily?date=2026-11-23')).json().data;
-    assert.deepEqual(Object.keys(daily).sort(), ['content', 'createdAt', 'date', 'exercises', 'kind', 'readAt']);
+    assert.deepEqual(Object.keys(daily).sort(), ['content', 'createdAt', 'date', 'exercises', 'kind', 'readAt', 'reasons']);
     assert.equal(daily.kind, 'daily');
     assert.deepEqual(daily.exercises, exercisesFor(richDaily('2026-11-23') as never));
     assert.ok(daily.exercises.cloze.length > 0 && daily.exercises.fix.length > 0);
@@ -141,10 +240,12 @@ describe('materials (v3): list items, digest, extend, read, adopt, dismiss', { s
     assert.equal(ExtendContentSchema.safeParse(extend.content).success, true);
     assert.deepEqual(extend.known, [false, true, false, false, true, false]);
     assert.equal(extend.exercises, undefined);
+    assert.equal(extend.reasons, undefined);
 
     const weekly = (await get(account, '/v1/materials/weekly')).json().data;
     assert.equal(weekly.exercises, undefined);
     assert.equal(weekly.known, undefined);
+    assert.equal(weekly.reasons, undefined);
     assert.equal((await get(account, '/v1/materials/extend?date=2026-11-16')).statusCode, 404);
   });
 

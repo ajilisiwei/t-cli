@@ -86,6 +86,16 @@
   line-height: 1.4;
 }
 
+/* An extension's first reason: one line. */
+.lm-subtitle {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink-soft);
+  font-size: 26rpx;
+  line-height: 1.5;
+}
+
 .lm-meta {
   color: var(--ink-soft);
   font-size: 26rpx;

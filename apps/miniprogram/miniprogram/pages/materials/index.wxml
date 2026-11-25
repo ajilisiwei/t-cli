@@ -37,6 +37,7 @@
                 <text wx:if="{{item.ipa}}" class="mt-ipa">/{{item.ipa}}/</text>
               </view>
               <text wx:if="{{item.gloss}}" class="mt-gloss">{{item.gloss}}</text>
+              <text wx:if="{{item.why}}" class="label-tag mt-why {{item.whyTone === 'lapse' ? 'label-tag-danger-soft' : item.whyTone === 'star' ? 'label-tag-soft' : ''}}">{{item.why}}</text>
               <text wx:if="{{item.exampleEn}}" class="mt-example serif" user-select>{{item.exampleEn}}</text>
               <text wx:if="{{item.exampleZh}}" class="mt-example-zh">{{item.exampleZh}}</text>
             </view>
@@ -60,6 +61,7 @@
             <view class="mt-row-main">
               <text class="mt-phrase serif" user-select>{{item.text}}</text>
               <text wx:if="{{item.gloss}}" class="mt-gloss">{{item.gloss}}</text>
+              <text wx:if="{{item.why}}" class="label-tag mt-why {{item.whyTone === 'lapse' ? 'label-tag-danger-soft' : item.whyTone === 'star' ? 'label-tag-soft' : ''}}">{{item.why}}</text>
               <text wx:if="{{item.exampleEn}}" class="mt-example serif" user-select>{{item.exampleEn}}</text>
               <text wx:if="{{item.exampleZh}}" class="mt-example-zh">{{item.exampleZh}}</text>
             </view>

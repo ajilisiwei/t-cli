@@ -36,6 +36,7 @@ const VARIABLES: Readonly<Record<keyof Palette, string>> = {
   accentInk: '--accent-ink',
   surface: '--surface',
   danger: '--danger',
+  dangerSoft: '--danger-soft',
 }
 
 const cssBlock = (selector: string): Map<string, string> => {

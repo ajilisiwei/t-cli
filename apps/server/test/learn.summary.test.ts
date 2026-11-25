@@ -94,6 +94,8 @@ describe('GET /v1/learn/summary', { skip: skipWithoutDb }, () => {
       ],
     );
     assert.equal(data.materials[0].title, '出差旅行常用表达');
+    assert.equal(data.materials[0].subtitle, '最近 14 天你查了 airport、flight 等 3 个旅行用词');
+    assert.equal(data.materials[1].subtitle, null);
     assert.deepEqual(data.plan, { materialFrequency: 'weekly', materialWeekday: 0, extendEnabled: false });
     assert.deepEqual(data.level, { setting: 'auto', effective: 'B1', retention30: 0.8889, reviews30: 9 });
     assert.deepEqual(await levelStats(t.db, account.userId, clock()), { retention30: 0.8889, reviews30: 9 });

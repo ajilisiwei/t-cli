@@ -2,14 +2,15 @@ import { exercisesFor, type Exercises } from '../pipeline/learnContent.ts';
 import type { DailyMaterial } from '../pipeline/materials.ts';
 import type { ExplanationLang } from '../pipeline/schemas.ts';
 import { estimatePages } from './materialPages.ts';
+import type { UnitReason } from './materialReasons.ts';
 import type { MaterialKind, MaterialRow } from './materials.ts';
 
 /**
  * What the API shows of a stored material (docs/api-v1.md, "v3 →
- * Materials"): list items with a server-built title, counts and estimated
- * pages, and material responses with the derived exercises. Pure; stored
- * content is read field by field, so an older or partial shape never fails
- * a request.
+ * Materials"): list items with a server-built title, subtitle, counts and
+ * estimated pages, and material responses with the derived exercises. Pure;
+ * stored content is read field by field, so an older or partial shape never
+ * fails a request.
  */
 
 export interface MaterialCounts {
@@ -25,6 +26,8 @@ export interface MaterialListItem {
   kind: MaterialKind;
   date: string;
   title: string;
+  /** extend: its first reason; null for the other kinds. */
+  subtitle: string | null;
   counts: MaterialCounts;
   readAt: string | null;
   pages: number;
@@ -41,6 +44,14 @@ export interface MaterialResponse {
   exercises?: Exercises;
   /** extend: per item, the account already has a unit with that text. */
   known?: boolean[];
+  /** daily and digest: why each word and phrase was picked, by item id. */
+  reasons?: Record<string, UnitReason>;
+}
+
+/** What a material response carries beside the stored content. */
+export interface ResponseExtras {
+  known?: boolean[];
+  reasons?: Record<string, UnitReason>;
 }
 
 type Practicable = Pick<DailyMaterial, 'words' | 'phrases' | 'grammar'>;
@@ -143,6 +154,13 @@ export function titleOf(row: Pick<MaterialRow, 'kind' | 'content'>, counts: Mate
   return dailyTitle(content, counts, lang);
 }
 
+/** An extension's first reason (trimmed, non-empty); null for the other kinds or without one. */
+export function subtitleOf(row: Pick<MaterialRow, 'kind' | 'content'>): string | null {
+  if (row.kind !== 'extend') return null;
+  const first = arrayOf(row.content.reasons).find((reason): reason is string => typeof reason === 'string' && reason.trim() !== '');
+  return first?.trim() ?? null;
+}
+
 // ------------------------------------------------------------------ views
 
 export function toListItem(row: MaterialRow, lang: ExplanationLang): MaterialListItem {
@@ -152,6 +170,7 @@ export function toListItem(row: MaterialRow, lang: ExplanationLang): MaterialLis
     kind: row.kind,
     date: row.date,
     title: titleOf(row, counts, lang),
+    subtitle: subtitleOf(row),
     counts,
     readAt: row.readAt?.toISOString() ?? null,
     pages: estimatePages(row.kind, row.content, exercises),
@@ -159,7 +178,7 @@ export function toListItem(row: MaterialRow, lang: ExplanationLang): MaterialLis
   };
 }
 
-export function toMaterialResponse(row: MaterialRow, known?: boolean[]): MaterialResponse {
+export function toMaterialResponse(row: MaterialRow, { known, reasons }: ResponseExtras = {}): MaterialResponse {
   const exercises = exercisesOf(row);
   return {
     date: row.date,
@@ -169,6 +188,7 @@ export function toMaterialResponse(row: MaterialRow, known?: boolean[]): Materia
     content: row.content,
     ...(exercises ? { exercises } : {}),
     ...(known ? { known } : {}),
+    ...(reasons ? { reasons } : {}),
   };
 }
 

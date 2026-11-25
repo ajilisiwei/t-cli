@@ -44,7 +44,7 @@ test('after adopting, added and existing items are known', () => {
   assert.match(dismissText('职场'), /「职场」这个主题 30 天内不再推荐/)
 })
 
-test('itemRows carry the index, the known mark and the tick', () => {
+test('itemRows carry the index, the speech key, the known mark and the tick', () => {
   const rows = itemRows(
     {
       items: [
@@ -54,12 +54,13 @@ test('itemRows carry the index, the known mark and the tick', () => {
     },
     [false, true],
     [true, true],
+    (index, text) => `k${index}/${text}`,
   )
   assert.deepEqual(
-    rows.map((row) => [row.index, row.known, row.checked]),
+    rows.map((row) => [row.index, row.key, row.known, row.checked]),
     [
-      [0, false, true],
-      [1, true, false],
+      [0, 'k0/heads-up', false, true],
+      [1, 'k1/circle back', true, false],
     ],
   )
   assert.equal(rows[0]?.aria, '把 heads-up 加入复习')

@@ -8,6 +8,7 @@ import {
   lapsesLabel,
   periodicTitle,
   phraseRows,
+  reasonTag,
   showsPart,
   wordRows,
 } from '../miniprogram/lib/periodic-view.ts'
@@ -91,7 +92,30 @@ test('word and phrase rows: two meanings, the first example, a speech key', () =
     gloss: '回头再讨论',
     exampleEn: '',
     exampleZh: '',
+    why: '',
+    whyTone: '',
   })
+})
+
+test('reasonTag: forgotten before stars before lookups; nothing to say is null', () => {
+  assert.deepEqual(reasonTag({ stars: 3, lapses: 2, lookups: 5 }), { text: '复习时忘了 2 次', tone: 'lapse' })
+  assert.deepEqual(reasonTag({ stars: 3, lapses: 0, lookups: 5 }), { text: '笔记本 · 3 星', tone: 'star' })
+  assert.deepEqual(reasonTag({ stars: 0, lapses: 0, lookups: 2 }), { text: '查了 2 次', tone: 'lookup' })
+  assert.equal(reasonTag({ stars: 0, lapses: 0, lookups: 0 }), null)
+  assert.equal(reasonTag(undefined), null)
+})
+
+test('word and phrase rows carry their reason tag by item id', () => {
+  const keyOf = (itemId: string): string => itemId
+  const reasons = new Map([
+    ['w1', { stars: 0, lapses: 1, lookups: 0 }],
+    ['p1', { stars: 4, lapses: 0, lookups: 2 }],
+  ])
+  const [first, second] = wordRows(content.words, keyOf, reasons)
+  assert.deepEqual([first?.why, first?.whyTone], ['复习时忘了 1 次', 'lapse'])
+  assert.deepEqual([second?.why, second?.whyTone], ['', ''], 'no reason for w2')
+  const [phrase] = phraseRows(content.phrases, keyOf, reasons)
+  assert.deepEqual([phrase?.why, phrase?.whyTone], ['笔记本 · 4 星', 'star'])
 })
 
 test('card words, page estimate and lapses label', () => {

@@ -1,10 +1,12 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { estimatePages, PAGE_LINES } from '../src/modules/library/materialPages.ts';
-import { countsOf, exercisesOf, extendItemsOf, practicableOf, titleOf, toListItem } from '../src/modules/library/materialView.ts';
+import { estimatePages, PAGE_BODY_PT } from '../src/modules/library/materialPages.ts';
+import { reasonRangeOf, reasonUnitIds } from '../src/modules/library/materialReasons.ts';
+import { countsOf, exercisesOf, extendItemsOf, practicableOf, subtitleOf, titleOf, toListItem } from '../src/modules/library/materialView.ts';
 import type { MaterialKind, MaterialRow } from '../src/modules/library/materials.ts';
 import { cannedGrammar, cannedPhrase, cannedWord } from './helpers/pipeline.ts';
 import { extendMaterial } from './helpers/learning.ts';
+import { renderedSizes } from './helpers/materialSizes.ts';
 
 const row = (kind: MaterialKind, content: Record<string, unknown>): MaterialRow => ({
   kind,
@@ -84,13 +86,56 @@ describe('material views (pure)', () => {
   test('pages: at least 1, grow with the content, 0 for weekly', () => {
     assert.equal(estimatePages('weekly', { totals: {} }, null), 0);
     assert.equal(estimatePages('daily', {}, null), 1);
-    const small = row('daily', { words: words(2) });
+    assert.equal(estimatePages('extend', {}, null), 1);
+    // One word fits on a page; two already spill over (their exercises, checklist and answers).
+    const small = row('daily', { words: words(1) });
     const large = row('digest', { words: words(20), story: { ...story, text: 'word '.repeat(300) } });
     const smallPages = estimatePages('daily', small.content, exercisesOf(small));
     const largePages = estimatePages('digest', large.content, exercisesOf(large));
     assert.equal(smallPages, 1);
     assert.ok(largePages > smallPages, `${largePages} > ${smallPages}`);
-    assert.ok(largePages >= Math.ceil((20 * 6) / PAGE_LINES));
     assert.ok(estimatePages('extend', extendMaterial(), null) >= 1);
+    assert.equal(PAGE_BODY_PT, 706, 'A4 less the template margins');
+  });
+
+  test('pages match what the export renders (practice layout): a typical daily material is 3 pages', () => {
+    for (const size of renderedSizes()) {
+      const exercises = exercisesOf({ kind: size.kind, content: size.content });
+      assert.equal(estimatePages(size.kind, size.content, exercises), size.pages, size.name);
+    }
+  });
+
+  test("subtitle: an extension's first non-empty reason, else null; null for the other kinds", () => {
+    assert.equal(subtitleOf(row('extend', extendMaterial())), '最近 14 天你查了 airport、flight 等 3 个旅行用词');
+    assert.equal(subtitleOf(row('extend', { reasons: ['  ', 3, ' 第二条 '] })), '第二条');
+    assert.equal(subtitleOf(row('extend', { reasons: 'x' })), null);
+    assert.equal(subtitleOf(row('extend', {})), null);
+    assert.equal(subtitleOf(row('daily', { reasons: ['not for a daily'] })), null);
+    assert.equal(toListItem(row('extend', extendMaterial()), 'en').subtitle, '最近 14 天你查了 airport、flight 等 3 个旅行用词');
+    assert.equal(toListItem(row('weekly', {}), 'zh').subtitle, null);
+  });
+
+  test("reason ranges: a daily material's local day; a digest's stored range, else the 7 days ending on its date", () => {
+    const iso = (range: { start: Date; end: Date }) => [range.start.toISOString(), range.end.toISOString()];
+    assert.deepEqual(iso(reasonRangeOf(row('daily', {}), 480)), ['2026-11-22T16:00:00.000Z', '2026-11-23T16:00:00.000Z']);
+    assert.deepEqual(iso(reasonRangeOf(row('daily', {}), -300)), ['2026-11-23T05:00:00.000Z', '2026-11-24T05:00:00.000Z']);
+    const digest = (range: unknown) => row('digest', { range });
+    assert.deepEqual(iso(reasonRangeOf(digest({ start: '2026-11-17', end: '2026-11-23' }), 480)), ['2026-11-16T16:00:00.000Z', '2026-11-23T16:00:00.000Z']);
+    assert.deepEqual(iso(reasonRangeOf(digest({ start: '2026-11-20', end: '2026-11-23' }), 0)), ['2026-11-20T00:00:00.000Z', '2026-11-24T00:00:00.000Z']);
+    for (const bad of [null, {}, { start: '2026-11-23', end: '2026-11-17' }, { start: '2025-01-01', end: '2026-11-23' }, { start: 'x', end: '2026-11-23' }]) {
+      assert.deepEqual(iso(reasonRangeOf(digest(bad), 480)), ['2026-11-16T16:00:00.000Z', '2026-11-23T16:00:00.000Z'], JSON.stringify(bad));
+    }
+  });
+
+  test('reason units: the item ids of words and phrases, each once; malformed entries skipped', () => {
+    assert.deepEqual(
+      reasonUnitIds({
+        words: [{ itemId: 'w1' }, { itemId: 'w2' }, { itemId: '' }, { itemId: 3 }, 'junk', null, { itemId: 'w1' }],
+        phrases: [{ itemId: 'p1' }, { itemId: 'w2' }],
+        grammar: [{ itemId: 'g1' }],
+      }),
+      ['w1', 'w2', 'p1'],
+    );
+    assert.deepEqual(reasonUnitIds({ words: 'x', phrases: { a: 1 } }), []);
   });
 });

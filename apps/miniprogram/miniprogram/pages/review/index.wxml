@@ -100,6 +100,7 @@
             <text wx:if="{{item.status}}" class="label-tag lh-status {{item.statusTone === 'accent' ? 'label-tag-soft' : 'label-tag-plain'}}">{{item.status}}</text>
           </view>
           <text class="lh-material-title">{{item.title}}</text>
+          <text wx:if="{{item.subtitle}}" class="lh-material-subtitle" max-lines="1" overflow="ellipsis">{{item.subtitle}}</text>
           <text wx:if="{{item.meta}}" class="lh-material-meta">{{item.meta}}</text>
         </view>
         <view wx:else class="lh-report" data-url="{{item.url}}" bindtap="onOpen" aria-role="button" aria-label="周报：{{item.title}}">
