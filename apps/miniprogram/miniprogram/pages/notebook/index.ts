@@ -37,6 +37,7 @@ import {
 import type { SpeechPhase, SpeechStatus } from '../../lib/speaker'
 import type { NotesSummary, NoteStars } from '../../lib/types'
 import { deleteNote, fetchNoteChanges, fetchNotesSummary, listNotes, saveNote } from '../../services/endpoints'
+import { confirmTap } from '../../services/haptics'
 import { utcOffsetMinutes } from '../../services/platform'
 import { redirectIfInviteRequired } from '../../services/session'
 import { itemSpeechKey, speechStatus, stopSpeaking, toggleSpeech, watchSpeech } from '../../services/speech'
@@ -215,7 +216,12 @@ Page({
     void this.loadSummary()
   },
 
+  /** 重试: the first page (and the summary) again, or the page that failed to load at the end. */
   onRetry() {
+    if (this.data.rows.length > 0) {
+      void this.onLoadMore()
+      return
+    }
     void this.reload()
     void this.loadSummary()
   },
@@ -306,6 +312,7 @@ Page({
       this.busy.delete(note.id)
     }
     if (this.isRowSpeech(speechStatus())) stopSpeaking()
+    confirmTap()
     this.show(removeNote(this.list, note.id), { expandedId: '' })
     void this.loadSummary()
   },
