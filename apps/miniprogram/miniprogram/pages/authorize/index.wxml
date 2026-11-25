@@ -2,7 +2,7 @@
   <nav-bar title="授权 CLI 登录" back />
   <scroll-view class="body" scroll-y type="list" show-scrollbar="{{false}}">
     <view class="content">
-      <text class="notice">在终端执行 /login 后，输入显示的 6 位授权码，或扫描二维码。</text>
+      <text class="t-secondary lead">在终端执行 /login 后，输入显示的 6 位授权码，或扫描二维码。</text>
       <input
         class="field serif"
         type="number"
@@ -15,12 +15,33 @@
         bindinput="onInput"
         bindconfirm="onConfirm"
       />
-      <view class="btn btn-primary btn-block {{busy ? 'btn-disabled' : ''}}" bindtap="onConfirm" aria-role="button">
+      <view
+        class="btn btn-primary btn-block {{busy ? 'btn-disabled' : ''}}"
+        bindtap="onConfirm"
+        hover-class="{{busy ? 'none' : 'pressed'}}"
+        hover-stay-time="80"
+        aria-role="button"
+        aria-disabled="{{busy}}"
+      >
         <text>{{busy ? '请稍候…' : '继续'}}</text>
       </view>
-      <view class="btn btn-secondary btn-block" bindtap="onScan" aria-role="button"><text>扫码</text></view>
+      <view
+        class="btn btn-secondary btn-block {{busy ? 'btn-disabled' : ''}}"
+        bindtap="onScan"
+        hover-class="{{busy ? 'none' : 'pressed'}}"
+        hover-stay-time="80"
+        aria-role="button"
+        aria-disabled="{{busy}}"
+      >
+        <text>扫码</text>
+      </view>
 
-      <text wx:if="{{resultText}}" class="notice">{{resultText}}</text>
+      <view wx:if="{{resultText}}" class="mark-line result">
+        <view class="mark-icon">
+          <t-icon name="{{approved ? 'check' : 'close'}}" tone="{{approved ? 'accent' : 'muted'}}" size="32" />
+        </view>
+        <text class="t-body">{{resultText}}</text>
+      </view>
       <text wx:if="{{errorText}}" class="error">{{errorText}}</text>
     </view>
   </scroll-view>

@@ -24,6 +24,7 @@ import { ACCENTS, DEFAULT_ACCENT, isAccent, paletteFor, type Theme } from '../..
 import type { Accent, ExplanationLang, Settings } from '../../lib/types'
 import { parseUserCode } from '../../lib/user-code'
 import { fetchReminderTemplate, grantReminder, requestReminder } from '../../services/account'
+import { confirmTap } from '../../services/haptics'
 import { apiBaseUrl, envVersion } from '../../services/platform'
 import { changeSettings, currentSettings, syncSettingsSoon, watchSettings } from '../../services/settings'
 import { currentLook, watchLook, type Look } from '../../services/theme'
@@ -247,12 +248,14 @@ Page({
   onToggle(event: WechatMiniprogram.BaseEvent<Record<string, never>, { key?: string }>) {
     const key = event.currentTarget.dataset.key
     if (!isToggleKey(key)) return
+    confirmTap()
     changeSettings(togglePatch(key, !currentSettings()[key]))
   },
 
   onAccent(event: WechatMiniprogram.BaseEvent<Record<string, never>, { accent?: string }>) {
     const accent = event.currentTarget.dataset.accent
     if (!isAccent(accent) || accent === currentSettings().accent) return
+    confirmTap()
     changeSettings({ accent })
   },
 

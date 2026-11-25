@@ -188,6 +188,12 @@ Page({
     void this.loadDays()
   },
 
+  /** 重试: the first page again, or the page that failed to load at the end. */
+  onRetry() {
+    if (this.history.entries.length === 0) void this.reload()
+    else void this.onLoadMore()
+  },
+
   onToggle(event: WechatMiniprogram.BaseEvent<Record<string, never>, { id?: string }>) {
     const id = event.currentTarget.dataset.id ?? ''
     this.setData({ expandedId: this.data.expandedId === id ? '' : id })

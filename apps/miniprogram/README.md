@@ -123,6 +123,12 @@ of page-local look-alikes; a page's own wxss only lays things out.
 
 | Piece | Classes | Use |
 | --- | --- | --- |
+| Type | `.t-display` 64, `.t-headword` 56 (serif), `.t-title` 40, `.t-heading` 34, `.t-reading` 34 (serif), `.t-body` 32, `.t-secondary` 28, `.t-label` 26, `.t-caption` 24 (rpx) | The only text sizes. Nothing below 24rpx. Line heights: 1.2 for display and headwords, 1.35–1.4 for titles, headings, labels and captions, 1.55–1.6 for body and secondary text, 1.7 for reading. English to read is serif (`.t-reading`, `.t-headword` or `.serif`: Georgia, Times New Roman, Songti SC); everything else the system font. A page's wxss may add layout to these classes, never another size |
+| Spacing | 8, 12, 16, 24, 32, 40, 48, 64, 96 (rpx) | Page sides 40rpx (`.content`); 24rpx between rows of one group, 48rpx between sections; card padding 28rpx × 32rpx |
+| Radius | 12 (tags, skeletons), 24 (inputs, segmented controls), 32 (cards, sheets' inner panels), 44 (sheet top corners); pills are half their height | No other radii |
+| Section head | `.section-head` with a `.t-heading` (or `.t-label`) and an optional trailing `.link` | 学习资料 · 全部 › |
+| Press | `hover-class="pressed" hover-stay-time="80"` on every tappable view that is not a native button | Opacity 0.55 while pressed. Disabled controls (`.btn-disabled`, `.icon-btn-off`) carry no hover class |
+| States | `.state` + `.state-text` (+ `.state-error`), a `.btn-secondary.btn-sm` 重试 in it; `.skel` + `.skel-line` / `.skel-block` | Loading draws skeletons shaped like the content; empty and error states are one centred line plus at most one action |
 | Colour | `--bg --surface --ink --ink-soft --muted --rule --accent --accent-soft --accent-ink --danger --danger-soft` | CSS variables on the page root: `theme-light` / `theme-dark`, then `accent-<accent>-<theme>` (主题色: indigo, pine, plum, ochre, ink) overriding the three accent variables; `lib/palette.ts` mirrors them for JS. See "Theme and accent on a page" |
 | Button | `.btn` + `.btn-primary` / `.btn-secondary` / `.btn-tonal` / `.btn-danger`, sizes `.btn-sm` / `.btn-lg`, `.btn-block`, `.btn-disabled` | Pill. One primary per screen; tonal for inline actions (复制, 显示译文); an icon comes first, with `.btn-icon-first` on a small pill |
 | Icon button | `.icon-btn` (+ `.icon-btn-sm`, `.icon-btn-tonal`, `.icon-btn-off`) | A round target around one icon: 朗读 next to a word, clear, date steppers |
@@ -143,6 +149,15 @@ of page-local look-alikes; a page's own wxss only lays things out.
 | Export sheet | `<t-export-sheet open input bind:close>` | 导出 PDF over the page; the page root is `position: relative` (`input` from `lib/pdf-export.ts`) |
 
 Rules that come from Skyline (they are why the pieces look the way they do):
+
+- **No baseline alignment between texts of different fonts or sizes.**
+  Skyline draws the second text below its line when a flex row uses
+  `align-items: baseline` with mixed fonts (the word page's 词形变化 broke this
+  way). Use `align-items: center` (or `flex-end` with matching line heights),
+  or stack the texts.
+- **Docked bars and sheets pad for the home indicator**: `padding-bottom` is
+  the bar's own padding plus `safeArea` (computed in JS from
+  `wx.getWindowInfo()`, as `.bottom-bar` users do).
 
 - **No text glyphs as icons.** ▶︎ ✓ › and friends render as coloured emoji on
   iOS. Draw them with `<t-icon>`.

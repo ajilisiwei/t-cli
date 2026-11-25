@@ -3,18 +3,45 @@
   <scroll-view class="body" scroll-y type="list" show-scrollbar="{{false}}">
     <view class="content">
       <view wx:for="{{devices}}" wx:key="id" class="row">
-        <view class="device">
+        <view class="row-text">
           <text class="row-label">{{item.name}}</text>
-          <text class="device-meta">{{item.kindLabel}}{{item.lastSeen ? ' · ' + item.lastSeen : ''}}</text>
+          <text class="row-hint">{{item.kindLabel}}{{item.lastSeen ? ' · ' + item.lastSeen : ''}}</text>
         </view>
         <text wx:if="{{item.current}}" class="row-value">本机</text>
-        <view wx:else class="btn btn-danger btn-sm" data-id="{{item.id}}" bindtap="onRevoke" aria-role="button" aria-label="撤销 {{item.name}}">
-          <text>撤销</text>
+        <view
+          wx:else
+          class="btn btn-danger btn-sm {{revokingId ? 'btn-disabled' : ''}}"
+          data-id="{{item.id}}"
+          bindtap="onRevoke"
+          hover-class="{{revokingId ? 'none' : 'pressed'}}"
+          hover-stay-time="80"
+          aria-role="button"
+          aria-disabled="{{revokingId !== ''}}"
+          aria-label="移除 {{item.name}}"
+        >
+          <text>{{revokingId === item.id ? '正在移除…' : '移除'}}</text>
         </view>
       </view>
 
-      <text wx:if="{{loading && devices.length === 0}}" class="empty">加载中…</text>
-      <text wx:if="{{errorText}}" class="error">{{errorText}}</text>
+      <!-- Loading the first time: rows shaped like a device (name, then kind and time). -->
+      <view wx:if="{{loading && devices.length === 0 && !errorText}}" aria-label="正在加载设备">
+        <view wx:for="{{skeletonRows}}" wx:key="*this" class="row">
+          <view class="row-text">
+            <view class="skel skel-line skel-name"></view>
+            <view class="skel skel-line skel-meta"></view>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{errorText}}" class="state">
+        <text class="state-text state-error">{{errorText}}</text>
+        <view class="btn btn-secondary btn-sm" bindtap="onRetry" hover-class="pressed" hover-stay-time="80" aria-role="button">
+          <text>重试</text>
+        </view>
+      </view>
+      <view wx:elif="{{!loading && devices.length === 0}}" class="state">
+        <text class="state-text">没有已登录的设备</text>
+      </view>
     </view>
   </scroll-view>
 </view>

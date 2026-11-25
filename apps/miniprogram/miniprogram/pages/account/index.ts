@@ -28,6 +28,8 @@ interface AccountData {
   theme: Theme
   /** "2026年11月1日" — when the account was created; '' until known. */
   since: string
+  /** `GET /v1/me` is in flight: the 注册时间 row shows a skeleton (and hides if it fails). */
+  sinceLoading: boolean
   exporting: boolean
   /** The file ready to send, or null. */
   fileName: string
@@ -40,6 +42,7 @@ interface AccountData {
 const initialData: AccountData = {
   theme: currentTheme(),
   since: '',
+  sinceLoading: true,
   exporting: false,
   fileName: '',
   fileSize: '',
@@ -73,6 +76,7 @@ Page({
       .catch((error: unknown) => {
         if (!redirectIfInviteRequired(error)) console.warn('[account] me failed', error)
       })
+      .finally(() => this.setData({ sinceLoading: false }))
   },
 
   onUnload() {

@@ -1,14 +1,19 @@
 /* Layout only; the pieces come from app.wxss (README "Design system"). */
 
-/* ---- preview: colours inline (it may show the other theme) ---- */
+/* A settings group's heading: 32rpx plus .section-head's own room keeps groups ~48rpx apart. */
+.group-head {
+  margin-top: 32rpx;
+}
+
+/* ---- preview: a card in the previewed theme (colours inline: it may show the other theme) ---- */
 .preview {
   display: flex;
   flex-direction: column;
-  gap: 20rpx;
+  gap: 24rpx;
   margin-top: 8rpx;
   padding: 28rpx 32rpx 32rpx;
   border: 1px solid var(--rule);
-  border-radius: 36rpx;
+  border-radius: 32rpx;
 }
 
 .preview-head {
@@ -18,41 +23,18 @@
   justify-content: space-between;
 }
 
-.preview-name {
-  font-size: 24rpx;
+/* 浅色 / 深色: a small segmented control; its options share the width. */
+.preview-seg {
+  width: 240rpx;
 }
 
-.chips {
-  display: flex;
-  flex-direction: row;
-  gap: 8rpx;
-  padding: 4rpx;
-  border-radius: 20rpx;
-}
-
-.chip {
-  display: flex;
-  align-items: center;
-  height: 52rpx;
-  padding: 0 20rpx;
-  border-radius: 16rpx;
-  font-size: 24rpx;
-}
-
+/* The word and its IPA differ in font and size: centred, never baseline (Skyline). */
 .preview-headline {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 20rpx;
-}
-
-.preview-word {
-  line-height: 1.2;
-}
-
-.preview-ipa {
-  font-size: 30rpx;
+  align-items: center;
+  gap: 24rpx;
 }
 
 .preview-line {
@@ -73,66 +55,27 @@
   gap: 16rpx;
 }
 
-.preview-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 68rpx;
-  height: 68rpx;
-  border-radius: 34rpx;
-}
-
 .preview-glyph {
-  width: 30rpx;
-  height: 30rpx;
-}
-
-/* ---- 什么时候切换: three equal tabs on a tinted track ---- */
-.mode-tabs {
-  display: flex;
-  flex-direction: row;
-  margin-top: 16rpx;
-  padding: 6rpx;
-  border-radius: 24rpx;
-  background-color: var(--rule);
-}
-
-.mode-tab {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  justify-content: center;
-  height: 68rpx;
-  border-radius: 18rpx;
-  color: var(--muted);
-  font-size: 28rpx;
-  font-weight: 600;
-}
-
-.mode-tab-on {
-  background-color: var(--surface);
-  color: var(--ink);
+  width: 32rpx;
+  height: 32rpx;
 }
 
 /* ---- 跟随时间 ---- */
 .panel {
-  margin-top: 20rpx;
-  padding: 28rpx 28rpx 12rpx;
-  border: 1px solid var(--rule);
-  border-radius: 28rpx;
-  background-color: var(--surface);
+  margin-top: 24rpx;
 }
 
+/* The bar sits under the 现在 label (a caption: 24rpx × 1.4); the marker's line crosses it. */
 .day-bar-box {
   position: relative;
-  height: 68rpx;
+  height: 72rpx;
 }
 
 .day-bar {
   position: absolute;
   left: 0;
   right: 0;
-  top: 24rpx;
+  top: 32rpx;
   display: flex;
   flex-direction: row;
   height: 24rpx;
@@ -152,20 +95,18 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 56rpx;
-  margin-left: -28rpx;
+  width: 64rpx;
+  margin-left: -32rpx;
 }
 
 .now-label {
   color: var(--accent);
-  font-size: 20rpx;
   font-weight: 600;
-  line-height: 1.2;
 }
 
 .now-line {
   width: 4rpx;
-  height: 40rpx;
+  height: 36rpx;
   background-color: var(--accent);
 }
 
@@ -174,25 +115,25 @@
   flex-direction: row;
   justify-content: space-between;
   margin-top: 8rpx;
-  color: var(--muted);
-  font-size: 22rpx;
 }
 
-.panel-row {
-  min-height: 92rpx;
-}
-
-.panel-row-last {
+/* The last row in the card: the card's edge is its divider. */
+.row-last {
   border-bottom-width: 0;
 }
 
 .hint-text {
   display: block;
   margin-top: 16rpx;
-  padding-bottom: 8rpx;
-  color: var(--muted);
-  font-size: 26rpx;
-  line-height: 1.6;
+}
+
+/* ---- 固定为: a segmented control at the end of its row ---- */
+.fixed {
+  margin-top: 16rpx;
+}
+
+.fixed-seg {
+  width: 280rpx;
 }
 
 /* ---- 字号 ---- */
@@ -225,12 +166,13 @@
   opacity: 0.4;
 }
 
+/* The two A's show small and large type: the scale's 26 and 40. */
 .step-a-small {
   font-size: 26rpx;
 }
 
 .step-a-large {
-  font-size: 38rpx;
+  font-size: 40rpx;
 }
 
 .dots {

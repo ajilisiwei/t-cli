@@ -11,6 +11,7 @@
   padding: 0 40rpx;
 }
 
+/* The back target: the bar's full height, 76rpx wide. */
 .back {
   display: flex;
   align-items: center;
@@ -19,8 +20,15 @@
   padding: 0 16rpx;
 }
 
+/* A heading of the type scale (app.wxss .t-heading: 34rpx, 600, line height 1.4). */
 .title {
   color: var(--ink);
   font-size: 34rpx;
   font-weight: 600;
+  line-height: 1.4;
+}
+
+/* app.wxss's .pressed does not reach into components: the same press state here. */
+.pressed {
+  opacity: 0.55;
 }

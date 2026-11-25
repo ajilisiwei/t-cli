@@ -23,6 +23,7 @@ import {
 import { PALETTES, iconPath, paletteFor, type Theme } from '../../lib/palette'
 import type { EffectiveSettings } from '../../lib/settings'
 import type { Accent, ThemeChoice, ThemeMode } from '../../lib/types'
+import { confirmTap } from '../../services/haptics'
 import { changeSettings, currentSettings, watchSettings } from '../../services/settings'
 import { currentLook, watchLook, type Look } from '../../services/theme'
 
@@ -49,6 +50,9 @@ interface PreviewView {
   mutedStyle: string
   accentStyle: string
   softStyle: string
+  /** The 浅色 / 深色 control drawn like .seg-control in the previewed theme. */
+  trackStyle: string
+  optionOnStyle: string
   wordStyle: string
   bodyStyle: string
   speakerIcon: string
@@ -126,6 +130,8 @@ const previewView = (theme: Theme, accent: Accent, s: EffectiveSettings): Previe
     mutedStyle: `color: ${p.muted};`,
     accentStyle: `color: ${p.accent};`,
     softStyle: `background-color: ${p.accentSoft};`,
+    trackStyle: `background-color: ${p.rule};`,
+    optionOnStyle: `background-color: ${p.surface}; color: ${p.ink};`,
     wordStyle: `font-size: ${type.word}rpx;`,
     bodyStyle: `font-size: ${type.body}rpx; line-height: ${type.lineHeight};`,
     speakerIcon: iconPath('speaker', 'accent', theme, accent),
@@ -175,12 +181,14 @@ Page({
   onMode(event: TapEvent<'mode'>) {
     const mode = event.currentTarget.dataset.mode
     if (!isOneOf(MODES, mode) || mode === currentSettings().themeMode) return
+    confirmTap()
     changeSettings({ themeMode: mode })
   },
 
   onFixed(event: TapEvent<'value'>) {
     const value = event.currentTarget.dataset.value
     if (!isOneOf(CHOICES, value) || value === currentSettings().themeFixed) return
+    confirmTap()
     changeSettings({ themeFixed: value })
   },
 
@@ -203,6 +211,7 @@ Page({
   },
 
   onReading() {
+    confirmTap()
     changeSettings({ readingMode: !currentSettings().readingMode })
   },
 

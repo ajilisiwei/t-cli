@@ -248,6 +248,8 @@ export interface RetentionBar {
   readonly height: number
   /** "92%" or "". */
   readonly percent: string
+  /** "92" or "": the figure above the bar (the % would not fit a bar's width at 24rpx). */
+  readonly mark: string
   /** "11/10" — shown under the first, middle and last bar only. */
   readonly tick: string
   readonly label: string
@@ -278,6 +280,7 @@ export function buildRetentionBars(
       rate,
       height: rate === null ? 0 : Math.round(rate * 100),
       percent: rate === null ? '' : percentText(rate),
+      mark: rate === null ? '' : String(Math.round(rate * 100)),
       tick: showTick ? `${Number(month)}/${Number(day)}` : '',
       label: `${monthDay(weekStart)}那周 ${rate === null ? '没有复习' : `保持率 ${percentText(rate)}`}`,
     })

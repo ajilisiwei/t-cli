@@ -1,6 +1,6 @@
-/* 导出记录. Buttons and links come from app.wxss. */
+/* 导出记录. Type (.t-*), buttons, links and states come from app.wxss. */
 .ex-row {
-  padding: 28rpx 0;
+  padding: 24rpx 0;
   border-bottom: 1px solid var(--rule);
 }
 
@@ -11,6 +11,7 @@
   gap: 24rpx;
 }
 
+/* A drawn file icon: a danger page with PDF at its foot. */
 .ex-badge {
   flex-shrink: 0;
   display: flex;
@@ -19,15 +20,16 @@
   box-sizing: border-box;
   width: 72rpx;
   height: 88rpx;
-  padding-bottom: 10rpx;
+  padding-bottom: 8rpx;
   border-radius: 12rpx;
   background-color: var(--danger);
 }
 
 .ex-badge-text {
   color: var(--bg);
-  font-size: 20rpx;
-  font-weight: 700;
+  font-size: 24rpx;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .ex-text {
@@ -42,56 +44,30 @@
   white-space: nowrap;
   text-overflow: ellipsis;
   color: var(--ink);
-  font-size: 30rpx;
   font-weight: 600;
 }
 
-.ex-meta {
-  color: var(--muted);
-  font-size: 24rpx;
-}
-
-.ex-left {
-  color: var(--muted);
-  font-size: 22rpx;
-}
-
+/* The actions line up under the name (badge 72 + gap 24). */
 .ex-actions {
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 16rpx;
-  margin-top: 20rpx;
+  margin-top: 16rpx;
   padding-left: 96rpx;
 }
 
+/* 删除: a link with a 64rpx target, at the end of the row. */
 .ex-remove {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  min-height: 64rpx;
   margin-left: auto;
-}
-
-.ex-empty {
-  padding: 120rpx 16rpx;
-  text-align: center;
-}
-
-.ex-empty-title {
-  display: block;
-  color: var(--ink);
-  font-size: 32rpx;
-}
-
-.ex-empty-note {
-  display: block;
-  margin-top: 16rpx;
-  color: var(--muted);
-  font-size: 26rpx;
-  line-height: 1.7;
+  padding: 0 0 0 24rpx;
 }
 
 .ex-note {
   display: block;
   margin-top: 32rpx;
-  color: var(--muted);
-  font-size: 24rpx;
-  line-height: 1.7;
 }

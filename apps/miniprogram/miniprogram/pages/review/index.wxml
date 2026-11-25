@@ -6,6 +6,7 @@
     type="list"
     show-scrollbar="{{false}}"
     refresher-enabled
+    refresher-default-style="{{theme === 'dark' ? 'white' : 'black'}}"
     refresher-triggered="{{refreshing}}"
     bindrefresherrefresh="onRefresh"
   >
@@ -15,13 +16,14 @@
         <block wx:if="{{loaded}}">
           <view class="lh-today-top">
             <view class="lh-today-left">
-              <text class="lh-caption">{{today.caption}}</text>
+              <text class="t-caption">{{today.caption}}</text>
+              <!-- Number and unit sit on one bottom line (no baseline alignment across sizes). -->
               <view class="lh-due">
-                <text class="lh-due-n serif">{{today.due}}</text>
-                <text class="lh-due-unit">{{today.dueUnit}}</text>
+                <text class="t-display">{{today.due}}</text>
+                <text class="t-secondary">{{today.dueUnit}}</text>
               </view>
             </view>
-            <text class="lh-done">已完成 {{today.done}}</text>
+            <text class="t-caption lh-done">已完成 {{today.done}}</text>
           </view>
           <view class="meter lh-meter" aria-role="img" aria-label="{{today.meterLabel}}">
             <view class="meter-fill" style="width: {{today.meterPct}}%;" />
@@ -31,17 +33,23 @@
               <view
                 wx:for="{{scopes}}"
                 wx:key="id"
-                class="choice-chip {{item.checked ? 'choice-chip-on' : ''}}"
+                class="choice-chip {{item.checked ? 'choice-chip-on' : ''}} {{item.off ? 'lh-chip-off' : ''}}"
+                hover-class="{{item.off ? 'none' : 'pressed'}}"
+                hover-stay-time="80"
                 data-id="{{item.id}}"
+                data-off="{{item.off}}"
                 bindtap="onScope"
                 aria-role="radio"
                 aria-checked="{{item.checked}}"
+                aria-disabled="{{item.off}}"
               >
                 <text>{{item.label}}</text>
               </view>
             </view>
             <view
               class="btn btn-primary btn-lg lh-start {{startText ? '' : 'btn-disabled'}}"
+              hover-class="{{startText ? 'pressed' : 'none'}}"
+              hover-stay-time="80"
               bindtap="onStart"
               aria-role="button"
               aria-disabled="{{!startText}}"
@@ -49,38 +57,64 @@
               <text>{{startText || '这个范围今天没有要复习的'}}</text>
             </view>
           </block>
-          <text wx:elif="{{today.mode === 'finished'}}" class="lh-calm">今天的复习完成了。</text>
-          <text wx:else class="lh-calm">今天没有要复习的卡片。查过的词句，第二天早上会整理成复习卡。</text>
+          <text wx:elif="{{today.mode === 'finished'}}" class="t-secondary lh-calm">今天的复习完成了</text>
+          <text wx:else class="t-secondary lh-calm">今天没有要复习的卡片。查过的词句，第二天早上会整理成复习卡。</text>
         </block>
-        <text wx:elif="{{!errorText}}" class="lh-calm">加载中…</text>
-        <view wx:if="{{errorText}}" class="lh-error">
-          <text class="error lh-error-text">{{errorText}}</text>
-          <view class="btn btn-secondary btn-sm" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+        <!-- Loading: the card's own shape. -->
+        <view wx:elif="{{!errorText}}" aria-label="加载中">
+          <view class="skel skel-line lh-skel-caption" />
+          <view class="skel lh-skel-due" />
+          <view class="skel lh-skel-meter" />
+          <view class="skel lh-skel-start" />
+        </view>
+        <view wx:if="{{errorText}}" class="state lh-state">
+          <text class="state-text state-error">{{errorText}}</text>
+          <view class="btn btn-secondary btn-sm" hover-class="pressed" hover-stay-time="80" bindtap="onRetry" aria-role="button"><text>重试</text></view>
         </view>
       </view>
 
       <!-- 学习资料 -->
-      <view class="lh-section-head">
-        <text class="lh-section-title">学习资料</text>
-        <view class="lh-more" bindtap="onAllMaterials" aria-role="button" aria-label="全部学习资料">
+      <view class="section-head lh-section">
+        <text class="t-heading">学习资料</text>
+        <view class="link lh-more" hover-class="pressed" hover-stay-time="80" bindtap="onAllMaterials" aria-role="button" aria-label="全部学习资料">
           <text>全部</text>
           <t-icon name="chevron-right" tone="accent" size="28" />
         </view>
       </view>
+      <block wx:if="{{!loaded && !errorText}}">
+        <view class="skel skel-block lh-skel-material" />
+        <view class="skel skel-block lh-skel-material" />
+      </block>
       <block wx:for="{{materials}}" wx:key="key">
         <view wx:if="{{item.layout === 'full'}}" class="card-surface lh-material">
           <view class="lh-tags">
             <text class="label-tag">{{item.kindLabel}}</text>
-            <text class="lh-when">{{item.dateLabel}}</text>
+            <text class="t-caption">{{item.dateLabel}}</text>
             <text wx:if="{{item.status}}" class="label-tag lh-status {{item.statusTone === 'accent' ? 'label-tag-soft' : 'label-tag-plain'}}">{{item.status}}</text>
           </view>
-          <view class="lh-material-body" data-url="{{item.url}}" bindtap="onOpen" aria-role="button" aria-label="{{item.title}}">
-            <text class="lh-material-title">{{item.title}}</text>
-            <text wx:if="{{item.meta}}" class="lh-material-meta">{{item.meta}}</text>
+          <view
+            class="lh-material-body"
+            hover-class="pressed"
+            hover-stay-time="80"
+            data-url="{{item.url}}"
+            bindtap="onOpen"
+            aria-role="button"
+            aria-label="{{item.title}}"
+          >
+            <text class="t-heading lh-material-title">{{item.title}}</text>
+            <text wx:if="{{item.meta}}" class="t-secondary lh-material-line">{{item.meta}}</text>
           </view>
           <view class="lh-material-actions">
-            <view class="btn btn-tonal lh-grow" data-url="{{item.url}}" bindtap="onOpen" aria-role="button"><text>开始学习</text></view>
-            <view class="btn btn-secondary btn-icon-first" data-key="{{item.key}}" bindtap="onMaterialPdf" aria-role="button" aria-label="导出 PDF">
+            <view class="btn btn-tonal lh-grow" hover-class="pressed" hover-stay-time="80" data-url="{{item.url}}" bindtap="onOpen" aria-role="button"><text>开始学习</text></view>
+            <view
+              class="btn btn-secondary btn-icon-first"
+              hover-class="pressed"
+              hover-stay-time="80"
+              data-key="{{item.key}}"
+              bindtap="onMaterialPdf"
+              aria-role="button"
+              aria-label="导出 PDF"
+            >
               <t-icon name="printer" tone="accent" size="32" />
               <text>PDF</text>
             </view>
@@ -89,6 +123,8 @@
         <view
           wx:elif="{{item.layout === 'card'}}"
           class="card-surface lh-material"
+          hover-class="pressed"
+          hover-stay-time="80"
           data-url="{{item.url}}"
           bindtap="onOpen"
           aria-role="button"
@@ -96,25 +132,36 @@
         >
           <view class="lh-tags">
             <text class="label-tag label-tag-accent">{{item.kindLabel}}</text>
-            <text class="lh-when">{{item.dateLabel}}</text>
+            <text class="t-caption">{{item.dateLabel}}</text>
             <text wx:if="{{item.status}}" class="label-tag lh-status {{item.statusTone === 'accent' ? 'label-tag-soft' : 'label-tag-plain'}}">{{item.status}}</text>
           </view>
-          <text class="lh-material-title">{{item.title}}</text>
-          <text wx:if="{{item.subtitle}}" class="lh-material-subtitle" max-lines="1" overflow="ellipsis">{{item.subtitle}}</text>
-          <text wx:if="{{item.meta}}" class="lh-material-meta">{{item.meta}}</text>
+          <text class="t-heading lh-material-title">{{item.title}}</text>
+          <text wx:if="{{item.subtitle}}" class="t-secondary lh-material-line lh-one-line" max-lines="1" overflow="ellipsis">{{item.subtitle}}</text>
+          <text wx:if="{{item.meta}}" class="t-secondary lh-material-line">{{item.meta}}</text>
         </view>
-        <view wx:else class="lh-report" data-url="{{item.url}}" bindtap="onOpen" aria-role="button" aria-label="周报：{{item.title}}">
+        <view
+          wx:else
+          class="lh-report"
+          hover-class="pressed"
+          hover-stay-time="80"
+          data-url="{{item.url}}"
+          bindtap="onOpen"
+          aria-role="button"
+          aria-label="周报：{{item.title}}"
+        >
           <text class="label-tag lh-tag-surface">{{item.kindLabel}}</text>
-          <text class="lh-report-text">{{item.dateLabel}} · {{item.title}}</text>
+          <text class="t-secondary lh-report-text">{{item.dateLabel}} · {{item.title}}</text>
           <t-icon name="chevron-right" tone="muted" size="28" />
         </view>
       </block>
-      <text wx:if="{{materialsEmpty}}" class="lh-empty">{{materialsEmpty}}</text>
+      <view wx:if="{{materialsEmpty}}" class="state lh-state">
+        <text class="state-text">{{materialsEmpty}}</text>
+      </view>
 
       <!-- 打印与导出 -->
-      <view class="lh-section-head">
-        <text class="lh-section-title">打印与导出</text>
-        <view class="lh-more" bindtap="onExports" aria-role="button" aria-label="导出记录">
+      <view class="section-head lh-section">
+        <text class="t-heading">打印与导出</text>
+        <view class="link lh-more" hover-class="pressed" hover-stay-time="80" bindtap="onExports" aria-role="button" aria-label="导出记录">
           <text>导出记录{{exportCount ? ' ' + exportCount : ''}}</text>
           <t-icon name="chevron-right" tone="accent" size="28" />
         </view>
@@ -124,21 +171,24 @@
           wx:for="{{tiles}}"
           wx:key="id"
           class="lh-tile {{item.off ? 'lh-tile-off' : ''}}"
+          hover-class="{{item.off ? 'none' : 'pressed'}}"
+          hover-stay-time="80"
           data-id="{{item.id}}"
           data-off="{{item.off}}"
           bindtap="onTile"
           aria-role="button"
+          aria-disabled="{{item.off}}"
           aria-label="{{item.label}}，{{item.hint}}"
         >
           <t-icon name="{{item.icon}}" tone="accent" size="44" />
-          <text class="lh-tile-label">{{item.label}}</text>
-          <text class="lh-tile-hint">{{item.hint}}</text>
+          <text class="t-secondary lh-tile-label">{{item.label}}</text>
+          <text class="t-caption">{{item.hint}}</text>
         </view>
       </view>
 
       <!-- 学习计划 -->
-      <view class="lh-plan" bindtap="onPlan" aria-role="button" aria-label="学习计划：{{planText}}">
-        <text class="lh-plan-text">学习计划：{{planText}}</text>
+      <view class="lh-plan" hover-class="pressed" hover-stay-time="80" bindtap="onPlan" aria-role="button" aria-label="学习计划：{{planText}}">
+        <text class="t-secondary lh-plan-text">学习计划：{{planText}}</text>
         <t-icon name="chevron-right" tone="muted" size="28" />
       </view>
     </view>

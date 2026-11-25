@@ -16,6 +16,8 @@ interface AuthorizeData {
   code: string
   busy: boolean
   resultText: string
+  /** The last decision was 允许 (resultText marked ✓) rather than 拒绝 (✗). */
+  approved: boolean
   errorText: string
 }
 
@@ -24,6 +26,7 @@ const initialData: AuthorizeData = {
   code: '',
   busy: false,
   resultText: '',
+  approved: false,
   errorText: '',
 }
 
@@ -66,6 +69,7 @@ Page({
   },
 
   onScan() {
+    if (this.data.busy) return
     wx.scanCode({
       onlyFromCamera: true,
       scanType: ['qrCode'],
@@ -96,6 +100,7 @@ Page({
       const decision = await decideDevice(code, approve)
       this.setData({
         code: '',
+        approved: decision.approved,
         resultText: decision.approved
           ? `已允许「${decision.deviceName}」登录，回到终端即可继续。`
           : `已拒绝「${decision.deviceName}」。`,

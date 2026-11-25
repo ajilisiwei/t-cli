@@ -1,1 +1,13 @@
-/* Shared styles live in app.wxss. */
+/* Layout only; the pieces come from app.wxss (README "Design system"). */
+
+/* The line above the form. */
+.lead {
+  display: block;
+  margin-top: 32rpx;
+  margin-bottom: 16rpx;
+}
+
+/* The decision, under the buttons: ✓ allowed or ✗ refused, then the sentence. */
+.result {
+  margin-top: 40rpx;
+}

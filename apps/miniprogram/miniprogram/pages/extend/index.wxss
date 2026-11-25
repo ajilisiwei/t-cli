@@ -1,7 +1,8 @@
 /*
- * 拓展资料. Shared pieces (card-surface, label-tag, tick, bottom-bar, marks)
- * live in app.wxss. The root is positioned so the export sheet can sit over
- * the page.
+ * 拓展资料. Type (.t-*) and the shared pieces (card-surface, label-tag,
+ * tick, bottom-bar, marks, section-head, state, skel) live in app.wxss;
+ * this file lays them out. The root is positioned so the export sheet can
+ * sit over the page.
  */
 .xt-page {
   position: relative;
@@ -19,23 +20,27 @@
   gap: 16rpx;
 }
 
-.xt-meta {
-  color: var(--muted);
-  font-size: 24rpx;
-}
-
 .xt-title {
   display: block;
   margin-top: 16rpx;
-  color: var(--ink);
-  font-size: 46rpx;
-  font-weight: 600;
-  line-height: 1.35;
+}
+
+.xt-block {
+  display: block;
+}
+
+/* A text link with a 64rpx target (全选, 不感兴趣). */
+.xt-link {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  min-height: 64rpx;
+  padding: 0;
 }
 
 /* ---- 为什么推荐给你 ---- */
 .xt-why {
-  margin-top: 36rpx;
+  margin-top: 32rpx;
 }
 
 .xt-why-head {
@@ -43,13 +48,7 @@
   flex-direction: row;
   align-items: center;
   gap: 12rpx;
-  margin-bottom: 12rpx;
-}
-
-.xt-why-title {
-  color: var(--ink);
-  font-size: 28rpx;
-  font-weight: 600;
+  margin-bottom: 8rpx;
 }
 
 .xt-reason {
@@ -60,42 +59,23 @@
   margin-top: 8rpx;
 }
 
-/* A bullet drawn as a dot (no text glyphs). */
+/* A bullet drawn as a dot (no text glyphs), centred on the first line (28rpx × 1.55). */
 .xt-dot {
   flex-shrink: 0;
-  width: 10rpx;
-  height: 10rpx;
-  margin-top: 18rpx;
-  border-radius: 5rpx;
+  width: 12rpx;
+  height: 12rpx;
+  margin-top: 16rpx;
+  border-radius: 6rpx;
   background-color: var(--muted);
 }
 
 .xt-reason-text {
   flex: 1;
-  color: var(--ink-soft);
-  font-size: 28rpx;
-  line-height: 1.6;
 }
 
 /* ---- items ---- */
-.xt-list-head {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 44rpx;
-}
-
-.xt-section-title {
-  display: block;
-  margin-bottom: 8rpx;
-  color: var(--muted);
-  font-size: 26rpx;
-  font-weight: 600;
-}
-
-.xt-flat {
-  margin-bottom: 0;
+.xt-section {
+  margin-top: 40rpx;
 }
 
 .xt-item {
@@ -103,17 +83,14 @@
   flex-direction: row;
   align-items: flex-start;
   gap: 24rpx;
-  padding: 22rpx 0;
+  padding: 24rpx 0;
   border-bottom: 1px solid var(--rule);
 }
 
+/* 已在复习 in place of the tick: two lines of two characters. */
 .xt-known {
   flex-shrink: 0;
   width: 56rpx;
-  margin-top: 4rpx;
-  color: var(--muted);
-  font-size: 20rpx;
-  line-height: 1.3;
   text-align: center;
 }
 
@@ -122,54 +99,31 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4rpx;
+  gap: 8rpx;
 }
 
 .xt-item-line {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: 16rpx;
 }
 
+/* An item in the list: serif at the reading size, tighter than a paragraph. */
 .xt-item-text {
   color: var(--ink);
   font-size: 34rpx;
+  line-height: 1.4;
 }
 
 .xt-item-known {
   color: var(--muted);
 }
 
-.xt-item-gloss {
-  color: var(--ink-soft);
-  font-size: 26rpx;
-}
-
-.xt-example {
-  color: var(--ink-soft);
-  font-size: 28rpx;
-  line-height: 1.55;
-}
-
-.xt-example-zh {
-  color: var(--muted);
-  font-size: 24rpx;
-  line-height: 1.6;
-}
-
 /* ---- passage and grammar ---- */
 .xt-passage {
-  margin-top: 44rpx;
-}
-
-.xt-passage-head {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16rpx;
+  margin-top: 40rpx;
 }
 
 /* 看中文 and 朗读, side by side at the end of the head. */
@@ -183,10 +137,8 @@
 
 .xt-passage-text {
   display: block;
-  margin-top: 16rpx;
+  margin-top: 8rpx;
   color: var(--ink);
-  font-size: 32rpx;
-  line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -194,20 +146,10 @@
 .xt-passage-zh {
   display: block;
   margin-top: 16rpx;
-  color: var(--ink-soft);
-  font-size: 28rpx;
-  line-height: 1.7;
 }
 
 .xt-grammar {
-  margin-top: 44rpx;
-}
-
-.xt-rule {
-  display: block;
-  color: var(--ink-soft);
-  font-size: 28rpx;
-  line-height: 1.7;
+  margin-top: 40rpx;
 }
 
 .xt-pair {
@@ -217,27 +159,61 @@
 .xt-wrong {
   flex: 1;
   color: var(--muted);
-  font-size: 30rpx;
-  line-height: 1.6;
   text-decoration: line-through;
 }
 
 .xt-right {
   flex: 1;
   color: var(--ink);
-  font-size: 30rpx;
-  line-height: 1.6;
 }
 
 .xt-notice {
   display: block;
   margin-top: 40rpx;
-  padding: 24rpx 28rpx;
+  padding: 24rpx 32rpx;
   border-radius: 24rpx;
   background-color: var(--accent-soft);
-  color: var(--ink-soft);
-  font-size: 26rpx;
-  line-height: 1.6;
+}
+
+/* ---- loading ---- */
+.xt-skel-tag {
+  width: 320rpx;
+}
+
+.xt-skel-title {
+  width: 80%;
+  height: 54rpx;
+}
+
+.xt-skel-why {
+  margin-top: 32rpx;
+  border-radius: 32rpx;
+}
+
+.xt-skel-label {
+  width: 240rpx;
+  margin-top: 40rpx;
+}
+
+.xt-skel-row {
+  display: flex;
+  flex-direction: row;
+  gap: 24rpx;
+  padding: 24rpx 0;
+}
+
+.xt-skel-tick {
+  flex-shrink: 0;
+  width: 56rpx;
+  height: 56rpx;
+}
+
+.xt-skel-text {
+  flex: 1;
+}
+
+.xt-skel-word {
+  width: 50%;
 }
 
 /* ---- bottom bar ---- */
@@ -255,31 +231,4 @@
 
 .xt-grow {
   flex: 1;
-}
-
-/* ---- empty / error ---- */
-.xt-none {
-  padding: 96rpx 16rpx;
-  text-align: center;
-}
-
-.xt-none-title {
-  display: block;
-  color: var(--ink);
-  font-size: 32rpx;
-}
-
-.xt-none-note {
-  display: block;
-  margin-top: 16rpx;
-  color: var(--muted);
-  font-size: 26rpx;
-  line-height: 1.7;
-}
-
-.xt-retry {
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  margin-top: 24rpx;
 }

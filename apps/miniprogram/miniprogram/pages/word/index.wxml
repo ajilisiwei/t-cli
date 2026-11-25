@@ -2,58 +2,64 @@
   <nav-bar title="单词详情" back />
   <scroll-view class="body" scroll-y type="list" show-scrollbar="{{false}}">
     <view class="content">
-      <!-- Skeleton while the lookup runs -->
-      <view wx:if="{{loading && !view}}" class="skeleton" aria-label="正在查询 {{lemma}}">
-        <text class="headword serif">{{lemma}}</text>
-        <view class="bone bone-short" />
-        <view class="bone bone-block" />
-        <view class="bone" />
-        <view class="bone bone-mid" />
-        <view class="bone" />
-        <view class="bone bone-mid" />
+      <!-- Skeleton while the lookup runs: the word, its IPA line, 在本句中, then sense lines -->
+      <view wx:if="{{loading && !view}}" class="wd-skeleton" aria-label="正在查询 {{lemma}}">
+        <text class="t-headword wd-headword wd-skel-head">{{lemma}}</text>
+        <view class="skel skel-line skel-pulse wd-w40" />
+        <view class="skel skel-block skel-pulse wd-skel-context" />
+        <view class="skel skel-line skel-pulse" />
+        <view class="skel skel-line skel-pulse wd-w72" />
+        <view class="skel skel-line skel-pulse" />
+        <view class="skel skel-line skel-pulse wd-w72" />
       </view>
 
-      <view wx:if="{{errorText && !view}}" class="failed">
-        <text class="headword serif">{{lemma}}</text>
-        <text class="error">{{errorText}}</text>
-        <view class="btn btn-secondary btn-block" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+      <view wx:if="{{errorText && !view}}" class="header">
+        <text wx:if="{{lemma}}" class="t-headword wd-headword">{{lemma}}</text>
+        <view class="state">
+          <text class="state-text state-error">{{errorText}}</text>
+          <view class="btn btn-secondary btn-sm" hover-class="pressed" hover-stay-time="80" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+        </view>
       </view>
 
       <block wx:if="{{view}}">
         <!-- Header: word, copy, IPA with speakers, bookmark + stars -->
         <view class="header">
           <view class="head-line">
-            <text class="headword headword-main serif" user-select>{{view.lemma}}</text>
-            <view class="icon-btn icon-btn-tonal" bindtap="onCopy" aria-role="button" aria-label="复制单词">
+            <text class="t-headword wd-headword headword-main" user-select>{{view.lemma}}</text>
+            <view class="icon-btn icon-btn-tonal" hover-class="pressed" hover-stay-time="80" bindtap="onCopy" aria-role="button" aria-label="复制单词">
               <t-icon name="copy" tone="accent" size="32" />
             </view>
           </view>
 
           <view wx:if="{{view.ipaUs || view.ipaUk}}" class="ipa-line">
             <view wx:if="{{view.ipaUs}}" class="ipa-item">
-              <text class="ipa-label">美</text>
-              <text class="ipa-text">{{view.ipaUs}}</text>
+              <text class="t-caption">美</text>
+              <text class="t-secondary">{{view.ipaUs}}</text>
               <view
                 class="icon-btn icon-btn-sm icon-btn-tonal"
+                hover-class="pressed"
+                hover-stay-time="80"
                 data-accent="us"
                 bindtap="onSpeakWord"
                 aria-role="button"
                 aria-label="{{speakKey === keyUs && speakPhase !== 'idle' ? '停止朗读' : '美式发音'}}"
               >
-                <t-speak-icon phase="{{speakKey === keyUs ? speakPhase : 'idle'}}" tone="accent" size="28" />
+                <t-speak-icon phase="{{speakKey === keyUs ? speakPhase : 'idle'}}" tone="accent" size="30" />
               </view>
             </view>
             <view wx:if="{{view.ipaUk}}" class="ipa-item">
-              <text class="ipa-label">英</text>
-              <text class="ipa-text">{{view.ipaUk}}</text>
+              <text class="t-caption">英</text>
+              <text class="t-secondary">{{view.ipaUk}}</text>
               <view
                 class="icon-btn icon-btn-sm icon-btn-tonal"
+                hover-class="pressed"
+                hover-stay-time="80"
                 data-accent="uk"
                 bindtap="onSpeakWord"
                 aria-role="button"
                 aria-label="{{speakKey === keyUk && speakPhase !== 'idle' ? '停止朗读' : '英式发音'}}"
               >
-                <t-speak-icon phase="{{speakKey === keyUk ? speakPhase : 'idle'}}" tone="accent" size="28" />
+                <t-speak-icon phase="{{speakKey === keyUk ? speakPhase : 'idle'}}" tone="accent" size="30" />
               </view>
             </view>
           </view>
@@ -62,9 +68,12 @@
           <view class="save-line">
             <view
               class="icon-btn icon-btn-tonal save-btn {{savedKnown ? '' : 'icon-btn-off'}}"
+              hover-class="{{savedKnown ? 'pressed' : 'none'}}"
+              hover-stay-time="80"
               bindtap="onToggleWord"
               aria-role="button"
               aria-pressed="{{wordStars > 0}}"
+              aria-disabled="{{!savedKnown}}"
               aria-label="{{wordStars > 0 ? '取消收藏' : '收藏到笔记本'}}"
             >
               <t-icon name="{{wordStars > 0 ? 'bookmark-filled' : 'bookmark'}}" tone="accent" size="36" />
@@ -75,59 +84,62 @@
 
         <!-- 在本句中 -->
         <view wx:if="{{view.context}}" class="context">
-          <text class="context-title">在本句中</text>
-          <text class="context-sentence serif"><text
+          <text class="t-label context-title">在本句中</text>
+          <text class="t-body serif context-sentence"><text
             wx:for="{{view.context.segments}}"
             wx:key="key"
             class="{{item.hit ? 'context-hit' : ''}}"
           >{{item.text}}</text></text>
-          <text class="context-meaning">{{view.context.meaning}}</text>
+          <text class="t-body">{{view.context.meaning}}</text>
           <view wx:if="{{view.context.phrase}}" class="context-phrase">
-            <text class="context-phrase-label">所在词组</text>
-            <text class="serif">{{view.context.phrase.text}}</text>
-            <text class="muted">{{view.context.phrase.gloss}}</text>
+            <text class="t-caption context-phrase-label">所在词组</text>
+            <text class="t-secondary serif context-phrase-text">{{view.context.phrase.text}}</text>
+            <text class="t-secondary">{{view.context.phrase.gloss}}</text>
           </view>
         </view>
 
         <!-- 释义 -->
         <view class="section">
-          <text class="sec-title">释义</text>
+          <view class="section-head"><text class="t-label">释义</text></view>
           <view wx:for="{{view.senses}}" wx:key="key" class="sense">
             <view class="sense-line">
-              <text wx:if="{{item.pos}}" class="pos serif">{{item.pos}}</text>
-              <text class="sense-gloss">{{item.gloss}}</text>
+              <text wx:if="{{item.pos}}" class="t-body serif pos">{{item.pos}}</text>
+              <text class="t-body sense-gloss">{{item.gloss}}</text>
             </view>
-            <text wx:if="{{item.def}}" class="sense-def serif">{{item.def}}</text>
+            <text wx:if="{{item.def}}" class="t-secondary serif sense-def">{{item.def}}</text>
           </view>
         </view>
 
         <!-- 词形变化 -->
         <view wx:if="{{view.forms.length > 0}}" class="section">
-          <text class="sec-title">词形变化</text>
+          <view class="section-head"><text class="t-label">词形变化</text></view>
           <view class="forms">
             <view wx:for="{{view.forms}}" wx:key="key" class="form">
-              <text class="form-label">{{item.label}}</text>
-              <text class="serif form-value" user-select>{{item.form}}</text>
+              <text class="t-caption form-label">{{item.label}}</text>
+              <text class="t-body serif form-value" user-select>{{item.form}}</text>
             </view>
           </view>
         </view>
 
         <!-- 常用搭配: bookmark on the right, stars on a new line once saved (option B) -->
         <view wx:if="{{collocations.length > 0}}" class="section">
-          <text class="sec-title">常用搭配</text>
+          <view class="section-head"><text class="t-label">常用搭配</text></view>
           <view wx:for="{{collocations}}" wx:key="key" class="colloc">
             <view class="colloc-line">
               <view class="colloc-text">
-                <text class="serif" user-select>{{item.text}}</text>
-                <text wx:if="{{item.gloss}}" class="muted">{{item.gloss}}</text>
+                <text class="t-body serif" user-select>{{item.text}}</text>
+                <text wx:if="{{item.gloss}}" class="t-secondary">{{item.gloss}}</text>
               </view>
               <view
                 wx:if="{{item.savable}}"
                 class="icon-btn colloc-save {{savedKnown ? '' : 'icon-btn-off'}}"
+                hover-class="{{savedKnown ? 'pressed' : 'none'}}"
+                hover-stay-time="80"
                 data-index="{{index}}"
                 bindtap="onToggleCollocation"
                 aria-role="button"
                 aria-pressed="{{item.stars > 0}}"
+                aria-disabled="{{!savedKnown}}"
                 aria-label="{{item.aria}}"
               >
                 <t-icon name="{{item.stars > 0 ? 'bookmark-filled' : 'bookmark'}}" tone="accent" size="32" />
@@ -141,53 +153,60 @@
 
         <!-- 双语例句 -->
         <view wx:if="{{examples.length > 0}}" class="section">
-          <text class="sec-title">双语例句</text>
+          <view class="section-head"><text class="t-label">双语例句</text></view>
           <view wx:for="{{examples}}" wx:key="key" class="example">
             <view class="example-mark" />
             <view class="example-body">
-              <text class="example-text serif" user-select>{{item.text}}</text>
-              <text wx:if="{{item.gloss}}" class="example-gloss">{{item.gloss}}</text>
+              <text class="t-reading example-text" user-select>{{item.text}}</text>
+              <text wx:if="{{item.gloss}}" class="t-secondary">{{item.gloss}}</text>
             </view>
             <view
               class="icon-btn icon-btn-sm icon-btn-tonal"
+              hover-class="pressed"
+              hover-stay-time="80"
               data-index="{{item.index}}"
               bindtap="onSpeakExample"
               aria-role="button"
               aria-label="{{speakKey === item.speakKey && speakPhase !== 'idle' ? '停止朗读' : '朗读例句'}}"
             >
-              <t-speak-icon phase="{{speakKey === item.speakKey ? speakPhase : 'idle'}}" tone="accent" size="26" />
+              <t-speak-icon phase="{{speakKey === item.speakKey ? speakPhase : 'idle'}}" tone="accent" size="30" />
             </view>
           </view>
         </view>
 
         <!-- 近义辨析 -->
         <view wx:if="{{view.contrasts.length > 0}}" class="section">
-          <text class="sec-title">近义辨析</text>
+          <view class="section-head"><text class="t-label">近义辨析</text></view>
           <view wx:for="{{view.contrasts}}" wx:key="key" class="contrast">
-            <text class="contrast-word serif">{{item.word}}</text>
-            <text class="contrast-note">{{item.note}}</text>
+            <text class="t-secondary serif contrast-word">{{item.word}}</text>
+            <text class="t-secondary contrast-note">{{item.note}}</text>
           </view>
         </view>
 
         <!-- 记忆 -->
         <view wx:if="{{view.memory}}" class="section">
-          <text class="sec-title">记忆</text>
-          <text class="memory">{{view.memory}}</text>
+          <view class="section-head"><text class="t-label">记忆</text></view>
+          <text class="t-secondary memory">{{view.memory}}</text>
         </view>
 
         <!-- 我的记录 -->
-        <view class="record">
-          <text class="sec-title">我的记录</text>
-          <text wx:if="{{record && record.lookups}}" class="record-line">{{record.lookups}}</text>
-          <text wx:if="{{record}}" class="record-line record-soft">{{record.review}}</text>
-          <text wx:else class="record-line record-soft">加载中…</text>
-          <view class="record-link" bindtap="onRecords" aria-role="link" aria-label="看包含 {{view.lemma}} 的记录">
+        <view class="card-surface record">
+          <text class="t-label">我的记录</text>
+          <block wx:if="{{record}}">
+            <text wx:if="{{record.lookups}}" class="t-secondary record-strong">{{record.lookups}}</text>
+            <text class="t-secondary">{{record.review}}</text>
+          </block>
+          <view wx:else aria-label="我的记录加载中">
+            <view class="skel skel-line skel-pulse wd-w64" />
+            <view class="skel skel-line skel-pulse wd-w40" />
+          </view>
+          <view class="link record-link" hover-class="pressed" hover-stay-time="80" bindtap="onRecords" aria-role="link" aria-label="看包含 {{view.lemma}} 的记录">
             <text>看包含它的记录</text>
             <t-icon name="chevron-right" tone="accent" size="28" />
           </view>
         </view>
 
-        <text class="footnote">释义由 AI 生成，可能有误</text>
+        <text class="t-caption footnote">释义由 AI 生成，可能有误</text>
       </block>
     </view>
   </scroll-view>

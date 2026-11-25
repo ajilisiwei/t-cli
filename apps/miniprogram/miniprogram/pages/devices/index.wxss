@@ -1,10 +1,12 @@
-.device {
-  flex: 1;
-  padding: 24rpx 0;
+/* Layout only; rows, buttons, states and skeletons come from app.wxss (README "Design system"). */
+
+/* Skeleton lines of a device row: a name, then a shorter kind · time. */
+.skel-name {
+  width: 40%;
 }
 
-.device-meta {
-  display: block;
-  color: var(--muted);
-  font-size: 24rpx;
+.skel-meta {
+  width: 64%;
+  height: 24rpx;
+  margin-bottom: 0;
 }

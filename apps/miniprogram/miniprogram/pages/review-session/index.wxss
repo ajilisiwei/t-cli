@@ -1,4 +1,8 @@
-/* 复习卡. Shared tokens live in app.wxss; no shadows, hairlines only. */
+/*
+ * 复习卡. Type (.t-*), buttons, states and skeletons live in app.wxss; no
+ * shadows, hairlines only. The card faces keep page classes because their
+ * size depends on the face (Chinese, English, a headword): scale sizes only.
+ */
 .session {
   display: flex;
   flex-direction: column;
@@ -10,18 +14,8 @@
   display: flex;
   flex-direction: row;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   padding: 8rpx 40rpx 0;
-}
-
-.session-label {
-  color: var(--ink-soft);
-  font-size: 26rpx;
-}
-
-.session-count {
-  color: var(--muted);
-  font-size: 26rpx;
 }
 
 .progress {
@@ -34,7 +28,7 @@
   flex-direction: column;
   flex: 1;
   height: 0;
-  padding: 28rpx 40rpx 8rpx;
+  padding: 24rpx 40rpx 8rpx;
 }
 
 /* The card follows the finger while dragging; otherwise it eases back. */
@@ -43,10 +37,10 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  padding: 32rpx 40rpx 28rpx;
+  padding: 32rpx 40rpx 24rpx;
   background-color: var(--surface);
   border: 1px solid var(--rule);
-  border-radius: 28rpx;
+  border-radius: 32rpx;
   transition: transform 180ms ease-out;
 }
 
@@ -60,16 +54,6 @@
   justify-content: space-between;
   align-items: center;
   min-height: 40rpx;
-}
-
-.card-prompt {
-  color: var(--muted);
-  font-size: 24rpx;
-}
-
-.card-intent {
-  font-size: 26rpx;
-  font-weight: 600;
 }
 
 .card-intent-left {
@@ -86,25 +70,27 @@
 }
 
 .face {
-  margin-top: 28rpx;
+  margin-top: 24rpx;
 }
 
+/* A face: Chinese 34, English to read 40 (serif), a headword 56 (serif). */
 .face-text {
   display: block;
   color: var(--ink);
-  font-size: 36rpx;
+  font-size: 34rpx;
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .face-en {
-  font-size: 42rpx;
-  line-height: 1.45;
+  font-size: 40rpx;
+  line-height: 1.4;
 }
 
 .face-head {
-  font-size: 64rpx;
+  font-size: 56rpx;
+  font-weight: 600;
   line-height: 1.2;
 }
 
@@ -116,59 +102,47 @@
   display: flex;
   flex-direction: row;
   align-items: center;
+  gap: 16rpx;
   margin-top: 8rpx;
 }
 
 .face-ipa {
   color: var(--muted);
-  font-size: 30rpx;
-}
-
-.speak {
-  margin-left: 16rpx;
 }
 
 /* The 朗读 button when there is no IPA line to sit next to. */
 .speak-line {
   display: flex;
   flex-direction: row;
-  margin-top: 28rpx;
+  margin-top: 24rpx;
 }
 
 .face-sub {
   display: block;
   margin-top: 16rpx;
-  color: var(--ink-soft);
-  font-size: 30rpx;
-  line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .example {
-  margin-top: 28rpx;
-  padding-left: 20rpx;
+  margin-top: 24rpx;
+  padding-left: 24rpx;
   border-left: 2px solid var(--rule);
 }
 
 .example-en {
   display: block;
   color: var(--ink);
-  font-size: 32rpx;
-  line-height: 1.5;
 }
 
 .example-zh {
   display: block;
-  margin-top: 4rpx;
-  color: var(--muted);
-  font-size: 26rpx;
-  line-height: 1.6;
+  margin-top: 8rpx;
 }
 
 .face-back {
-  margin-top: 36rpx;
-  padding-top: 28rpx;
+  margin-top: 32rpx;
+  padding-top: 24rpx;
   border-top: 1px solid var(--rule);
 }
 
@@ -176,8 +150,6 @@
   display: block;
   flex-shrink: 0;
   padding-top: 24rpx;
-  color: var(--muted);
-  font-size: 24rpx;
   text-align: center;
 }
 
@@ -197,26 +169,23 @@
   height: 72rpx;
 }
 
-.undo-label {
-  color: var(--ink-soft);
-  font-size: 26rpx;
-}
-
+/* 撤销: a link with a 64rpx target. */
 .undo-action {
-  padding-left: 32rpx;
+  display: flex;
+  align-items: center;
+  min-height: 64rpx;
+  padding: 0 0 0 32rpx;
 }
 
 .gesture-hint {
   width: 100%;
-  color: var(--muted);
-  font-size: 24rpx;
   text-align: center;
 }
 
 .grades {
   display: flex;
   flex-direction: row;
-  margin: 0 -8rpx;
+  gap: 16rpx;
 }
 
 .grade {
@@ -225,11 +194,11 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 8rpx;
   height: 120rpx;
-  margin: 0 8rpx;
   background-color: var(--surface);
   border: 1px solid var(--rule);
-  border-radius: 20rpx;
+  border-radius: 24rpx;
 }
 
 /* 记得 is the usual answer: the one tinted button. */
@@ -238,9 +207,11 @@
   border-color: var(--accent);
 }
 
+/* A control label: the button size (30). */
 .grade-label {
   color: var(--ink);
   font-size: 30rpx;
+  line-height: 1.4;
 }
 
 .grade-label-1 {
@@ -250,12 +221,6 @@
 .grade-label-3 {
   color: var(--accent);
   font-weight: 600;
-}
-
-.grade-interval {
-  margin-top: 4rpx;
-  color: var(--muted);
-  font-size: 22rpx;
 }
 
 /* ---- end screen ---- */
@@ -269,16 +234,11 @@
 }
 
 .end-title {
-  color: var(--ink);
-  font-size: 40rpx;
-  font-weight: 600;
   text-align: center;
 }
 
 .end-sub {
   margin-top: 12rpx;
-  color: var(--muted);
-  font-size: 28rpx;
   text-align: center;
 }
 
@@ -297,29 +257,33 @@
   flex: 1;
   flex-direction: column;
   align-items: center;
+  gap: 8rpx;
 }
 
+/* The figure and its unit share a bottom edge (flex-end, not baseline: Skyline). */
 .stat-figure {
   display: flex;
   flex-direction: row;
-  align-items: baseline;
+  align-items: flex-end;
+  gap: 8rpx;
 }
 
-.stat-value {
-  color: var(--ink);
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 52rpx;
-  line-height: 1.25;
+/* ---- loading ---- */
+.skel-head {
+  width: 200rpx;
+  margin: 8rpx 0 0;
 }
 
-.stat-unit {
-  margin-left: 6rpx;
-  color: var(--ink-soft);
-  font-size: 24rpx;
+.skel-progress {
+  height: 8rpx;
 }
 
-.stat-label {
-  margin-top: 8rpx;
-  color: var(--muted);
-  font-size: 24rpx;
+.skel-card {
+  flex: 1;
+  border-radius: 32rpx;
+}
+
+.skel-answer {
+  height: 96rpx;
+  border-radius: 48rpx;
 }

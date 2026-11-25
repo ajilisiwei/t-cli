@@ -43,6 +43,7 @@ import {
   reportCard,
   undoReview,
 } from '../../services/review'
+import { confirmTap } from '../../services/haptics'
 import { safeBottomInset } from '../../services/platform'
 import { redirectIfInviteRequired } from '../../services/session'
 import { autoSpeakOnFlip } from '../../services/settings'
@@ -321,6 +322,7 @@ Page({
     const now = Date.now()
     const result = rate(this.session, rating, newLogId(now), now)
     if (result === null) return false
+    confirmTap()
     stopSpeaking()
     recordReview(result.log)
     this.session = result.state
@@ -356,6 +358,7 @@ Page({
       const outcome = await undoReview(undo.logId)
       if (this.session === null) return
       if (outcome === 'undone') {
+        confirmTap()
         this.session = undoRating(this.session, undo.logId, Date.now())
       } else {
         toast('已超过撤销时限')

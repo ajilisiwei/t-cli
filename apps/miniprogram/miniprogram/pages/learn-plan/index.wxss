@@ -1,11 +1,9 @@
-/* 学习计划. Shared pieces (card-surface, seg-control, choice-chip, switch, rows) live in app.wxss. */
-.lp-title {
-  display: block;
-  margin-top: 40rpx;
-  margin-bottom: 16rpx;
-  color: var(--muted);
-  font-size: 26rpx;
-  font-weight: 600;
+/*
+ * 学习计划. Type (.t-*) and the shared pieces (card-surface, seg-control,
+ * choice-chip, switch, rows, section-head) live in app.wxss.
+ */
+.lp-head {
+  margin-top: 24rpx;
 }
 
 .lp-card {
@@ -16,22 +14,17 @@
 .lp-hint {
   display: block;
   margin-top: 16rpx;
-  color: var(--ink-soft);
-  font-size: 26rpx;
-  line-height: 1.6;
 }
 
 .lp-block {
-  margin-top: 20rpx;
-  padding-top: 20rpx;
+  margin-top: 24rpx;
+  padding-top: 24rpx;
   border-top: 1px solid var(--rule);
 }
 
 .lp-sub {
   display: block;
   margin-bottom: 16rpx;
-  color: var(--muted);
-  font-size: 26rpx;
 }
 
 /* Seven equal weekday buttons; the level row reuses them. */
@@ -43,9 +36,10 @@
 }
 
 .lp-days {
-  margin-top: 20rpx;
+  margin-top: 24rpx;
 }
 
+/* A control: the chip size (26). */
 .lp-day {
   flex: 1;
   display: flex;
@@ -53,10 +47,10 @@
   justify-content: center;
   height: 80rpx;
   border: 1px solid var(--rule);
-  border-radius: 20rpx;
+  border-radius: 24rpx;
   background-color: var(--surface);
   color: var(--ink-soft);
-  font-size: 28rpx;
+  font-size: 26rpx;
   font-weight: 600;
 }
 
@@ -85,13 +79,20 @@
 
 .lp-muted-text {
   flex: 1;
-  color: var(--ink-soft);
-  font-size: 26rpx;
+}
+
+/* 恢复推荐: a link with a 64rpx target. */
+.lp-link {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  min-height: 64rpx;
+  padding: 0;
 }
 
 /* The rows sit inside a card: no padding on the card, the rows carry it. */
 .lp-rows {
-  padding: 0 28rpx;
+  padding: 0 32rpx;
 }
 
 .lp-row {
@@ -104,10 +105,4 @@
   align-items: center;
   gap: 12rpx;
   margin-top: 32rpx;
-}
-
-.lp-saved-text {
-  color: var(--muted);
-  font-size: 24rpx;
-  line-height: 1.6;
 }
