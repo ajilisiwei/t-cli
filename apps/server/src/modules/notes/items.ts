@@ -1,15 +1,16 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { ulid } from '@t-cli/core/ulid';
 import type { Executor } from '../../db/client.ts';
-import { items, lexicon, notes } from '../../db/schema.ts';
-import { LEARNING_LANG, LEXICON_VERSION, lexiconKey } from '../lookup/lexicon.ts';
+import { items, notes } from '../../db/schema.ts';
+import { fillWordFromLexicon } from '../learn/units.ts';
+import { lexiconKey } from '../lookup/lexicon.ts';
 import { parseSentenceContent } from '../pipeline/cards.ts';
 import { writeContent, type ItemRow } from '../pipeline/repo.ts';
 import type { ExplanationLang } from '../pipeline/schemas.ts';
 import { phraseKey } from '../pipeline/text.ts';
 import { rescheduleItems } from '../review/cards.ts';
 import { retentionFor } from '../review/fsrs.ts';
-import { sentenceKey, wordContentFromLexicon } from './content.ts';
+import { sentenceKey } from './content.ts';
 import type { NoteKind } from './schemas.ts';
 
 /**
@@ -50,30 +51,6 @@ async function upsertItem(
     .returning();
   if (!row) throw new Error('item upsert returned nothing');
   return row;
-}
-
-/**
- * A word item without content yet gets it from the lexicon entry of its key
- * (the account's explanation language, the current version), and its cards
- * now. No entry, or one that does not make valid content → it stays as it is
- * for the nightly pipeline. The lexicon is shared and has no user_id.
- */
-async function fillWordFromLexicon(tx: Executor, ctx: LinkContext, item: ItemRow): Promise<void> {
-  if (item.content !== null) return;
-  const [entry] = await tx
-    .select({ content: lexicon.content, model: lexicon.model })
-    .from(lexicon)
-    .where(
-      and(
-        eq(lexicon.lang, LEARNING_LANG),
-        eq(lexicon.explainLang, ctx.explanationLang),
-        eq(lexicon.lemma, item.normKey),
-        eq(lexicon.version, LEXICON_VERSION),
-      ),
-    );
-  const content = entry ? wordContentFromLexicon(entry.content) : null;
-  if (!entry || !content) return;
-  await writeContent(tx, ctx.userId, item, { type: 'word', content }, { model: entry.model, now: ctx.now });
 }
 
 /**

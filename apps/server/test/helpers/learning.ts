@@ -173,9 +173,41 @@ export async function seedSource(db: Database, userId: string, itemId: string, e
 export async function seedMaterial(
   db: Database,
   userId: string,
-  { kind = 'daily', date, content, createdAt = new Date(`${date}T22:00:00Z`) }: { kind?: 'daily' | 'weekly'; date: string; content: Record<string, unknown>; createdAt?: Date },
+  {
+    kind = 'daily',
+    date,
+    content,
+    createdAt = new Date(`${date}T22:00:00Z`),
+    readAt = null,
+  }: { kind?: 'daily' | 'weekly' | 'digest' | 'extend'; date: string; content: Record<string, unknown>; createdAt?: Date; readAt?: Date | null },
 ): Promise<void> {
-  await db.insert(materials).values({ userId, kind, date, content, createdAt });
+  await db.insert(materials).values({ userId, kind, date, content, createdAt, readAt });
+}
+
+/** A valid extension material (ExtendContentSchema) with `items` word/phrase texts. */
+export function extendMaterial(
+  items: readonly { text: string; kind: 'word' | 'phrase' }[] = [
+    { text: 'itinerary', kind: 'word' },
+    { text: 'layover', kind: 'word' },
+    { text: 'check in', kind: 'phrase' },
+    { text: 'boarding pass', kind: 'phrase' },
+    { text: 'jet lag', kind: 'phrase' },
+    { text: 'carry-on', kind: 'word' },
+  ],
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    focus: 'topic',
+    topic: 'travel',
+    title: '出差旅行常用表达',
+    level: 'B1',
+    reasons: ['最近 14 天你查了 airport、flight 等 3 个旅行用词'],
+    evidence: ['airport', 'flight'],
+    items: items.map((item) => ({ ...item, gloss: `${item.text} 的意思`, example: { en: `I wrote down the ${item.text} twice.`, zh: '我写了两次。' } })),
+    passage: { title: 'A long trip', text: 'We planned the itinerary and had a short layover.', zh: '我们计划了行程，中途短暂停留。' },
+    grammar: null,
+    ...overrides,
+  };
 }
 
 export async function seedGrant(db: Database, userId: string, templateId: string, available: number): Promise<void> {
