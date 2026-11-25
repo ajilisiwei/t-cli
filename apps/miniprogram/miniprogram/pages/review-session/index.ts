@@ -5,6 +5,7 @@
  * offline) and can be withdrawn for 5 seconds. Long-press → 内容有误 reports
  * the card and drops its item from the session. The end screen shows time,
  * share remembered and tomorrow's estimate, then the session is over.
+ * `?scope=notes|stars3` (from the 学习 home) narrows the queue (v3).
  *
  * All decisions live in lib/review-session.ts; this page dispatches events,
  * runs the side effects and renders.
@@ -30,8 +31,11 @@ import {
 } from '../../lib/review-session'
 import { classifySwipe, dragFeedback, type SwipeDirection } from '../../lib/review-swipe'
 import type { QueueCard, Rating } from '../../lib/review-types'
+import { isReviewScope } from '../../lib/learn-view'
+import type { ReviewScope } from '../../lib/learn-types'
 import { diffWords } from '../../lib/word-diff'
 import {
+  SESSION_CARD_LIMIT,
   fetchQueue,
   flushPending,
   newLogId,
@@ -39,6 +43,7 @@ import {
   reportCard,
   undoReview,
 } from '../../services/review'
+import { safeBottomInset } from '../../services/platform'
 import { redirectIfInviteRequired } from '../../services/session'
 import { autoSpeakOnFlip } from '../../services/settings'
 import { prefetchSpeech, speak, speechStatus, stopSpeaking, toggleSpeech, watchSpeech } from '../../services/speech'
@@ -84,6 +89,8 @@ interface SessionData {
   dragging: boolean
   safeBottom: number
   stats: EndStats | null
+  /** The empty screen's title: the whole queue, or the chosen scope. */
+  emptyTitle: string
 }
 
 interface TouchStart {
@@ -116,21 +123,18 @@ const initialData: SessionData = {
   dragging: false,
   safeBottom: 0,
   stats: null,
+  emptyTitle: '现在没有要复习的卡片',
+}
+
+const EMPTY_TITLES: Readonly<Record<ReviewScope, string>> = {
+  all: '现在没有要复习的卡片',
+  notes: '笔记本里现在没有要复习的卡片',
+  stars3: '3 星以上现在没有要复习的卡片',
 }
 
 const REVIEW_TAB = '/pages/review/index'
 /** Skip a drag frame unless the card moved at least this far (fewer setData calls). */
 const DRAG_STEP_PX = 6
-
-/** Height of the home indicator area below the safe area, in px. */
-const safeBottomInset = (): number => {
-  try {
-    const info = wx.getWindowInfo()
-    return info.safeArea ? Math.max(0, info.screenHeight - info.safeArea.bottom) : 0
-  } catch {
-    return 0
-  }
-}
 
 /** Local midnight at the end of tomorrow: "明天" in the end screen. */
 const endOfTomorrow = (now: number): number => {
@@ -161,6 +165,7 @@ const touchPoint = (event: WechatMiniprogram.TouchEvent): { x: number; y: number
 Page({
   data: initialData,
   session: null as SessionState | null,
+  scope: 'all' as ReviewScope,
   /** Card view of the current card, rebuilt only when the card changes. */
   view: null as { cardId: string; view: CardView } | null,
   undoTimer: null as number | null,
@@ -169,10 +174,12 @@ Page({
   stopWatchingTheme: null as (() => void) | null,
   stopWatchingSpeech: null as (() => void) | null,
 
-  onLoad() {
+  onLoad(options: Record<string, string | undefined>) {
+    const scope = options['scope']
+    this.scope = isReviewScope(scope) ? scope : 'all'
     this.stopWatchingTheme = bindPageLook(this)
     this.stopWatchingSpeech = watchSpeech((speech) => this.syncSpeech(speech))
-    this.setData({ theme: currentTheme(), safeBottom: safeBottomInset() })
+    this.setData({ theme: currentTheme(), safeBottom: safeBottomInset(), emptyTitle: EMPTY_TITLES[this.scope] })
     void this.start()
   },
 
@@ -203,7 +210,7 @@ Page({
     try {
       // Ratings queued offline first, so the queue reflects them.
       await flushPending()
-      const cards = await fetchQueue()
+      const cards = await fetchQueue(SESSION_CARD_LIMIT, this.scope)
       if (cards.length === 0) {
         this.setData({ phase: 'empty' })
         return

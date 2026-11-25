@@ -33,11 +33,11 @@
 
       <block wx:if="{{showLayout}}">
         <text class="xs-label">版式</text>
-        <view class="xs-seg" aria-role="radiogroup" aria-label="版式">
+        <view class="seg-control" aria-role="radiogroup" aria-label="版式">
           <view
             wx:for="{{layouts}}"
             wx:key="id"
-            class="xs-seg-item {{item.checked ? 'xs-seg-on' : ''}}"
+            class="seg-option {{item.checked ? 'seg-option-on' : ''}}"
             data-id="{{item.id}}"
             bindtap="onLayout"
             aria-role="radio"

@@ -1,12 +1,11 @@
 /**
- * 每日材料: reading `GET /v1/materials/daily` defensively and shaping it into
- * the sections the page switches between (概览 · 单词 · 句型 · 语法 · 短文 · 易错).
- * Lists are lenient — a malformed entry is skipped, a missing list is empty —
- * because the material is AI-written and one odd entry must not hide the day.
+ * 周期资料 content: reading a DailyMaterial (also the base of a digest)
+ * defensively, and marking the day's words in the story. Lists are lenient —
+ * a malformed entry is skipped, a missing list is empty — because the
+ * material is AI-written and one odd entry must not hide the day.
  */
 import type {
   DailyMaterial,
-  DailyMaterialResponse,
   MaterialGrammar,
   MaterialMistake,
   MaterialPhrase,
@@ -102,8 +101,6 @@ const readMistake = (value: unknown): MaterialMistake | null => {
   }
 }
 
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
-
 export function readDailyMaterial(value: unknown): DailyMaterial | null {
   if (!isRecord(value)) return null
   const overview = isRecord(value['overview']) ? value['overview'] : {}
@@ -121,125 +118,6 @@ export function readDailyMaterial(value: unknown): DailyMaterial | null {
     story: readStory(value['story']),
     mistakes: list(value['mistakes'], readMistake),
   }
-}
-
-/** `{ date, content, createdAt }`; null when the date or the content is unusable. */
-export function readDailyMaterialResponse(value: unknown): DailyMaterialResponse | null {
-  if (!isRecord(value) || typeof value['date'] !== 'string' || !DATE_RE.test(value['date'])) return null
-  const content = readDailyMaterial(value['content'])
-  if (content === null) return null
-  return {
-    date: value['date'],
-    content: { ...content, date: value['date'] },
-    createdAt: typeof value['createdAt'] === 'string' ? value['createdAt'] : '',
-  }
-}
-
-export type SectionId = 'overview' | 'words' | 'phrases' | 'grammar' | 'story' | 'mistakes'
-
-export interface Section {
-  readonly id: SectionId
-  readonly label: string
-  readonly count: number
-}
-
-const SECTION_LABELS: Readonly<Record<SectionId, string>> = {
-  overview: '概览',
-  words: '单词',
-  phrases: '句型',
-  grammar: '语法',
-  story: '短文',
-  mistakes: '易错',
-}
-
-/** 概览 always, then every section that has something in it. */
-export function sections(material: DailyMaterial): Section[] {
-  const counts: [SectionId, number][] = [
-    ['words', material.words.length],
-    ['phrases', material.phrases.length],
-    ['grammar', material.grammar.length],
-    ['story', material.story === null ? 0 : 1],
-    ['mistakes', material.mistakes.length],
-  ]
-  return [
-    { id: 'overview', label: SECTION_LABELS.overview, count: 0 },
-    ...counts.filter(([, n]) => n > 0).map(([id, n]) => ({ id, label: SECTION_LABELS[id], count: n })),
-  ]
-}
-
-/** "12 个单词 · 5 个句型 · 2 条语法" for the 复习 home. */
-export function materialCounts(material: DailyMaterial): string {
-  return [
-    material.words.length > 0 ? `${material.words.length} 个单词` : '',
-    material.phrases.length > 0 ? `${material.phrases.length} 个句型` : '',
-    material.grammar.length > 0 ? `${material.grammar.length} 条语法` : '',
-    material.mistakes.length > 0 ? `${material.mistakes.length} 个易错点` : '',
-  ]
-    .filter((part) => part !== '')
-    .join(' · ')
-}
-
-export const REGISTER_LABELS: Readonly<Record<Register, string>> = { formal: '正式', neutral: '中性', casual: '口语' }
-
-export interface OverviewStat {
-  readonly label: string
-  readonly value: number
-}
-
-/** The four numbers of 概览. */
-export function overviewStats(material: DailyMaterial): OverviewStat[] {
-  const { overview } = material
-  return [
-    { label: '新单词', value: overview.newWords },
-    { label: '新句型', value: overview.newPhrases },
-    { label: '纠错', value: overview.corrections },
-    { label: '连续天数', value: overview.streakDays },
-  ]
-}
-
-/** "12 个" / "2 条" / "1 篇" next to a section on 概览. */
-export function sectionCountLabel(section: Section): string {
-  if (section.id === 'story') return `${section.count} 篇`
-  if (section.id === 'grammar') return `${section.count} 条`
-  return `${section.count} 个`
-}
-
-export interface ExerciseView {
-  /** Key in the page's "revealed" map. */
-  readonly key: string
-  readonly wrong: string
-  readonly right: string
-}
-
-export interface GrammarView extends MaterialGrammar {
-  readonly exerciseViews: readonly ExerciseView[]
-}
-
-export function grammarViews(grammar: readonly MaterialGrammar[]): GrammarView[] {
-  return grammar.map((entry, index) => ({
-    ...entry,
-    exerciseViews: entry.exercises.map((exercise, n) => ({ key: `g${index}e${n}`, ...exercise })),
-  }))
-}
-
-export interface PhraseView extends MaterialPhrase {
-  readonly registerLabel: string
-}
-
-export function phraseViews(phrases: readonly MaterialPhrase[]): PhraseView[] {
-  return phrases.map((phrase) => ({ ...phrase, registerLabel: REGISTER_LABELS[phrase.register] }))
-}
-
-/** Neighbours of `date` in a newest-first list: older is further down. */
-export function dateNeighbours(dates: readonly string[], date: string): { older: string; newer: string } {
-  const index = dates.indexOf(date)
-  if (index < 0) {
-    return {
-      older: dates.find((candidate) => candidate < date) ?? '',
-      newer: [...dates].reverse().find((candidate) => candidate > date) ?? '',
-    }
-  }
-  return { older: dates[index + 1] ?? '', newer: index > 0 ? (dates[index - 1] ?? '') : '' }
 }
 
 export interface StorySegment {

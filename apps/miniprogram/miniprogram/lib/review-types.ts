@@ -1,6 +1,6 @@
 /**
  * Wire types of the learning contract (docs/api-v1.md, "Learning (M3–M5)")
- * that the 复习 tab, the review session and 每日材料 read or send.
+ * that the review session and the 周期资料 read or send.
  * Hand-written like lib/types.ts; the contract document is the source of truth.
  */
 
@@ -125,18 +125,4 @@ export interface DailyMaterial {
   readonly grammar: readonly MaterialGrammar[]
   readonly story: MaterialStory | null
   readonly mistakes: readonly MaterialMistake[]
-}
-
-/** `GET /v1/materials/daily`. */
-export interface DailyMaterialResponse {
-  readonly date: string
-  readonly content: DailyMaterial
-  readonly createdAt: string
-}
-
-/** `GET /v1/materials?kind=daily`. */
-export interface MaterialDates {
-  /** Newest first. */
-  readonly dates: readonly string[]
-  readonly nextBefore: string | null
 }

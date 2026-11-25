@@ -17,7 +17,11 @@
     "pages/account/index",
     "pages/notebook/index",
     "pages/word/index",
-    "pages/appearance/index"
+    "pages/appearance/index",
+    "pages/learn-materials/index",
+    "pages/extend/index",
+    "pages/learn-plan/index",
+    "pages/exports/index"
   ],
   "window": {
     "navigationStyle": "custom",

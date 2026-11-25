@@ -1,115 +1,181 @@
 /**
- * 复习 (tab): answers one question — how many cards today, start? One ring
- * (done of done + due), one button, then the latest 每日材料, 词库 and 周报.
- * Every show re-reads the summary, which also refreshes the tab badge.
+ * 学习 (tab; the route stays pages/review/index because reminder messages
+ * open it): today's review with the scope choice (全部到期 / 只复习笔记本 /
+ * 3 星以上), the latest 学习资料, 打印与导出 (本周合集, 单词卡, 自测清单 → the
+ * export sheet; 导出记录) and the 学习计划 line. Every show re-reads
+ * `GET /v1/learn/summary`, which also refreshes the tab badge.
+ *
+ * Against a server without the summary (404) the page falls back to the
+ * review summary: no scope choice and no materials.
  */
 import { errorMessage } from '../../lib/api'
-import { storySpeechKey } from '../../lib/review-card'
-import { formatDateLabel, materialTitle } from '../../lib/review-format'
-import { homeView, ringStyle, type HomeView, type RingStyle } from '../../lib/review-home'
-import { materialCounts } from '../../lib/review-material'
-import type { DailyMaterialResponse } from '../../lib/review-types'
 import { localDateKey } from '../../lib/history'
-import { paletteFor } from '../../lib/palette'
-import { speechPhase, type SpeechPhase, type SpeechStatus } from '../../lib/speaker'
-import { askForReminderThen, fetchDailyMaterial, loadReminderConfig, loadSummary } from '../../services/review'
+import type { LearnSummary, MaterialListItem, ReviewScope } from '../../lib/learn-types'
+import {
+  KIND_LABELS,
+  exportMaterialOf,
+  homeDateLabel,
+  isReviewScope,
+  materialKey,
+  materialMeta,
+  materialStatus,
+  materialUrl,
+  noMaterialsText,
+  planSummary,
+  scopeChips,
+  startLabel,
+  todayView,
+  type ScopeChip,
+  type TodayView,
+} from '../../lib/learn-view'
+import type { ExportInput, ExportMaterial, SheetScope } from '../../lib/pdf-export'
+import { fetchLearnSummary, fetchThisWeek, isNotFound } from '../../services/learn'
+import { pruneExports } from '../../services/pdf'
+import { askForReminderThen, loadReminderConfig, loadSummary } from '../../services/review'
 import { redirectIfInviteRequired } from '../../services/session'
-import { reminderHour } from '../../services/settings'
-import { speechStatus, stopSpeaking, toggleSpeech, watchSpeech } from '../../services/speech'
-import { currentLook, watchLook, type Look } from '../../services/theme'
+import { currentSettings, watchSettings } from '../../services/settings'
+import { bindPageLook, currentLook, type Look } from '../../services/theme'
 import { toast } from '../../services/ui'
 
 const SESSION_PAGE = '/pages/review-session/index'
-const MATERIALS_PAGE = '/pages/materials/index'
 
 interface MaterialCard {
-  date: string
+  key: string
+  /** full: a 周期资料 with 开始学习 and PDF; card: an extension; row: a report. */
+  layout: 'full' | 'card' | 'row'
+  kindLabel: string
+  dateLabel: string
+  status: string
+  statusTone: string
   title: string
-  counts: string
-  hasStory: boolean
+  meta: string
+  url: string
 }
 
-interface ReviewHomeData extends Look {
-  dateLabel: string
+interface PrintTile {
+  id: SheetScope
+  icon: string
+  label: string
+  hint: string
+  off: boolean
+}
+
+interface LearnHomeData extends Look {
   loaded: boolean
-  view: HomeView
-  ring: RingStyle
   errorText: string
   refreshing: boolean
-  material: MaterialCard | null
-  /** The latest material was looked up and there is none yet. */
-  materialMissing: boolean
-  storyPhase: SpeechPhase
+  today: TodayView
+  /** The server knows review scopes (v3). */
+  scopeAvailable: boolean
+  scope: ReviewScope
+  scopes: ScopeChip[]
+  /** '' when the chosen scope has nothing due. */
+  startText: string
+  materials: MaterialCard[]
+  materialsEmpty: string
+  tiles: PrintTile[]
+  exportCount: number
+  planText: string
+  exportOpen: boolean
+  exportInput: ExportInput
 }
 
-const EMPTY_VIEW: HomeView = homeView({
-  due: 0,
-  newAvailable: 0,
-  reviewDue: 0,
+const EMPTY_REVIEW: LearnSummary['review'] = {
+  dueByScope: { all: 0, notes: 0, stars3: 0 },
   doneToday: 0,
   estimatedMinutes: 0,
   streakDays: 0,
-})
-
-/** The ring in the theme's and accent's colours (literal: they go into an inline gradient). */
-const ringFor = (view: HomeView, look: Pick<Look, 'theme' | 'accent'>): RingStyle => {
-  const palette = paletteFor(look.theme, look.accent)
-  return ringStyle(view.ringDegrees, palette.accent, palette.rule)
 }
 
-const initialData: ReviewHomeData = {
+const NO_EXPORT: ExportInput = { origin: 'home', selection: [], week: [], initial: 'week' }
+
+const planText = (): string => {
+  const s = currentSettings()
+  return planSummary({
+    materialFrequency: s.materialFrequency,
+    materialWeekday: s.materialWeekday,
+    extendEnabled: s.extendEnabled,
+    reminderHour: s.reminderHour,
+  })
+}
+
+const cardOf = (item: MaterialListItem, today: string): MaterialCard => {
+  const status = materialStatus(item)
+  return {
+    key: materialKey(item),
+    layout: item.kind === 'weekly' ? 'row' : item.kind === 'extend' ? 'card' : 'full',
+    kindLabel: KIND_LABELS[item.kind],
+    dateLabel: homeDateLabel(item, today),
+    status: status?.text ?? '',
+    statusTone: status?.tone ?? '',
+    title: item.title === '' ? KIND_LABELS[item.kind] : item.title,
+    meta: materialMeta(item, currentSettings().materialParts),
+    url: materialUrl(item),
+  }
+}
+
+const sum = (materials: readonly ExportMaterial[], pick: (material: ExportMaterial) => number): number =>
+  materials.reduce((total, material) => total + pick(material), 0)
+
+const tilesFor = (week: readonly ExportMaterial[]): PrintTile[] => {
+  const empty = week.length === 0
+  return [
+    {
+      id: 'week',
+      icon: 'doc',
+      label: '本周合集',
+      hint: empty ? '本周还没有资料' : `${week.length} 份 · 约 ${sum(week, (m) => m.pages)} 页`,
+      off: empty,
+    },
+    { id: 'cards', icon: 'cards', label: '单词卡', hint: empty ? '剪开对折' : `剪开对折 · ${sum(week, (m) => m.words)} 张`, off: empty },
+    { id: 'checklist', icon: 'checklist', label: '自测清单', hint: '对折遮住释义', off: false },
+  ]
+}
+
+const initialData: LearnHomeData = {
   ...currentLook(),
-  dateLabel: '',
   loaded: false,
-  view: EMPTY_VIEW,
-  ring: ringFor(EMPTY_VIEW, currentLook()),
   errorText: '',
   refreshing: false,
-  material: null,
-  materialMissing: false,
-  storyPhase: 'idle',
+  today: todayView(EMPTY_REVIEW),
+  scopeAvailable: false,
+  scope: 'all',
+  scopes: scopeChips(EMPTY_REVIEW.dueByScope, 'all'),
+  startText: '',
+  materials: [],
+  materialsEmpty: '',
+  tiles: tilesFor([]),
+  exportCount: 0,
+  planText: planText(),
+  exportOpen: false,
+  exportInput: NO_EXPORT,
 }
-
-const materialCard = (material: DailyMaterialResponse, today: string): MaterialCard => ({
-  date: material.date,
-  title: materialTitle(material.date, today),
-  counts: materialCounts(material.content) || '这天没有新内容',
-  hasStory: material.content.story !== null,
-})
 
 Page({
   data: initialData,
-  stopWatchingTheme: null as (() => void) | null,
-  stopWatchingSpeech: null as (() => void) | null,
-  /** The audio key of the latest material's story; '' without one. */
-  storyKey: '',
+  stopWatching: [] as (() => void)[],
+  review: EMPTY_REVIEW,
+  /** The summary's latest materials, by key (the PDF button finds its material here). */
+  latest: [] as MaterialListItem[],
+  week: [] as ExportMaterial[],
   /** 开始复习 was tapped and the session page is opening (no double navigation). */
   starting: false,
 
   onLoad() {
-    this.stopWatchingTheme = watchLook((look) => this.setData({ ...look, ring: ringFor(this.data.view, look) }))
-    this.stopWatchingSpeech = watchSpeech((speech) => this.syncSpeech(speech))
-    const look = currentLook()
-    this.setData({ ...look, ring: ringFor(this.data.view, look) })
+    this.stopWatching = [
+      bindPageLook(this),
+      watchSettings(() => this.setData({ planText: planText(), materials: this.cards() })),
+    ]
   },
 
   onShow() {
-    this.setData({ dateLabel: formatDateLabel(localDateKey(new Date())) })
+    this.setData({ planText: planText(), exportCount: pruneExports().length })
     void this.load()
   },
 
-  onHide() {
-    stopSpeaking()
-  },
-
   onUnload() {
-    this.stopWatchingTheme?.()
-    this.stopWatchingSpeech?.()
-  },
-
-  syncSpeech(speech: SpeechStatus) {
-    const storyPhase = speechPhase(speech, this.storyKey)
-    if (storyPhase !== this.data.storyPhase) this.setData({ storyPhase })
+    for (const stop of this.stopWatching) stop()
+    this.stopWatching = []
   },
 
   async onRefresh() {
@@ -123,43 +189,86 @@ Page({
   },
 
   async load(): Promise<void> {
-    await Promise.all([this.loadSummary(), this.loadMaterial(), loadReminderConfig()])
+    await Promise.all([this.loadSummary(), this.loadWeek(), loadReminderConfig()])
   },
 
   async loadSummary(): Promise<void> {
     try {
-      const summary = await loadSummary()
-      const view = homeView(summary)
-      this.setData({ view, ring: ringFor(view, this.data), loaded: true, errorText: '' })
+      const summary = await fetchLearnSummary()
+      this.latest = [...summary.materials]
+      this.showReview(summary.review, true)
+      this.setData({
+        materials: this.cards(),
+        materialsEmpty: summary.materials.length === 0 ? noMaterialsText(currentSettings().materialFrequency) : '',
+      })
     } catch (error: unknown) {
       if (redirectIfInviteRequired(error)) return
+      if (isNotFound(error)) {
+        await this.loadOldSummary()
+        return
+      }
       this.setData({ errorText: errorMessage(error) })
     }
   },
 
-  async loadMaterial(): Promise<void> {
+  /** A server before v3: the review summary only. */
+  async loadOldSummary(): Promise<void> {
     try {
-      const material = await fetchDailyMaterial()
-      const story = material?.content.story ?? null
-      this.storyKey = material === null || story === null ? '' : storySpeechKey(material.date, story.text)
-      this.setData({
-        material: material === null ? null : materialCard(material, localDateKey(new Date())),
-        materialMissing: material === null,
-        storyPhase: speechPhase(speechStatus(), this.storyKey),
-      })
+      const old = await loadSummary()
+      const due = old.due
+      this.latest = []
+      this.showReview({ ...old, dueByScope: { all: due, notes: due, stars3: due } }, false)
+      this.setData({ materials: [], materialsEmpty: '' })
     } catch (error: unknown) {
-      // The summary reports being offline; the material block just stays as it was.
-      console.warn('[review] latest material not loaded', error)
+      if (!redirectIfInviteRequired(error)) this.setData({ errorText: errorMessage(error) })
     }
   },
 
+  showReview(review: LearnSummary['review'], scopeAvailable: boolean) {
+    this.review = review
+    const scope = scopeAvailable ? this.data.scope : 'all'
+    this.setData({
+      loaded: true,
+      errorText: '',
+      today: todayView(review),
+      scopeAvailable,
+      scope,
+      scopes: scopeChips(review.dueByScope, scope),
+      startText: startLabel(scope, review.dueByScope[scope]),
+    })
+  },
+
+  cards(): MaterialCard[] {
+    const today = localDateKey(new Date())
+    return this.latest.map((item) => cardOf(item, today))
+  },
+
+  async loadWeek(): Promise<void> {
+    try {
+      const items = await fetchThisWeek()
+      this.week = items.flatMap((item) => exportMaterialOf(item) ?? [])
+      this.setData({ tiles: tilesFor(this.week) })
+    } catch (error: unknown) {
+      // The tiles only lose their counts; the checklist still works.
+      console.warn('[learn] this week not loaded', error)
+    }
+  },
+
+  onScope(event: WechatMiniprogram.BaseEvent<Record<string, never>, { id?: string }>) {
+    const scope = event.currentTarget.dataset.id
+    if (!isReviewScope(scope) || scope === this.data.scope) return
+    const due = this.review.dueByScope
+    this.setData({ scope, scopes: scopeChips(due, scope), startText: startLabel(scope, due[scope]) })
+  },
+
   onStart() {
-    if (this.starting) return
+    if (this.starting || this.data.startText === '') return
     this.starting = true
+    const url = this.data.scope === 'all' ? SESSION_PAGE : `${SESSION_PAGE}?scope=${this.data.scope}`
     // Synchronously inside the tap: the subscribe dialog needs the user gesture.
-    askForReminderThen(reminderHour(), () => {
+    askForReminderThen(currentSettings().reminderHour, () => {
       wx.navigateTo({
-        url: SESSION_PAGE,
+        url,
         complete: () => {
           this.starting = false
         },
@@ -167,24 +276,49 @@ Page({
     })
   },
 
-  onMaterial() {
-    const date = this.data.material?.date
-    wx.navigateTo({ url: date === undefined ? MATERIALS_PAGE : `${MATERIALS_PAGE}?date=${date}`, fail: () => undefined })
+  onOpen(event: WechatMiniprogram.BaseEvent<Record<string, never>, { url?: string }>) {
+    const url = event.currentTarget.dataset.url
+    if (url !== undefined) wx.navigateTo({ url, fail: () => undefined })
   },
 
-  onPlayStory() {
-    const material = this.data.material
-    if (material === null || this.storyKey === '') return
-    toggleSpeech({ material: { kind: 'daily', date: material.date, section: 'story' } }, this.storyKey).catch(
-      (error: unknown) => toast(errorMessage(error)),
-    )
+  onAllMaterials() {
+    wx.navigateTo({ url: '/pages/learn-materials/index', fail: () => undefined })
   },
 
-  onLibrary() {
-    wx.navigateTo({ url: '/pages/library/index', fail: () => undefined })
+  onMaterialPdf(event: WechatMiniprogram.BaseEvent<Record<string, never>, { key?: string }>) {
+    const item = this.latest.find((candidate) => materialKey(candidate) === event.currentTarget.dataset.key)
+    const material = item === undefined ? null : exportMaterialOf(item)
+    if (material === null) return
+    this.openExport({ origin: 'material', selection: [material], week: this.week, initial: 'one' })
   },
 
-  onWeekly() {
-    wx.navigateTo({ url: '/pages/weekly/index', fail: () => undefined })
+  onTile(event: WechatMiniprogram.BaseEvent<Record<string, never>, { id?: SheetScope; off?: boolean }>) {
+    const { id, off } = event.currentTarget.dataset
+    if (id === undefined) return
+    if (off === true) {
+      toast('本周还没有资料，可以先导出自测清单')
+      return
+    }
+    this.openExport({ origin: 'home', selection: [], week: this.week, initial: id })
+  },
+
+  openExport(input: ExportInput) {
+    this.setData({ exportInput: input, exportOpen: true })
+  },
+
+  onExportClose() {
+    this.setData({ exportOpen: false })
+  },
+
+  onExported() {
+    this.setData({ exportCount: pruneExports().length })
+  },
+
+  onExports() {
+    wx.navigateTo({ url: '/pages/exports/index', fail: () => undefined })
+  },
+
+  onPlan() {
+    wx.navigateTo({ url: '/pages/learn-plan/index', fail: () => undefined })
   },
 })

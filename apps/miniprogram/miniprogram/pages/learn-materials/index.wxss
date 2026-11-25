@@ -1,0 +1,129 @@
+/*
+ * 学习资料 list. Shared pieces (seg-control, label-tag, tick, bottom-bar)
+ * live in app.wxss. The root is positioned so the export sheet can sit over
+ * the page.
+ */
+.lm-page {
+  position: relative;
+  overflow: hidden;
+}
+
+.lm-head {
+  flex-shrink: 0;
+  padding: 8rpx 40rpx 0;
+  background-color: var(--bg);
+}
+
+.lm-tools {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 80rpx;
+}
+
+.lm-count {
+  color: var(--muted);
+  font-size: 24rpx;
+}
+
+.lm-content {
+  padding-top: 0;
+}
+
+.lm-week {
+  display: block;
+  padding: 24rpx 0 4rpx;
+  color: var(--muted);
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.lm-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 24rpx;
+  padding: 24rpx 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.lm-row-off {
+  opacity: 0.45;
+}
+
+.lm-tick {
+  margin-top: 4rpx;
+}
+
+.lm-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.lm-tags {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.lm-date {
+  color: var(--muted);
+  font-size: 24rpx;
+}
+
+.lm-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink);
+  font-size: 32rpx;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.lm-meta {
+  color: var(--ink-soft);
+  font-size: 26rpx;
+}
+
+.lm-status {
+  margin-top: 8rpx;
+}
+
+.lm-empty {
+  display: block;
+  padding: 96rpx 16rpx;
+  color: var(--muted);
+  font-size: 26rpx;
+  line-height: 1.7;
+  text-align: center;
+}
+
+.lm-more {
+  display: block;
+  padding: 32rpx 0;
+  color: var(--muted);
+  font-size: 24rpx;
+  text-align: center;
+}
+
+.lm-error {
+  padding: 96rpx 16rpx;
+  text-align: center;
+}
+
+.lm-retry {
+  margin: 24rpx auto 0;
+  width: 160rpx;
+}
+
+.lm-picked {
+  flex: 1;
+  color: var(--ink-soft);
+  font-size: 28rpx;
+}

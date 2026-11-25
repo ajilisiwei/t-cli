@@ -1,7 +1,7 @@
 /**
- * The learning endpoints behind 复习 and 每日材料 (docs/api-v1.md, "Learning
- * (M3–M5)"), the review-log outbox, the 复习 tab badge and the reminder
- * subscription asked for on 开始复习.
+ * The review endpoints (docs/api-v1.md, "Learning (M3–M5)"; the queue's
+ * scope is v3), the review-log outbox, the 学习 tab badge and the reminder
+ * subscription asked for on 开始复习. The v3 materials live in services/learn.ts.
  *
  * Outbox (lib/review-queue.ts): a rating is written to storage first and
  * posted at once. A failed post (offline, server busy) leaves it queued; the
@@ -10,14 +10,12 @@
  */
 import { ApiError, isApiError } from '../lib/api'
 import { badgeText, reminderAccepted, reminderTemplateToAsk } from '../lib/review-home'
-import { readDailyMaterialResponse } from '../lib/review-material'
 import type { ReviewScope } from '../lib/learn-types'
 import { createOutbox, type UndoOutcome } from '../lib/review-queue'
-import type { DailyMaterialResponse, MaterialDates, QueueCard, ReviewLog, ReviewSummary } from '../lib/review-types'
+import type { QueueCard, ReviewLog, ReviewSummary } from '../lib/review-types'
 import { ULID_ENTROPY_BYTES, ulid } from '../lib/review-ulid'
 import {
   readBatchResult,
-  readMaterialDates,
   readQueueCards,
   readReminderTemplateId,
   readSummary,
@@ -29,14 +27,11 @@ import { api } from './session'
 const REVIEW_TAB_INDEX = 2
 /** The queue serves at most 15 new + 60 review cards a day; 100 is the contract's maximum. */
 export const SESSION_CARD_LIMIT = 100
-export const MATERIAL_DATES_PAGE = 60
 /** Queued ratings; spelled out here because this module alone reads it. */
 const PENDING_KEY = 'tcli:review:pending'
 
 const badResponse = (what: string): ApiError =>
   new ApiError({ kind: 'protocol', code: 'BAD_RESPONSE', message: `malformed ${what}` })
-
-const isNotFound = (error: unknown): boolean => isApiError(error) && (error.code === 'NOT_FOUND' || error.status === 404)
 
 // ---- summary and queue ----
 
@@ -164,33 +159,6 @@ export async function refreshReviewBadge(): Promise<void> {
   } catch (error: unknown) {
     console.warn('[review] badge refresh failed', isApiError(error) ? error.code : error)
   }
-}
-
-// ---- materials ----
-
-/** The day's material (latest without a date); null when there is none. */
-export async function fetchDailyMaterial(date?: string): Promise<DailyMaterialResponse | null> {
-  let data: unknown
-  try {
-    data = await api.request<unknown>({ method: 'GET', path: '/v1/materials/daily', query: { date } })
-  } catch (error: unknown) {
-    if (isNotFound(error)) return null
-    throw error
-  }
-  const material = readDailyMaterialResponse(data)
-  if (material === null) throw badResponse('daily material')
-  return material
-}
-
-export async function fetchMaterialDates(before: string | null = null): Promise<MaterialDates> {
-  const data = await api.request<unknown>({
-    method: 'GET',
-    path: '/v1/materials',
-    query: { kind: 'daily', before, limit: MATERIAL_DATES_PAGE },
-  })
-  const dates = readMaterialDates(data)
-  if (dates === null) throw badResponse('material dates')
-  return dates
 }
 
 // ---- reminders (WeChat one-time subscribe messages) ----

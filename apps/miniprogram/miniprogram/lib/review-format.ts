@@ -1,6 +1,6 @@
 /**
  * Wording for the review screens: next intervals under the grade buttons
- * ("10 分钟", "3 天", "2 个月"), time spent, shares and date labels.
+ * ("10 分钟", "3 天", "2 个月"), time spent and shares.
  */
 import type { Intervals, Rating } from './review-types'
 
@@ -85,57 +85,4 @@ export function percent(part: number, whole: number): string {
 export function formatShare(part: number, whole: number): string {
   const value = percent(part, whole)
   return value === '' ? '' : `${value}%`
-}
-
-const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/
-const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
-
-interface CalendarDate {
-  readonly year: number
-  readonly month: number
-  readonly day: number
-}
-
-const parseDate = (date: string): CalendarDate | null => {
-  const match = DATE_RE.exec(date)
-  if (match === null) return null
-  const year = Number(match[1])
-  const month = Number(match[2])
-  const day = Number(match[3])
-  const probe = new Date(Date.UTC(year, month - 1, day))
-  if (probe.getUTCFullYear() !== year || probe.getUTCMonth() !== month - 1 || probe.getUTCDate() !== day) return null
-  return { year, month, day }
-}
-
-/** `YYYY-MM-DD` → "11月16日 周日" (the weekday of that calendar date). Empty when malformed. */
-export function formatDateLabel(date: string): string {
-  const parsed = parseDate(date)
-  if (parsed === null) return ''
-  const weekday = new Date(Date.UTC(parsed.year, parsed.month - 1, parsed.day)).getUTCDay()
-  return `${parsed.month}月${parsed.day}日 ${WEEKDAYS[weekday] ?? ''}`.trim()
-}
-
-/** `YYYY-MM-DD` → "11月16日", with the year when it is not `today`'s year. */
-export function formatShortDate(date: string, today: string): string {
-  const parsed = parseDate(date)
-  if (parsed === null) return ''
-  const monthDay = `${parsed.month}月${parsed.day}日`
-  return today.startsWith(`${parsed.year}-`) ? monthDay : `${parsed.year}年${monthDay}`
-}
-
-/** The calendar day before `date` (`YYYY-MM-DD`), or '' when malformed. */
-export function previousDate(date: string): string {
-  const parsed = parseDate(date)
-  if (parsed === null) return ''
-  const probe = new Date(Date.UTC(parsed.year, parsed.month - 1, parsed.day - 1))
-  const pad = (n: number): string => String(n).padStart(2, '0')
-  return `${probe.getUTCFullYear()}-${pad(probe.getUTCMonth() + 1)}-${pad(probe.getUTCDate())}`
-}
-
-/** "今日材料" / "昨日材料" / "11月15日材料" for the material of `date`. */
-export function materialTitle(date: string, today: string): string {
-  if (date === today) return '今日材料'
-  if (date === previousDate(today)) return '昨日材料'
-  const short = formatShortDate(date, today)
-  return short === '' ? '每日材料' : `${short}材料`
 }

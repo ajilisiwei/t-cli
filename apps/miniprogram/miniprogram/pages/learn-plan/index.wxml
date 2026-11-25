@@ -1,0 +1,138 @@
+<view class="page theme-{{theme}} {{accentClass}}">
+  <nav-bar title="学习计划" back />
+  <scroll-view class="body" scroll-y type="list" show-scrollbar="{{false}}">
+    <view class="content">
+      <!-- 周期资料 -->
+      <text class="lp-title">周期资料</text>
+      <view class="card-surface lp-card">
+        <view class="seg-control" aria-role="radiogroup" aria-label="生成频率">
+          <view
+            wx:for="{{freqs}}"
+            wx:key="id"
+            class="seg-option {{item.on ? 'seg-option-on' : ''}}"
+            data-id="{{item.id}}"
+            bindtap="onFrequency"
+            aria-role="radio"
+            aria-checked="{{item.on}}"
+          >
+            <text>{{item.label}}</text>
+          </view>
+        </view>
+        <text class="lp-hint">{{freqHint}}</text>
+        <view wx:if="{{frequency === 'weekly'}}" class="lp-days" aria-role="radiogroup" aria-label="每周哪天出资料">
+          <view
+            wx:for="{{weekdays}}"
+            wx:key="id"
+            class="lp-day {{item.on ? 'lp-day-on' : ''}}"
+            data-id="{{item.id}}"
+            bindtap="onWeekday"
+            aria-role="radio"
+            aria-checked="{{item.on}}"
+            aria-label="{{item.aria}}"
+          >
+            <text>{{item.label}}</text>
+          </view>
+        </view>
+        <view wx:if="{{frequency !== 'off'}}" class="lp-block">
+          <text class="lp-sub">资料里放什么</text>
+          <view class="choice-chips">
+            <view
+              wx:for="{{parts}}"
+              wx:key="id"
+              class="choice-chip {{item.on ? 'choice-chip-on' : ''}}"
+              data-id="{{item.id}}"
+              bindtap="onPart"
+              aria-role="checkbox"
+              aria-checked="{{item.on}}"
+            >
+              <text>{{item.label}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 拓展资料 -->
+      <text class="lp-title">拓展资料</text>
+      <view class="card-surface lp-card">
+        <view class="lp-switch-row" bindtap="onExtend" aria-role="switch" aria-checked="{{extendEnabled}}" aria-label="AI 推荐拓展资料">
+          <view class="row-text">
+            <text class="row-label">AI 推荐拓展资料</text>
+            <text class="row-hint">每周一份，周一早上出</text>
+          </view>
+          <view class="switch {{extendEnabled ? 'switch-on' : ''}}"><view class="knob {{extendEnabled ? 'knob-on' : ''}}"></view></view>
+        </view>
+        <view wx:if="{{extendEnabled}}" class="lp-block">
+          <text class="lp-sub">方向（不选时，AI 从你的查询里看出方向）</text>
+          <view class="choice-chips">
+            <view
+              wx:for="{{topics}}"
+              wx:key="id"
+              class="choice-chip {{item.on ? 'choice-chip-on' : ''}}"
+              data-id="{{item.id}}"
+              bindtap="onTopic"
+              aria-role="checkbox"
+              aria-checked="{{item.on}}"
+            >
+              <text>{{item.label}}</text>
+            </view>
+          </view>
+          <view wx:for="{{muted}}" wx:key="topic" class="lp-muted">
+            <text class="lp-muted-text">不感兴趣：{{item.label}}</text>
+            <text class="link link-strong" data-topic="{{item.topic}}" bindtap="onUnmute" aria-role="button">恢复推荐</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 难度 -->
+      <text class="lp-title">难度</text>
+      <view class="card-surface lp-card">
+        <view class="lp-levels" aria-role="radiogroup" aria-label="难度">
+          <view
+            wx:for="{{levels}}"
+            wx:key="id"
+            class="lp-day {{item.on ? 'lp-day-on' : ''}}"
+            data-id="{{item.id}}"
+            bindtap="onLevel"
+            aria-role="radio"
+            aria-checked="{{item.on}}"
+          >
+            <text>{{item.label}}</text>
+          </view>
+        </view>
+        <text class="lp-hint">{{levelHint}}</text>
+      </view>
+
+      <!-- 复习与提醒 -->
+      <text class="lp-title">复习与提醒</text>
+      <view class="card-surface lp-rows">
+        <view class="row lp-row" bindtap="onImportance" aria-role="switch" aria-checked="{{importanceReview}}" aria-label="按重要程度复习">
+          <view class="row-text">
+            <text class="row-label">按重要程度复习</text>
+            <text class="row-hint">星越多，复习越勤</text>
+          </view>
+          <view class="switch {{importanceReview ? 'switch-on' : ''}}"><view class="knob {{importanceReview ? 'knob-on' : ''}}"></view></view>
+        </view>
+        <block wx:if="{{reminderAvailable}}">
+          <picker mode="selector" range="{{reminderOptions}}" value="{{reminderIndex}}" bindchange="onReminderHour">
+            <view class="row lp-row" aria-role="button" aria-label="每天提醒复习：{{reminderLabel}}">
+              <text class="row-label">每天提醒复习</text>
+              <view class="row-trail">
+                <text class="row-value">{{reminderLabel}}</text>
+                <t-icon name="chevron-right" tone="muted" size="32" />
+              </view>
+            </view>
+          </picker>
+          <view wx:if="{{reminderOn}}" class="row lp-row" bindtap="onGrant" aria-role="button" aria-label="接收下一次提醒，{{grantText}}">
+            <text class="row-label">接收下一次提醒</text>
+            <text class="row-value">{{granting ? '…' : grantText}}</text>
+          </view>
+        </block>
+      </view>
+
+      <view class="lp-saved">
+        <t-icon name="cloud-check" tone="muted" size="28" />
+        <text class="lp-saved-text">设置会保存在手机上并同步到账号，换手机后也在。</text>
+      </view>
+    </view>
+  </scroll-view>
+</view>
