@@ -4,10 +4,11 @@ import type { AppDeps } from '../../deps.ts';
 import { authOf, requireAuth } from '../../http/auth.ts';
 import { notFound, ok, unauthorized } from '../../http/errors.ts';
 import { adoptExtendItems, dismissExtend, knownFlags } from '../learn/extendActions.ts';
-import { explanationLangOf } from '../lookup/repo.ts';
+import { explanationLangOf, latestUtcOffset } from '../lookup/repo.ts';
 import { LocalDate, UtcOffsetMinutes } from '../review/common.ts';
+import { reasonRangeOf, reasonUnitIds, unitReasons } from './materialReasons.ts';
 import { extendItemsOf, toListItem, toMaterialResponse } from './materialView.ts';
-import { getMaterialRow, listMaterials, MATERIAL_KINDS, setMaterialRead, type MaterialKind } from './materials.ts';
+import { getMaterialRow, LIST_KINDS, listMaterials, MATERIAL_KINDS, setMaterialRead, type MaterialKind, type MaterialRow } from './materials.ts';
 
 export const MATERIALS_MAX_LIMIT = 60;
 /** Extension items a material can have (ExtendContentSchema: 6–10). */
@@ -15,7 +16,7 @@ export const ADOPT_MAX_INDEXES = 10;
 
 const MaterialQuery = z.object({ date: LocalDate.optional() });
 const MaterialListQuery = z.object({
-  kind: z.enum(['all', ...MATERIAL_KINDS]),
+  kind: z.enum(LIST_KINDS),
   before: LocalDate.optional(),
   limit: z.coerce.number().int().min(1).max(MATERIALS_MAX_LIMIT).default(30),
 });
@@ -33,8 +34,8 @@ const DismissBody = z.strictObject({ undo: z.boolean().optional(), utcOffsetMinu
 
 /**
  * Materials (docs/api-v1.md, "Materials" and "v3 → Materials"):
- *   GET  /v1/materials?kind=&before=&limit=      dates and list items, newest first
- *   GET  /v1/materials/{daily,digest,extend,weekly}?date=   one material (latest without date)
+ *   GET  /v1/materials?kind=&before=&limit=      dates and list items, newest first (kind: all, periodic or one kind)
+ *   GET  /v1/materials/{daily,digest,extend,weekly}?date=   one material (latest without date; daily and digest with reasons)
  *   POST /v1/materials/:kind/:date/read          学完了 / undo
  *   POST /v1/materials/extend/:date/adopt        add chosen extension items as units
  *   POST /v1/materials/extend/:date/dismiss      不感兴趣: mute the topic for 30 days
@@ -51,13 +52,20 @@ export async function registerMaterialRoutes(app: FastifyInstance, deps: AppDeps
     return lang;
   };
 
+  /** daily and digest: why each word and phrase was picked, within the material's range at the account's offset. */
+  const reasonsOf = async (userId: string, row: MaterialRow) => {
+    const range = reasonRangeOf(row, await latestUtcOffset(db, userId));
+    return unitReasons(db, userId, reasonUnitIds(row.content), range);
+  };
+
   const materialRoute = (kind: MaterialKind) => async (request: FastifyRequest) => {
     const { userId } = authOf(request);
     const { date } = MaterialQuery.parse(request.query);
     const row = await getMaterialRow(db, userId, kind, date);
     if (!row) throw notFound(`${kind} material`);
-    const known = kind === 'extend' ? await knownFlags(db, userId, extendItemsOf(row.content)) : undefined;
-    return ok(toMaterialResponse(row, known));
+    if (kind === 'extend') return ok(toMaterialResponse(row, { known: await knownFlags(db, userId, extendItemsOf(row.content)) }));
+    if (kind === 'daily' || kind === 'digest') return ok(toMaterialResponse(row, { reasons: await reasonsOf(userId, row) }));
+    return ok(toMaterialResponse(row));
   };
   for (const kind of MATERIAL_KINDS) app.get(`/v1/materials/${kind}`, { preHandler: authenticate }, materialRoute(kind));
 

@@ -256,7 +256,7 @@ Hourly job: for every account with `reminderHour` equal to the current local hou
 
 ### Speech (extended)
 
-`POST /v1/tts` takes exactly one of `{ entryId }`, `{ cardId }`, `{ itemId }`, `{ material: { kind: 'daily', date, section: 'story' } }` (all of the caller's own). Card → the "read aloud" column above; item → word headword / phrase / grammar `right`; story → `story.text`. Same limits, errors and cache as before.
+`POST /v1/tts` takes exactly one of `{ entryId }`, `{ cardId }`, `{ itemId }`, `{ material: { kind: 'daily', date, section: 'story' } }` (all of the caller's own). Card → the "read aloud" column above; item → word headword / phrase / grammar `right`; story → `story.text`. Same limits, errors and cache as before. v3 adds digest stories and extension passages and items ("v3 → Speech targets (v3)").
 
 ### AI quotas (extended)
 
@@ -510,12 +510,13 @@ type StudyLevel = 'A2' | 'B1' | 'B2' | 'C1';
 
 Kinds: `daily` (每日资料), `digest` (每周模式的 7 天合集), `extend` (拓展资料), `weekly` (周报, unchanged). `date`: daily = the day the material covers; digest = the last day of its range; extend = the local day it was generated (a Monday); weekly = the week's Monday (unchanged).
 
-`GET /v1/materials?kind=all|daily|digest|extend|weekly&before=YYYY-MM-DD&limit=` (1–60, default 30) → `{ dates: string[], items: MaterialListItem[], nextBefore: string | null }`. `items` is new; `dates` stays for old clients (with `kind=all` it lists each date once). Order: date desc, then kind order as above.
+`GET /v1/materials?kind=all|periodic|daily|digest|extend|weekly&before=YYYY-MM-DD&limit=` (1–60, default 30) → `{ dates: string[], items: MaterialListItem[], nextBefore: string | null }`. `items` is new; `dates` stays for old clients (with `kind=all` or `periodic` it lists each date once). `kind=periodic` = 周期资料: `daily` and `digest` together; paging is by dates as for every kind (a date with only an extension or a report is not one of its dates). Order: date desc, then kind order as above.
 ```ts
 type MaterialListItem = {
   kind: 'daily' | 'digest' | 'extend' | 'weekly';
   date: string;
   title: string;          // built by the server in the explanation language, e.g. "9 个词和一篇短文", "7 天合集：18 个词", the extension's title, "复习 126 次，记住 82%"
+  subtitle: string | null;   // extend: its first reason (`reasons[0]`, as stored); null for the other kinds
   counts: { words: number; phrases: number; grammar: number; exercises: number; items: number };   // items = extension items; 0 where not applicable
   readAt: string | null;  // 学完了
   pages: number;          // estimated A4 pages of its PDF (practice layout); 0 for weekly
@@ -530,6 +531,12 @@ type MaterialResponse = {
   content: DailyMaterial | DigestMaterial | ExtendMaterial | WeeklyReport;
   exercises?: Exercises;   // daily and digest: derived from the content (exercisesFor), never stored
   known?: boolean[];       // extend: per item, true when the account already has a unit with that text (same type and key)
+  reasons?: Record<string, UnitReason>;   // daily and digest: by itemId, for its words and phrases (computed per request, never stored)
+};
+type UnitReason = {
+  stars: number;     // the unit's current stars (0–4)
+  lapses: number;    // ratings 忘记 (1) on the unit's cards within the range
+  lookups: number;   // lookup events of the unit (words: lemma key = the unit's key) plus its source records, within the range
 };
 type DigestMaterial = DailyMaterial & {
   range: { start: string; end: string };                   // 7 local days, end = date
@@ -553,11 +560,22 @@ type Exercises = {
 };
 ```
 
+`reasons` (why a word or phrase was picked; clients show one tag, lapses before stars before lookups): one entry per `itemId` of the content's `words` and `phrases` whose unit still exists (a deleted unit has none). The range is the material's local days at the account's offset (the latest record's, default +08:00 — the same rule as the nightly job): daily = its `date`; digest = `range.start` to `range.end`, both included (the 7 days ending on `date` when the stored range is unusable). Every count reads only the caller's rows.
+
 `POST /v1/materials/:kind/:date/read` — Body `{ read: boolean }` → `{ readAt: string | null }`; unknown material → 404.
 
 `POST /v1/materials/extend/:date/adopt` — Body `{ indexes: number[] }` (1–10 distinct, each < the item count) → `{ added: number[], known: number[] }` (indexes). Each chosen item becomes a unit of the account: `word` → type `word` (key as for words), `phrase` → type `phrase` (key as for phrases). A unit that already exists is `known` (its counters are not changed). A new word with a lexicon entry in the account's explanation language is created `ready` with its content and cards at once; any other new unit is `pending` and gets content and cards in the next nightly run. Idempotent.
 
 `POST /v1/materials/extend/:date/dismiss` — Body `{ undo?: boolean }` → `{ extendMuted: { topic, until }[] }`: adds (or with `undo`, removes) the material's topic in `settings.extendMuted` with `until` = the local day 30 days later; an entry already there for that topic is replaced. Topic `other` is never muted (→ `{ extendMuted }` unchanged).
+
+### Speech targets (v3)
+
+The `material` target of `POST /v1/tts` (still exactly one target, plus the optional `part`) takes three shapes:
+- `{ "material": { "kind": "daily" | "digest", "date", "section": "story" } }` — the story's `text` (`digest` is new);
+- `{ "material": { "kind": "extend", "date", "section": "passage" } }` — the extension's `passage.text`;
+- `{ "material": { "kind": "extend", "date", "section": "item", "index": n } }` — the `text` of item `n` (0-based, as in `items`).
+
+Any other combination of `kind`, `section` and `index` → `400`. Unknown material (or another account's), or no item at `index` → `404 NOT_FOUND`; a material without a story or passage → `422 NOTHING_TO_SPEAK`. Parts, voice, the per-minute limit and the audio cache are those of every target ("Speech in parts"). Logs name the material by kind, date, section and index, never its text.
 
 ### Pipeline (v3)
 

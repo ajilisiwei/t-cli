@@ -10,6 +10,19 @@ import { materials } from '../../db/schema.ts';
 export const MATERIAL_KINDS = ['daily', 'digest', 'extend', 'weekly'] as const;
 export type MaterialKind = (typeof MATERIAL_KINDS)[number];
 
+/** `GET /v1/materials?kind=`: every kind, 周期资料 (daily and digest), or one kind. */
+export const LIST_KINDS = ['all', 'periodic', ...MATERIAL_KINDS] as const;
+export type ListKind = (typeof LIST_KINDS)[number];
+
+/** The kinds of 周期资料. */
+export const PERIODIC_KINDS: readonly MaterialKind[] = ['daily', 'digest'];
+
+const kindFilter = (kind: ListKind) => {
+  if (kind === 'all') return undefined;
+  if (kind === 'periodic') return inArray(materials.kind, [...PERIODIC_KINDS]);
+  return eq(materials.kind, kind);
+};
+
 /** Within one date: extend, digest, daily, weekly (the contract's list order). */
 export const KIND_ORDER: readonly MaterialKind[] = ['extend', 'digest', 'daily', 'weekly'];
 const kindRank = sql<number>`case ${materials.kind} when 'extend' then 0 when 'digest' then 1 when 'daily' then 2 else 3 end`;
@@ -63,20 +76,16 @@ export interface MaterialPage {
 }
 
 /**
- * Materials of `kind` (or every kind), a page of whole dates: the `limit`
- * newest dates before `before`, with all their materials, so a date's
- * materials never straddle two pages.
+ * Materials of `kind` (every kind, 周期资料, or one kind), a page of whole
+ * dates: the `limit` newest dates before `before`, with all their materials
+ * of that kind, so a date's materials never straddle two pages.
  */
 export async function listMaterials(
   db: Executor,
   userId: string,
-  { kind, before, limit }: { kind: MaterialKind | 'all'; before?: string | undefined; limit: number },
+  { kind, before, limit }: { kind: ListKind; before?: string | undefined; limit: number },
 ): Promise<MaterialPage> {
-  const scope = and(
-    eq(materials.userId, userId),
-    kind === 'all' ? undefined : eq(materials.kind, kind),
-    before === undefined ? undefined : lt(materials.date, before),
-  );
+  const scope = and(eq(materials.userId, userId), kindFilter(kind), before === undefined ? undefined : lt(materials.date, before));
   const dateRows = await db
     .selectDistinct({ date: materials.date })
     .from(materials)
