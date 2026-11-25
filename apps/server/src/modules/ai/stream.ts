@@ -56,6 +56,8 @@ export interface ProxyStreamOptions {
   startedAt: number;
   /** Called when the upstream reports the request's token usage. */
   onUsage?: (usage: LlmUsage) => void;
+  /** The model's reasoning switch (LlmClient.streamChat); omitted → the model's default. */
+  thinking?: boolean;
 }
 
 /** Abort reason used when the HTTP client goes away. */
@@ -98,7 +100,7 @@ function endResponse(res: ServerResponse, line?: StreamLine): void {
  * it with an `error` line. When the
  * client disconnects, the upstream request is aborted and nothing is stored.
  */
-export async function proxyStream({ reply, llm, messages, meta, persist, startedAt, onUsage }: ProxyStreamOptions): Promise<StreamResult> {
+export async function proxyStream({ reply, llm, messages, meta, persist, startedAt, onUsage, thinking }: ProxyStreamOptions): Promise<StreamResult> {
   const res = reply.raw;
   const controller = new AbortController();
   const onClose = (): void => {
@@ -108,7 +110,7 @@ export async function proxyStream({ reply, llm, messages, meta, persist, started
   if (res.destroyed) controller.abort(new ClientDisconnected());
 
   const upstream = llm
-    .streamChat(messages, { signal: controller.signal, ...(onUsage ? { onUsage } : {}) })
+    .streamChat(messages, { signal: controller.signal, ...(onUsage ? { onUsage } : {}), ...(thinking === undefined ? {} : { thinking }) })
     [Symbol.asyncIterator]();
   const clientGone = (error: unknown): boolean => {
     const gone = controller.signal.aborted || error instanceof ClientDisconnected || res.destroyed;

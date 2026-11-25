@@ -80,6 +80,11 @@ export function parseStreamEvent(data: string): StreamEvent {
   };
 }
 
+/** DeepSeek's reasoning switch; nothing when the caller leaves the model's default. */
+function thinkingField(thinking: boolean | undefined): { thinking?: { type: 'enabled' | 'disabled' } } {
+  return thinking === undefined ? {} : { thinking: { type: thinking ? 'enabled' : 'disabled' } };
+}
+
 function chatCompletionsUrl(baseUrl: string): string {
   return new URL('chat/completions', baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`).toString();
 }
@@ -110,7 +115,7 @@ export function createLlmClient(config: DeepSeekConfig, options: LlmClientOption
   return {
     isAvailable: () => Boolean(config.DEEPSEEK_API_KEY),
 
-    async *streamChat(messages, { signal, onUsage }) {
+    async *streamChat(messages, { signal, onUsage, thinking }) {
       const apiKey = requireKey();
       signal.throwIfAborted();
 
@@ -141,6 +146,7 @@ export function createLlmClient(config: DeepSeekConfig, options: LlmClientOption
             temperature: TEMPERATURE,
             stream: true,
             stream_options: { include_usage: true },
+            ...thinkingField(thinking),
           }),
           signal: combined,
         });
@@ -187,7 +193,7 @@ export function createLlmClient(config: DeepSeekConfig, options: LlmClientOption
 
     // The content is returned as sent: when the model hit `maxTokens` it may be
     // truncated or empty, which the caller's JSON validation then rejects.
-    async completeJson(messages, { signal, maxTokens }): Promise<JsonCompletion> {
+    async completeJson(messages, { signal, maxTokens, thinking }): Promise<JsonCompletion> {
       const apiKey = requireKey();
       signal.throwIfAborted();
       const timeout = AbortSignal.timeout(jsonTimeoutMs);
@@ -210,6 +216,7 @@ export function createLlmClient(config: DeepSeekConfig, options: LlmClientOption
             response_format: { type: 'json_object' },
             max_tokens: maxTokens,
             stream: false,
+            ...thinkingField(thinking),
           }),
           signal: combined,
         });

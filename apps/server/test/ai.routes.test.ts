@@ -261,6 +261,7 @@ describe('AI proxy routes', { skip: skipWithoutDb }, () => {
       ]);
     }
     assert.doesNotMatch(llm.calls[3]![0]!.content, /SPELLING RULE/, 'no spelling correction for a Chinese source');
+    assert.deepEqual(llm.streamThinking, [false, false, false, false, false], 'checks and translations stream without reasoning');
 
     const stored = await storedEntries(account.userId);
     assert.deepEqual(
@@ -692,6 +693,7 @@ describe('AI proxy routes', { skip: skipWithoutDb }, () => {
     const sent = JSON.parse(upstream.requests[0]?.body ?? '{}');
     assert.equal(sent.model, 'deepseek-v4-flash');
     assert.equal(sent.stream, true);
+    assert.deepEqual(sent.thinking, { type: 'disabled' });
     assert.deepEqual(sent.messages, buildAiPrompt({ text: 'ubiquitous', task: 'translate', mode: 'detail', lang: 'en' }).messages);
   });
 

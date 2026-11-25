@@ -17,6 +17,12 @@ import { estimatePromptTokens, totalTokens } from './usage.ts';
 
 /** Default client offset (Asia/Shanghai) when the client does not send one. */
 export const DEFAULT_UTC_OFFSET_MINUTES = 480;
+/**
+ * Translations and checks stream without model reasoning. With
+ * deepseek-v4-flash's default thinking the first visible text came after
+ * 1.5–3 s; without it after about 0.5 s, with answers of the same quality.
+ */
+export const AI_THINKING = false;
 // 2000 chars of JSON-escaped text fit comfortably; nothing legitimate is larger.
 const BODY_LIMIT_BYTES = 64 * 1024;
 
@@ -139,7 +145,7 @@ export async function registerAiRoutes(app: FastifyInstance, deps: AppDeps): Pro
 
     let result: StreamResult;
     try {
-      result = await proxyStream({ reply, llm: deps.llm, messages, meta: { srcLang, kind }, persist, startedAt, onUsage });
+      result = await proxyStream({ reply, llm: deps.llm, messages, meta: { srcLang, kind }, persist, startedAt, onUsage, thinking: AI_THINKING });
     } catch (error) {
       // Failed before any output: only what the upstream reported was spent.
       const usage: LlmUsage | null = reported;
