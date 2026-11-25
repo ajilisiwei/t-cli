@@ -1,7 +1,8 @@
 import { and, asc, desc, eq, exists, gt, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import { ulid } from '@t-cli/core/ulid';
 import type { Database, Executor } from '../../db/client.ts';
-import { cards, entries, items, itemSources, pipelineState, users } from '../../db/schema.ts';
+import { cards, entries, items, itemSources, lookupEvents, pipelineState, users } from '../../db/schema.ts';
+import { learnPlanOf, type LearnPlan } from '../learn/plan.ts';
 import { cardsFor, type CardSource, type CardSpec } from './cards.ts';
 import { displayOf } from './content.ts';
 import { DEFAULT_UTC_OFFSET_MINUTES } from './dates.ts';
@@ -34,25 +35,34 @@ const recordColumns = {
 export const GENERATED_TYPES: readonly ItemType[] = ['word', 'phrase', 'grammar'];
 
 /**
- * Accounts the nightly run looks at: active, with at least one record or an
- * item waiting for content (a word or phrase saved as a note before any
- * record was pushed).
+ * Accounts the nightly run looks at: active (not deleted) ones with at least
+ * one record, a learning unit (a note or an adopted extension item, whose
+ * reviews and notes count as activity for the v3 materials), or a lookup
+ * event not merged yet.
  */
 export async function accountsWithRecords(db: Executor): Promise<string[]> {
-  const waiting = db
+  const anyItem = db.select({ one: sql`1` }).from(items).where(eq(items.userId, users.id));
+  const unmerged = db
     .select({ one: sql`1` })
-    .from(items)
-    .where(and(eq(items.userId, users.id), inArray(items.status, ['pending', 'needs_regen']), inArray(items.type, [...GENERATED_TYPES])));
+    .from(lookupEvents)
+    .where(and(eq(lookupEvents.userId, users.id), isNull(lookupEvents.mergedAt)));
   const rows = await db
     .select({ id: users.id })
     .from(users)
-    .where(and(isNull(users.deletedAt), or(gt(users.lastSeq, 0), exists(waiting))))
+    .where(and(isNull(users.deletedAt), or(gt(users.lastSeq, 0), exists(anyItem), exists(unmerged))))
     .orderBy(asc(users.createdAt));
   return rows.map((row) => row.id);
 }
 
-/** Explanation language (settings.explanationLang, default zh) and local offset (latest entry's, default 480). */
-export async function accountSettings(db: Executor, userId: string): Promise<{ lang: ExplanationLang; utcOffsetMinutes: number } | null> {
+export interface AccountSettings {
+  lang: ExplanationLang;
+  utcOffsetMinutes: number;
+  /** v3 learning plan (defaults applied). */
+  plan: LearnPlan;
+}
+
+/** Explanation language (settings.explanationLang, default zh), local offset (latest entry's, default 480) and the learning plan. */
+export async function accountSettings(db: Executor, userId: string): Promise<AccountSettings | null> {
   const [user] = await db
     .select({ settings: users.settings })
     .from(users)
@@ -67,6 +77,7 @@ export async function accountSettings(db: Executor, userId: string): Promise<{ l
   return {
     lang: user.settings.explanationLang === 'en' ? 'en' : 'zh',
     utcOffsetMinutes: latest?.offset ?? DEFAULT_UTC_OFFSET_MINUTES,
+    plan: learnPlanOf(user.settings),
   };
 }
 

@@ -4,11 +4,16 @@ import type { Config } from '../../config.ts';
 import type { Database } from '../../db/client.ts';
 import { AppError, loggableError } from '../../http/errors.ts';
 import type { Alerter, Clock, LlmClient } from '../../ports.ts';
+import { accountLevel } from '../learn/level.ts';
+import type { LearnPlan } from '../learn/plan.ts';
 import { addDays, localDateOf, weekdayOf } from './dates.ts';
+import { buildDigest } from './digest.ts';
 import { extractBatch, sliceBatches } from './extract.ts';
 import { generateItems } from './generate.ts';
 import { createTokenBudget, MAX_ATTEMPTS, TokenBudgetExceeded, type RunContext } from './llmJson.ts';
-import { buildDailyMaterial, buildWeeklyReport, type MaterialOutcome } from './materials.ts';
+import { mergeLookupEvents, type LookupMergeSummary } from './lookupStep.ts';
+import { hadActivity } from './materialData.ts';
+import { buildDailyMaterial, buildWeeklyReport, type MaterialOptions, type MaterialOutcome } from './materials.ts';
 import {
   accountSettings,
   accountsWithRecords,
@@ -21,10 +26,13 @@ import {
 } from './repo.ts';
 
 /**
- * The nightly pipeline (docs/api-v1.md, "Nightly pipeline"), one account at a
- * time: extract → generate → daily material → weekly report. An account's
- * failure is alerted and recorded in pipeline_state and does not stop the
- * others; its cursor only ever moves past batches that were stored.
+ * The nightly pipeline (docs/api-v1.md, "Nightly pipeline" and "v3 →
+ * Pipeline"), one account at a time: lookup events → extract → generate →
+ * 周期资料 by the account's materialFrequency (daily material or weekly
+ * digest) → weekly report → 拓展资料 on Mondays. Accounts without activity in
+ * the last 30 days skip the 周期资料 and 拓展资料. An account's failure is
+ * alerted and recorded in pipeline_state and does not stop the others; its
+ * cursor only ever moves past batches that were stored.
  */
 
 export type PipelineConfig = Pick<Config, 'DEEPSEEK_MODEL' | 'AI_PIPELINE_TOKENS_PER_RUN'>;
@@ -61,7 +69,12 @@ export interface AccountRunSummary {
   cardsCreated: number;
   cardsUpdated: number;
   rejected: Record<string, number>;
+  /** Step 0 (v3): lookup events merged into word units. */
+  lookups: LookupMergeSummary | null;
+  /** Activity in the last ACTIVE_WINDOW_DAYS days (null: not checked yet). */
+  active: boolean | null;
   daily: { date: string; outcome: MaterialOutcome } | null;
+  digest: { date: string; outcome: MaterialOutcome } | null;
   weekly: { date: string; outcome: MaterialOutcome } | null;
   tokens: number;
   ms: number;
@@ -70,6 +83,8 @@ export interface AccountRunSummary {
 /** Bounds per account and run, so a large backlog (e.g. the first run after a backfill) spreads over several nights. */
 export const MAX_ENTRIES_PER_RUN = 300;
 export const MAX_ITEMS_PER_RUN = 150;
+/** Accounts without activity in this many days get no 周期资料 and no 拓展资料. */
+export const ACTIVE_WINDOW_DAYS = 30;
 
 export class PipelineUnavailable extends Error {
   constructor() {
@@ -93,7 +108,10 @@ const emptySummary = (userId: string): AccountRunSummary => ({
   cardsCreated: 0,
   cardsUpdated: 0,
   rejected: {},
+  lookups: null,
+  active: null,
   daily: null,
+  digest: null,
   weekly: null,
   tokens: 0,
   ms: 0,
@@ -115,15 +133,11 @@ async function withAccountLock<T>(db: Database, userId: string, fn: () => Promis
 }
 
 type Progress = { current: AccountRunSummary };
+type Update = (patch: Partial<AccountRunSummary>) => void;
 
-/** Steps 1–4 for one account; updates `progress` as it goes, so a stop keeps the counts. */
-async function processAccount(ctx: RunContext, progress: Progress): Promise<void> {
+/** Steps 1–2: extraction batch by batch (each stored batch moves the cursor), then content and cards. */
+async function extractAndGenerate(ctx: RunContext, progress: Progress, update: Update): Promise<void> {
   const { db, userId } = ctx;
-  const update = (patch: Partial<AccountRunSummary>): void => {
-    progress.current = { ...progress.current, ...patch };
-  };
-
-  // 1. Extract new records, batch by batch; each stored batch moves the cursor.
   const cursor = await readCursor(db, userId);
   const records = await entriesAfter(db, userId, cursor, MAX_ENTRIES_PER_RUN);
   for (const batch of sliceBatches(records)) {
@@ -140,7 +154,6 @@ async function processAccount(ctx: RunContext, progress: Progress): Promise<void
     });
   }
 
-  // 2. Content and cards for new and needs_regen items.
   const generation = await generateItems(ctx, await itemsToGenerate(db, userId, MAX_ITEMS_PER_RUN));
   update({
     itemsGenerated: generation.generated,
@@ -149,12 +162,38 @@ async function processAccount(ctx: RunContext, progress: Progress): Promise<void
     cardsUpdated: generation.cardsUpdated,
     rejected: generation.rejected,
   });
+}
 
-  // 3. The previous local day's material; 4. the weekly report when that day is a Sunday.
-  const day = addDays(localDateOf(ctx.now, ctx.utcOffsetMinutes), -1);
-  update({ daily: { date: day, outcome: await buildDailyMaterial(ctx, day) } });
-  if (weekdayOf(day) === 0) {
-    update({ weekly: { date: addDays(day, -6), outcome: await buildWeeklyReport(ctx, day) } });
+/** Step 3: yesterday's daily material, or the digest on the plan's weekday, or nothing (`off`). */
+async function periodicMaterial(ctx: RunContext, plan: LearnPlan, options: MaterialOptions, update: Update): Promise<void> {
+  const today = localDateOf(ctx.now, ctx.utcOffsetMinutes);
+  const yesterday = addDays(today, -1);
+  if (plan.materialFrequency === 'daily') {
+    update({ daily: { date: yesterday, outcome: await buildDailyMaterial(ctx, yesterday, options) } });
+  } else if (plan.materialFrequency === 'weekly' && weekdayOf(today) === plan.materialWeekday) {
+    update({ digest: { date: yesterday, outcome: await buildDigest(ctx, yesterday, options) } });
+  }
+}
+
+/** Steps 0–5 for one account; updates `progress` as it goes, so a stop keeps the counts. */
+async function processAccount(ctx: RunContext, plan: LearnPlan, progress: Progress): Promise<void> {
+  const { db, userId, now } = ctx;
+  const update: Update = (patch) => {
+    progress.current = { ...progress.current, ...patch };
+  };
+
+  update({ lookups: await mergeLookupEvents(ctx) });
+  await extractAndGenerate(ctx, progress, update);
+
+  const active = await hadActivity(db, userId, { start: new Date(now.getTime() - ACTIVE_WINDOW_DAYS * 86_400_000), end: now });
+  update({ active });
+  const level = active ? (await accountLevel(db, userId, now, plan.studyLevel)).effective : null;
+  if (level) await periodicMaterial(ctx, plan, { story: plan.materialParts.includes('story'), level }, update);
+
+  // 4. The weekly report when yesterday was a Sunday (unchanged).
+  const yesterday = addDays(localDateOf(now, ctx.utcOffsetMinutes), -1);
+  if (weekdayOf(yesterday) === 0) {
+    update({ weekly: { date: addDays(yesterday, -6), outcome: await buildWeeklyReport(ctx, yesterday) } });
   }
 }
 
@@ -209,7 +248,7 @@ export async function runAccount(deps: PipelineDeps, userId: string, signal: Abo
     let status: AccountStatus = 'ok';
     let error: string | null = null;
     try {
-      await processAccount(ctx, progress);
+      await processAccount(ctx, settings.plan, progress);
     } catch (caught) {
       status = caught instanceof TokenBudgetExceeded ? 'budget_exceeded' : 'failed';
       error = errorClass(caught);

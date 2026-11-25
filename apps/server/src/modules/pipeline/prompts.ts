@@ -1,4 +1,5 @@
 import type { ChatMessage } from '../../ports.ts';
+import type { StudyLevel } from './learnContent.ts';
 import type { ExplanationLang, ItemType } from './schemas.ts';
 import { sourceBlock } from './text.ts';
 
@@ -153,7 +154,7 @@ export interface MistakeRequest {
 }
 
 export function dailyExtrasMessages(
-  input: { date: string; storyWords: readonly string[]; mistakes: readonly MistakeRequest[] },
+  input: { date: string; storyWords: readonly string[]; mistakes: readonly MistakeRequest[]; level: StudyLevel },
   lang: ExplanationLang,
 ): ChatMessage[] {
   const storyZh = lang === 'en' ? 'a 2–3 sentence summary of the story in simple English' : 'a natural Simplified Chinese translation of the whole story';
@@ -161,13 +162,13 @@ export function dailyExtrasMessages(
 
 ${DATA_RULE}
 
-The <source> JSON has "storyWords" (English words the learner looked up that day) and "mistakes" (learning units the learner keeps getting wrong in review).
+The <source> JSON has "storyWords" (English words the learner looked up recently), "mistakes" (learning units the learner keeps getting wrong in review) and "level" (the learner's CEFR level: A2, B1, B2 or C1).
 Write:
-- "story": when "storyWords" has at least 5 words, {"title", "text": an engaging, coherent short story of about 120 words (100–150) in natural American English that uses 5–8 of the storyWords (inflections are fine), "words": the storyWords you used, each exactly as given, "zh": ${storyZh}}. Otherwise null.
+- "story": when "storyWords" has at least 5 words, {"title", "text": an engaging, coherent short story of about 120 words (100–150) in natural American English that uses 5–8 of the storyWords (inflections are fine), with grammar and the other vocabulary at the given CEFR "level", "words": the storyWords you used, each exactly as given, "zh": ${storyZh}}. Otherwise null.
 - "mistakes": for each mistakes entry, {"ref", "note": 1–2 sentences ${explain(lang)} that explain the unit again and how to avoid the mistake, "example": a NEW example {"en", "zh": ${gloss(lang)}} that differs from "knownExample"}.
 
 ${JSON_RULE} Shape: {"story":{"title":"...","text":"...","words":["..."],"zh":"..."},"mistakes":[{"ref":"m1","note":"...","example":{"en":"...","zh":"..."}}]}`;
-  return messages(system, { task: 'daily', date: input.date, storyWords: input.storyWords, mistakes: input.mistakes });
+  return messages(system, { task: 'daily', date: input.date, level: input.level, storyWords: input.storyWords, mistakes: input.mistakes });
 }
 
 // ------------------------------------------------------------- weekly report
