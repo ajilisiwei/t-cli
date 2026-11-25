@@ -24,8 +24,9 @@ const sinceMs = (startedAt: number): number => Math.round(performance.now() - st
  * parts"):
  *
  *   POST /v1/tts  → audio/mpeg for one part of the text of one of the
- *                   caller's entries, cards, items or daily stories, or of a
- *                   cached lexicon entry
+ *                   caller's entries, cards, items or material sections (a
+ *                   daily or digest story, an extension's passage or item),
+ *                   or of a cached lexicon entry
  *
  * The client names a target, never free text: the server picks what to read
  * (targets.ts), so the endpoint cannot be used as a general TTS proxy. The

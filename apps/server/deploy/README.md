@@ -57,6 +57,15 @@ ghcr.io, runs migrations in a one-off container, starts `tcli-api` on
   256 MB memory limit, so raise it only together with `mem_limit`. The upstream
   (Edge Read Aloud) is unofficial and has no SLA: if it starts failing for good,
   set `TTS_ENABLED=false` and restart rather than letting every tap time out.
+- PDF export (`POST /v1/exports/pdf`): the image ships Typst 0.13.1 at
+  `/usr/local/bin/typst` and its six fonts in `/usr/local/share/fonts/t-cli`
+  (the defaults of `TYPST_BIN` / `TYPST_FONT_PATH`; +67 MB: binary 42 MB, fonts
+  25 MB), pinned with SHA-256 in `fetch-typst.sh`. Renders are child processes
+  inside the same 256 MB limit, at most 2 at a time. Measured on a native arm64
+  build of this image with `--memory=256m` (no swap): idle 49 MiB, peak 119 MiB
+  with 2 concurrent 4-page renders plus 4 queued, warm render 70–110 ms (first
+  one ~1 s, cold font cache). Check `docker stats tcli-api` during the first
+  exports on the host; raise `mem_limit` only after measuring there.
 - `WECHAT_DEV_LOGIN` is for local development only (it fakes WeChat login with
   `dev:<name>` codes). Never put it in `.env.prod`: with `NODE_ENV=production`
   the server refuses to start when it is set.

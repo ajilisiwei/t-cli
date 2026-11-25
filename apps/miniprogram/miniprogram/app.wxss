@@ -27,6 +27,7 @@
   --accent-ink: #ffffff;
   --surface: #fffefb;
   --danger: #9c3426;
+  --danger-soft: rgba(156, 52, 38, 0.1);
 }
 
 .theme-dark {
@@ -40,6 +41,7 @@
   --accent-ink: #131312;
   --surface: #1c1c1a;
   --danger: #e59a8c;
+  --danger-soft: rgba(229, 154, 140, 0.16);
 }
 
 /*
@@ -558,4 +560,144 @@
   flex-shrink: 0;
   width: 44rpx;
   height: 48rpx;
+}
+
+/* ---- 学习 pieces (v3) ----
+ * .card-surface   a surface panel with a hairline (a material, a settings group)
+ * .label-tag      a small label (每日资料, 未读); -accent filled, -soft tinted, -plain text only, -danger,
+ *                 -danger-soft danger on a danger tint (复习时忘了 2 次)
+ * .choice-chip    a pill to pick (复习范围, 资料内容, 拓展方向); .choice-chip-on chosen; in a .choice-chips row
+ * .tick           a checkbox: <view class="tick {{on ? 'tick-on' : ''}}"><t-icon wx:if="{{on}}" name="check" tone="accentInk" size="32" /></view>;
+ *                 .tick-round for a round one (selecting materials)
+ * .seg-control    a segmented control of .seg-option (+ .seg-option-on)
+ * .bottom-bar     the docked action bar of a detail page (padding-bottom set inline with the safe area)
+ * One border colour per rounded box (Skyline). */
+.card-surface {
+  padding: 28rpx 32rpx;
+  background-color: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 32rpx;
+}
+
+.label-tag {
+  flex-shrink: 0;
+  padding: 2rpx 14rpx;
+  border-radius: 12rpx;
+  background-color: var(--rule);
+  color: var(--ink-soft);
+  font-size: 22rpx;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.label-tag-accent {
+  background-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.label-tag-soft {
+  background-color: var(--accent-soft);
+  color: var(--accent);
+}
+
+.label-tag-plain {
+  background-color: transparent;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.label-tag-danger {
+  background-color: transparent;
+  color: var(--danger);
+  font-weight: 400;
+}
+
+.label-tag-danger-soft {
+  background-color: var(--danger-soft);
+  color: var(--danger);
+}
+
+.choice-chips {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.choice-chip {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 64rpx;
+  padding: 0 24rpx;
+  border: 1px solid var(--rule);
+  border-radius: 32rpx;
+  background-color: var(--surface);
+  color: var(--ink-soft);
+  font-size: 26rpx;
+}
+
+.choice-chip-on {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.tick {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56rpx;
+  height: 56rpx;
+  border: 3rpx solid var(--muted);
+  border-radius: 16rpx;
+  background-color: var(--surface);
+}
+
+.tick-round {
+  border-radius: 28rpx;
+}
+
+.tick-on {
+  border-color: var(--accent);
+  background-color: var(--accent);
+}
+
+.seg-control {
+  display: flex;
+  flex-direction: row;
+  padding: 6rpx;
+  border-radius: 24rpx;
+  background-color: var(--rule);
+}
+
+.seg-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 68rpx;
+  border-radius: 18rpx;
+  color: var(--muted);
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.seg-option-on {
+  background-color: var(--surface);
+  color: var(--ink);
+}
+
+.bottom-bar {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+  padding: 16rpx 40rpx;
+  border-top: 1px solid var(--rule);
+  background-color: var(--surface);
 }

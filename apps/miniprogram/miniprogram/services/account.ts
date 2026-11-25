@@ -25,6 +25,7 @@ import {
   type SubscribeOutcome,
 } from '../lib/account'
 import { ApiError, parseEnvelope } from '../lib/api'
+import { EXPORTS_DIR_NAME } from '../lib/export-records'
 import { createUtf8Decoder } from '../lib/utf8'
 import { transportError } from './http'
 import { api } from './session'
@@ -157,7 +158,8 @@ export async function deleteAccount(): Promise<void> {
 
 /**
  * Forgets everything this phone holds for the account: tokens, settings and
- * caches in storage, cached audio and exports in the user data directory.
+ * caches in storage, cached audio, exports and exported PDFs in the user data
+ * directory.
  */
 export function clearLocalData(): void {
   stopSpeaking()
@@ -171,7 +173,9 @@ export function clearLocalData(): void {
     for (const name of fs().readdirSync(dir)) {
       const path = `${dir}/${name}`
       const stats = fs().statSync(path) as WechatMiniprogram.Stats
+      // Exported PDFs live in their own folder (services/pdf.ts); other folders are the system's.
       if (!stats.isDirectory()) fs().unlinkSync(path)
+      else if (name === EXPORTS_DIR_NAME) fs().rmdirSync(path, true)
     }
   } catch (error: unknown) {
     console.warn('[account] clearing files failed', error)

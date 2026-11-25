@@ -9,6 +9,8 @@ export const STORAGE_KEYS = {
   /** Settings changed on this phone and not yet saved to the account (services/settings.ts). */
   settingsPending: 'tcli:settings:pending',
   historyFirstPage: 'tcli:history:first',
+  /** PDFs exported to this phone (services/pdf.ts, lib/export-records.ts). */
+  exportRecords: 'tcli:exports',
 } as const
 
 type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS]

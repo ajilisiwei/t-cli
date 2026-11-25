@@ -1,0 +1,89 @@
+<view class="page lm-page theme-{{theme}} {{accentClass}}">
+  <nav-bar title="学习资料" back />
+
+  <view class="lm-head">
+    <view class="seg-control" aria-role="tablist" aria-label="资料类型">
+      <view
+        wx:for="{{tabs}}"
+        wx:key="id"
+        class="seg-option {{item.id === tab ? 'seg-option-on' : ''}}"
+        data-id="{{item.id}}"
+        bindtap="onTab"
+        aria-role="tab"
+        aria-selected="{{item.id === tab}}"
+      >
+        <text>{{item.label}}</text>
+      </view>
+    </view>
+    <view class="lm-tools">
+      <text class="lm-count">{{phase === 'ready' ? (selecting ? '选择要合并导出的资料' : '共 ' + count + ' 份') : ''}}</text>
+      <text class="link link-strong" bindtap="onToggleSelect" aria-role="button">{{selecting ? '完成' : '选择'}}</text>
+    </view>
+  </view>
+
+  <scroll-view
+    class="body"
+    scroll-y
+    type="list"
+    show-scrollbar="{{false}}"
+    refresher-enabled
+    refresher-triggered="{{refreshing}}"
+    bindrefresherrefresh="onRefresh"
+    bindscrolltolower="onMore"
+  >
+    <view class="content lm-content">
+      <block wx:if="{{phase === 'ready'}}">
+        <view wx:for="{{groups}}" wx:key="key" wx:for-item="group">
+          <text class="lm-week">{{group.title}}</text>
+          <view
+            wx:for="{{group.rows}}"
+            wx:key="key"
+            class="lm-row {{selecting && !item.printable ? 'lm-row-off' : ''}}"
+            data-key="{{item.key}}"
+            data-url="{{item.url}}"
+            bindtap="onRow"
+            aria-role="{{selecting ? 'checkbox' : 'button'}}"
+            aria-checked="{{item.checked}}"
+            aria-label="{{selecting ? '选择「' + item.title + '」' : item.title}}"
+          >
+            <view wx:if="{{selecting}}" class="tick tick-round lm-tick {{item.checked ? 'tick-on' : ''}}">
+              <t-icon wx:if="{{item.checked}}" name="check" tone="accentInk" size="28" />
+            </view>
+            <view class="lm-main">
+              <view class="lm-tags">
+                <text class="label-tag {{item.kind === 'extend' ? 'label-tag-accent' : ''}}">{{item.kindLabel}}</text>
+                <text class="lm-date">{{item.dateLabel}}</text>
+              </view>
+              <text class="lm-title">{{item.title}}</text>
+              <text wx:if="{{item.subtitle}}" class="lm-subtitle" max-lines="1" overflow="ellipsis">{{item.subtitle}}</text>
+              <text wx:if="{{item.meta}}" class="lm-meta">{{item.meta}}</text>
+            </view>
+            <text
+              wx:if="{{item.status}}"
+              class="label-tag lm-status {{item.statusTone === 'accent' ? 'label-tag-soft' : 'label-tag-plain'}}"
+            >{{item.status}}</text>
+          </view>
+        </view>
+        <text wx:if="{{count === 0}}" class="lm-empty">{{emptyText}}</text>
+        <text wx:elif="{{loadingMore}}" class="lm-more">加载中…</text>
+        <text wx:elif="{{!hasMore}}" class="lm-more">没有更早的了</text>
+      </block>
+
+      <view wx:elif="{{phase === 'error'}}" class="lm-error">
+        <text class="error">{{errorText}}</text>
+        <view class="btn btn-secondary btn-sm lm-retry" bindtap="onRetry" aria-role="button"><text>重试</text></view>
+      </view>
+
+      <text wx:else class="empty">加载中…</text>
+    </view>
+  </scroll-view>
+
+  <view wx:if="{{selecting}}" class="bottom-bar" style="padding-bottom: {{safeBottom + 8}}px;" aria-role="toolbar">
+    <text class="lm-picked">已选 {{selectedCount}} 份{{selectedCount ? ' · 约 ' + selectedPages + ' 页' : ''}}</text>
+    <view class="btn btn-primary {{selectedCount ? '' : 'btn-disabled'}}" bindtap="onExport" aria-role="button" aria-disabled="{{!selectedCount}}">
+      <text>合并导出 PDF</text>
+    </view>
+  </view>
+
+  <t-export-sheet open="{{exportOpen}}" input="{{exportInput}}" bind:close="onExportClose" />
+</view>

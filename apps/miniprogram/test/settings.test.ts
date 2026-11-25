@@ -14,7 +14,7 @@ import type { Settings } from '../miniprogram/lib/types.ts'
 
 const EMPTY: LocalSettings = { settings: {}, pending: {} }
 
-test('defaults follow docs/api-v1.md (v2 → Settings)', () => {
+test('defaults follow docs/api-v1.md (v2 and v3 → Settings)', () => {
   assert.deepEqual(effectiveSettings({}), {
     explanationLang: 'zh',
     autoSpeakWord: true,
@@ -29,6 +29,13 @@ test('defaults follow docs/api-v1.md (v2 → Settings)', () => {
     readingMode: false,
     readingFontStep: 0,
     importanceReview: true,
+    materialFrequency: 'daily',
+    materialWeekday: 1,
+    materialParts: ['words', 'phrases', 'grammar', 'story', 'exercises'],
+    extendEnabled: true,
+    extendTopics: [],
+    extendMuted: [],
+    studyLevel: 'auto',
   })
   assert.deepEqual(effectiveSettings({}), SETTING_DEFAULTS)
 })
@@ -151,4 +158,34 @@ test('scenario: offline change, launch with another client’s change, push, pul
   // Later, another client picks 赭石: with nothing pending, the account wins.
   local = { settings: mergeAccount(local, { ...answer, accent: 'ochre' }), pending: local.pending }
   assert.equal(effectiveSettings(local.settings).accent, 'ochre')
+})
+
+test('v3 keys: valid values are kept, an empty parts list falls back to all five', () => {
+  const s = effectiveSettings({
+    materialFrequency: 'weekly',
+    materialWeekday: 0,
+    materialParts: ['words', 'exercises'],
+    extendEnabled: false,
+    extendTopics: ['work', 'tech'],
+    extendMuted: [{ topic: 'finance', until: '2026-12-25' }],
+    studyLevel: 'B2',
+  })
+  assert.equal(s.materialFrequency, 'weekly')
+  assert.equal(s.materialWeekday, 0)
+  assert.deepEqual(s.materialParts, ['words', 'exercises'])
+  assert.equal(s.extendEnabled, false)
+  assert.deepEqual(s.extendTopics, ['work', 'tech'])
+  assert.deepEqual(s.extendMuted, [{ topic: 'finance', until: '2026-12-25' }])
+  assert.equal(s.studyLevel, 'B2')
+  assert.deepEqual(effectiveSettings({ materialParts: [] }).materialParts, SETTING_DEFAULTS.materialParts)
+  assert.equal(effectiveSettings({ materialWeekday: 7 }).materialWeekday, 1)
+})
+
+test('list values settle by content: storage hands back new arrays', () => {
+  const sent: Settings = { materialParts: ['words', 'story'], extendTopics: ['work'] }
+  // As read back from storage: equal content, different arrays.
+  const pending: Settings = JSON.parse(JSON.stringify(sent)) as Settings
+  assert.deepEqual(settlePushed(pending, sent), {})
+  const changed: Settings = { ...pending, materialParts: ['words'] }
+  assert.deepEqual(settlePushed(changed, sent), { materialParts: ['words'] })
 })

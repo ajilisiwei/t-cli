@@ -111,8 +111,12 @@ function summaryRow(summary: AccountRunSummary): Record<string, string | number>
     needsRegen: summary.itemsNeedsRegen,
     newCards: summary.cardsCreated,
     updatedCards: summary.cardsUpdated,
+    lookups: summary.lookups ? `${summary.lookups.events} ev / ${summary.lookups.unitsCreated} new` : '',
+    active: summary.active === null ? '' : String(summary.active),
     daily: summary.daily ? `${summary.daily.date} ${summary.daily.outcome}` : '',
+    digest: summary.digest ? `${summary.digest.date} ${summary.digest.outcome}` : '',
     weekly: summary.weekly ? `${summary.weekly.date} ${summary.weekly.outcome}` : '',
+    extend: summary.extend ? `${summary.extend.date} ${summary.extend.outcome}` : '',
     tokens: summary.tokens,
     seconds: Math.round(summary.ms / 100) / 10,
   };

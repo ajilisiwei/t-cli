@@ -53,7 +53,7 @@ export async function seedRecords(db: Database, userId: string, specs: readonly 
 
 // ------------------------------------------------------------------ fake LLM
 
-export type PipelineTaskName = 'extract' | 'generate' | 'daily' | 'weekly';
+export type PipelineTaskName = 'extract' | 'generate' | 'daily' | 'weekly' | 'extend';
 
 export interface SourcePayload {
   task: PipelineTaskName;
@@ -184,6 +184,39 @@ function dailyAnswer(payload: SourcePayload): unknown {
   };
 }
 
+/** Items of the canned extension: their examples contain them, as validation requires. */
+export const CANNED_EXTEND_ITEMS = ['deadline', 'agenda', 'follow up', 'stakeholder', 'touch base', 'minutes'] as const;
+
+/**
+ * A valid extension answer for the payload: evidence = the first three given
+ * lemmas (lemmas, then forgotten, then starred), topic = the first chosen
+ * topic that is not muted (else work, else other).
+ */
+export function cannedExtend(payload: SourcePayload): Record<string, unknown> {
+  const given = [
+    ...((payload.lemmas as { text: string }[]) ?? []).map((lemma) => lemma.text),
+    ...((payload.forgotten as { text: string }[]) ?? []).map((unit) => unit.text),
+    ...((payload.starred as string[]) ?? []),
+  ];
+  const muted = (payload.mutedTopics as string[]) ?? [];
+  const topic = [...((payload.chosenTopics as string[]) ?? []), 'work'].find((candidate) => !muted.includes(candidate)) ?? 'other';
+  return {
+    focus: 'topic',
+    topic,
+    title: '职场沟通常用词',
+    evidence: given.slice(0, 3),
+    items: CANNED_EXTEND_ITEMS.map((text) => ({
+      text,
+      kind: text.includes(' ') ? 'phrase' : 'word',
+      gloss: `${text} 的意思`,
+      example: { en: `Please check the ${text} before noon.`, zh: '请在中午前确认。' },
+    })),
+    passage: { title: 'Monday at work', text: 'We set the agenda, met every stakeholder and agreed on a deadline.', zh: '我们定了议程，见了每位相关方，并商定了截止日期。' },
+    grammar: null,
+    grammarPoint: null,
+  };
+}
+
 export interface ScriptedLlm extends FakeLlm {
   /** Every completeJson request's payload, in order. */
   payloads: SourcePayload[];
@@ -205,7 +238,9 @@ export function scriptedLlm(options: ScriptOptions = {}): ScriptedLlm {
             ? generateAnswer(payload)
             : payload.task === 'daily'
               ? dailyAnswer(payload)
-              : { summary: '本周你坚持查词和复习，继续保持。' };
+              : payload.task === 'extend'
+                ? cannedExtend(payload)
+                : { summary: '本周你坚持查词和复习，继续保持。' };
       const answer = options.respond ? options.respond(payload.task, payload, canned) : undefined;
       const value = answer === undefined ? canned : answer;
       return { content: typeof value === 'string' ? value : JSON.stringify(value), usage };

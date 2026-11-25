@@ -58,3 +58,13 @@ export function deviceName(): string {
 export function utcOffsetMinutes(): number {
   return -new Date().getTimezoneOffset()
 }
+
+/** Height of the home indicator area below the safe area, in px (docked bars pad by it). */
+export function safeBottomInset(): number {
+  try {
+    const info = wx.getWindowInfo()
+    return info.safeArea ? Math.max(0, info.screenHeight - info.safeArea.bottom) : 0
+  } catch {
+    return 0
+  }
+}

@@ -280,7 +280,13 @@ async function settleCache(
 
 // ------------------------------------------------------------ the lookup
 
-export async function lookupWord(deps: LookupDeps, input: LookupInput, meter: LookupMeter, log: FastifyBaseLogger): Promise<LookupResult> {
+/** The answer, and the explanation language it was written in (for the lookup event). */
+export interface LookupOutcome {
+  result: LookupResult;
+  explainLang: ExplanationLang;
+}
+
+export async function lookupWord(deps: LookupDeps, input: LookupInput, meter: LookupMeter, log: FastifyBaseLogger): Promise<LookupOutcome> {
   const { userId, word, sentence } = input;
   const explainLang = await explanationLangOf(deps.db, userId);
   if (explainLang === null) throw unauthorized('account not found');
@@ -308,5 +314,5 @@ export async function lookupWord(deps: LookupDeps, input: LookupInput, meter: Lo
   }
 
   await settleCache(deps, { scope, hit, word, entry }, meter, log);
-  return { lemma: entry.lemma, lang: LEARNING_LANG, entry, context, cached: hit !== null };
+  return { result: { lemma: entry.lemma, lang: LEARNING_LANG, entry, context, cached: hit !== null }, explainLang };
 }

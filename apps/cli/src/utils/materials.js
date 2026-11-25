@@ -166,6 +166,79 @@ function formatAll(items, format) {
  */
 export function formatDailyMaterial({ date, content }) {
   const daily = obj(content);
+  return [{ text: `Daily material · ${str(daily.date) || date}`, bold: true }, ...materialBlocks(daily)];
+}
+
+/**
+ * Blocks for a DigestMaterial (the 7-day digest of the weekly mode): the
+ * daily material's sections plus the units forgotten in review.
+ * @param {{ date: string, content: unknown }} digest
+ * @returns {Block[]}
+ */
+export function formatDigest({ date, content }) {
+  const digest = obj(content);
+  const range = obj(digest.range);
+  const end = DATE_RE.test(str(range.end)) ? str(range.end) : date;
+  const start = DATE_RE.test(str(range.start)) ? str(range.start) : shiftDate(end, -(DIGEST_DAYS - 1));
+  const recap = formatAll(arr(digest.review), formatRecap);
+  return [
+    { text: `7-day digest · ${start} – ${end}`, bold: true },
+    ...materialBlocks(digest),
+    ...section(`Forgotten in review (${recap.length})`, recap),
+  ];
+}
+
+/** Days a digest covers (its date is the last one). */
+export const DIGEST_DAYS = 7;
+
+/**
+ * The digest that covers `date`: the earliest digest date d with
+ * d - 6 <= date <= d, or null.
+ * @param {string[]} digestDates YYYY-MM-DD, any order
+ * @param {string} date YYYY-MM-DD
+ * @returns {string|null}
+ */
+export function digestCovering(digestDates, date) {
+  const covering = digestDates
+    .filter((end) => end >= date && shiftDate(end, -(DIGEST_DAYS - 1)) <= date)
+    .sort();
+  return covering[0] ?? null;
+}
+
+/**
+ * `date` moved by `days` calendar days (YYYY-MM-DD, no time zone involved).
+ * Anything that is not a YYYY-MM-DD date comes back unchanged, so a
+ * malformed date from the server can never throw while rendering.
+ * @param {string} date
+ * @param {number} days
+ * @returns {string}
+ */
+export function shiftDate(date, days) {
+  const match = DATE_RE.exec(date);
+  if (!match) return date;
+  const shifted = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + days));
+  return Number.isNaN(shifted.getTime()) ? date : shifted.toISOString().slice(0, 10);
+}
+
+/**
+ * @param {unknown} value
+ * @returns {string|null}
+ */
+function formatRecap(value) {
+  const recap = obj(value);
+  const display = str(recap.display);
+  if (!display) return null;
+  const gloss = str(recap.gloss);
+  const lapses = num(recap.lapses);
+  return `${display}${gloss ? ` — ${gloss}` : ''}${lapses ? ` (forgot ${lapses}×)` : ''}`;
+}
+
+/**
+ * The overview line and the sections shared by daily materials and digests.
+ * @param {Record<string, unknown>} daily
+ * @returns {Block[]}
+ */
+function materialBlocks(daily) {
   const overview = obj(daily.overview);
   const stats = [
     ['new words', num(overview.newWords)],
@@ -189,7 +262,6 @@ export function formatDailyMaterial({ date, content }) {
   ];
 
   return [
-    { text: `Daily material · ${str(daily.date) || date}`, bold: true },
     ...(stats.length ? [{ text: capitalize(stats.join(' · ')) }] : []),
     ...(body.length ? body : [{ text: 'This material has no items.' }]),
   ];

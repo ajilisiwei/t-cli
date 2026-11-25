@@ -2,27 +2,14 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   durationParts,
-  formatDateLabel,
   formatDuration,
   formatInterval,
   formatShare,
-  formatShortDate,
   gradeButtons,
-  materialTitle,
   percent,
-  previousDate,
 } from '../miniprogram/lib/review-format.ts'
-import {
-  badgeText,
-  homeView,
-  progressShare,
-  reminderAccepted,
-  reminderTemplateToAsk,
-  ringDegrees,
-  ringStyle,
-} from '../miniprogram/lib/review-home.ts'
+import { badgeText, reminderAccepted, reminderTemplateToAsk } from '../miniprogram/lib/review-home.ts'
 import { readReminderTemplateId } from '../miniprogram/lib/review-validate.ts'
-import type { ReviewSummary } from '../miniprogram/lib/review-types.ts'
 
 const MIN = 60
 const HOUR = 3600
@@ -82,88 +69,12 @@ test('formatDuration and formatShare', () => {
   assert.equal(formatShare(9, 6), '100%')
 })
 
-test('date labels', () => {
-  assert.equal(formatDateLabel('2026-11-16'), '11月16日 周一')
-  assert.equal(formatDateLabel('2026-11-15'), '11月15日 周日')
-  assert.equal(formatDateLabel('2026-02-30'), '')
-  assert.equal(formatDateLabel('yesterday'), '')
-  assert.equal(formatShortDate('2026-11-15', '2026-11-20'), '11月15日')
-  assert.equal(formatShortDate('2025-12-31', '2026-01-02'), '2025年12月31日')
-  assert.equal(previousDate('2026-03-01'), '2026-02-28')
-  assert.equal(previousDate('2024-03-01'), '2024-02-29')
-  assert.equal(previousDate('2026-01-01'), '2025-12-31')
-})
-
-test('materialTitle names today, yesterday or the date', () => {
-  assert.equal(materialTitle('2026-11-20', '2026-11-20'), '今日材料')
-  assert.equal(materialTitle('2026-11-19', '2026-11-20'), '昨日材料')
-  assert.equal(materialTitle('2026-11-15', '2026-11-20'), '11月15日材料')
-  assert.equal(materialTitle('2025-12-31', '2026-01-01'), '昨日材料')
-})
-
-const summary = (overrides: Partial<ReviewSummary>): ReviewSummary => ({
-  due: 0,
-  newAvailable: 0,
-  reviewDue: 0,
-  doneToday: 0,
-  estimatedMinutes: 0,
-  streakDays: 0,
-  ...overrides,
-})
-
-test('progress ring: share, degrees and the conic gradient', () => {
-  assert.equal(progressShare(18, 24), 18 / 42)
-  assert.equal(progressShare(0, 0), 0)
-  assert.equal(progressShare(5, 0), 1)
-  assert.equal(progressShare(-3, 4), 0)
-  assert.equal(ringDegrees(0), 0)
-  assert.equal(ringDegrees(2 / 15), 48)
-  assert.equal(ringDegrees(1 / 3), 120)
-  assert.equal(ringDegrees(1), 360)
-  assert.equal(ringDegrees(7), 360)
-  assert.equal(ringDegrees(Number.NaN), 0)
-
-  const partial = ringStyle(48, '#111111', '#eeeeee')
-  assert.equal(
-    partial.background,
-    'background-image: conic-gradient(#111111 0deg, #111111 48deg, #eeeeee 48deg, #eeeeee 360deg);',
-  )
-  assert.equal(partial.endCap, 'transform: rotate(48deg);')
-  assert.equal(partial.caps, true)
-  // Empty and full rings have no caps; out-of-range angles are clamped.
-  assert.equal(ringStyle(0, '#1', '#2').caps, false)
-  assert.equal(ringStyle(360, '#1', '#2').caps, false)
-  assert.equal(ringStyle(500, '#1', '#2').endCap, 'transform: rotate(360deg);')
-  assert.equal(ringStyle(Number.NaN, '#1', '#2').caps, false)
-})
-
 test('badge text', () => {
   assert.equal(badgeText(0), null)
   assert.equal(badgeText(-1), null)
   assert.equal(badgeText(18), '18')
   assert.equal(badgeText(99), '99')
   assert.equal(badgeText(100), '99+')
-})
-
-test('homeView: due, finished and idle', () => {
-  const due = homeView(
-    summary({ due: 24, newAvailable: 12, reviewDue: 12, doneToday: 18, estimatedMinutes: 4, streakDays: 23 }),
-  )
-  assert.equal(due.mode, 'due')
-  assert.equal(due.done, 18)
-  assert.equal(due.total, 42)
-  assert.equal(due.meta, '新卡 12 · 复习 12 · 约 4 分钟')
-  assert.equal(due.streak, '连续 23 天')
-
-  const finished = homeView(summary({ doneToday: 30, streakDays: 1 }))
-  assert.equal(finished.mode, 'finished')
-  assert.equal(finished.total, 30)
-  assert.equal(finished.ringDegrees, 360)
-  assert.equal(finished.meta, '')
-
-  const idle = homeView(summary({}))
-  assert.equal(idle.mode, 'idle')
-  assert.equal(idle.streak, '')
 })
 
 test('reminders: ask on 开始复习 only when turned on and configured', () => {

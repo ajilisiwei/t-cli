@@ -7,9 +7,14 @@
 import type {
   Accent,
   EntryDay,
+  ExtendTopic,
   LexiconEntry,
   LookupContext,
   LookupResult,
+  MaterialFrequency,
+  MaterialPart,
+  MaterialTopic,
+  MutedTopic,
   Note,
   NoteChanges,
   NoteKind,
@@ -19,6 +24,7 @@ import type {
   NotesSummary,
   Settings,
   SpeechParts,
+  StudyLevelSetting,
   ThemeChoice,
   ThemeMode,
 } from './types'
@@ -37,12 +43,56 @@ const oneOf = <T extends string>(values: readonly T[], value: unknown): value is
   typeof value === 'string' && (values as readonly string[]).includes(value)
 
 const ACCENT_VALUES: readonly Accent[] = ['indigo', 'pine', 'plum', 'ochre', 'ink']
+const FREQUENCIES: readonly MaterialFrequency[] = ['daily', 'weekly', 'off']
+const PARTS: readonly MaterialPart[] = ['words', 'phrases', 'grammar', 'story', 'exercises']
+const TOPICS: readonly ExtendTopic[] = ['work', 'travel', 'exam', 'daily', 'tech', 'culture', 'finance', 'health']
+const MATERIAL_TOPICS: readonly MaterialTopic[] = [...TOPICS, 'other']
+const LEVELS: readonly StudyLevelSetting[] = ['auto', 'A2', 'B1', 'B2', 'C1']
+const MAX_TOPICS = 8
 const THEME_MODES: readonly ThemeMode[] = ['system', 'time', 'fixed']
 const THEME_CHOICES: readonly ThemeChoice[] = ['light', 'dark']
 const NOTE_KINDS: readonly NoteKind[] = ['word', 'phrase', 'sentence']
 const NOTE_LEVELS: readonly NoteLevel[] = ['new', 'learning', 'mastered']
 const CLOCK_RE = /^(?:[01]\d|2[0-3]):[0-5]\d$/
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+/** A list of distinct `values` with `min`–`max` entries; undefined when anything is off. */
+const distinctList = <T extends string>(values: readonly T[], value: unknown, min: number, max: number): T[] | undefined => {
+  if (!Array.isArray(value) || value.length < min || value.length > max) return undefined
+  if (!value.every((entry) => oneOf(values, entry)) || new Set(value).size !== value.length) return undefined
+  return value as T[]
+}
+
+const readMuted = (value: unknown): MutedTopic[] | undefined => {
+  if (!Array.isArray(value) || value.length > MAX_TOPICS) return undefined
+  const muted = value.flatMap((entry): MutedTopic[] => {
+    if (!isRecord(entry)) return []
+    const topic = entry['topic']
+    const until = entry['until']
+    return oneOf(MATERIAL_TOPICS, topic) && typeof until === 'string' && DATE_RE.test(until) ? [{ topic, until }] : []
+  })
+  return muted.length === value.length ? muted : undefined
+}
+
+/** The v3 keys of `value` that are valid (docs/api-v1.md, "v3 → Settings"). */
+const readLearnSettings = (v: Fields): Settings => {
+  const frequency = v['materialFrequency']
+  const weekday = v['materialWeekday']
+  const parts = distinctList(PARTS, v['materialParts'], 1, PARTS.length)
+  const topics = distinctList(TOPICS, v['extendTopics'], 0, MAX_TOPICS)
+  const muted = readMuted(v['extendMuted'])
+  const level = v['studyLevel']
+  const extendEnabled = v['extendEnabled']
+  return {
+    ...(oneOf(FREQUENCIES, frequency) ? { materialFrequency: frequency } : {}),
+    ...(isInt(weekday, 0, 6) ? { materialWeekday: weekday } : {}),
+    ...(parts === undefined ? {} : { materialParts: parts }),
+    ...(typeof extendEnabled === 'boolean' ? { extendEnabled } : {}),
+    ...(topics === undefined ? {} : { extendTopics: topics }),
+    ...(muted === undefined ? {} : { extendMuted: muted }),
+    ...(oneOf(LEVELS, level) ? { studyLevel: level } : {}),
+  }
+}
 
 /** Only known keys with valid values; anything else is dropped (absent = default). */
 export function readSettings(value: unknown): Settings {
@@ -80,6 +130,7 @@ export function readSettings(value: unknown): Settings {
     ...(readingMode === undefined ? {} : { readingMode }),
     ...(isInt(step, 0, 3) ? { readingFontStep: step } : {}),
     ...(importanceReview === undefined ? {} : { importanceReview }),
+    ...readLearnSettings(v),
   }
 }
 

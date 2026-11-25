@@ -2,7 +2,7 @@
 // /history view with phone records (utils/historyMerge.js).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { formatDailyMaterial, formatWeeklyReport, percent, weekStartOf } from '../src/utils/materials.js';
+import { digestCovering, formatDailyMaterial, formatDigest, formatWeeklyReport, percent, shiftDate, weekStartOf } from '../src/utils/materials.js';
 import { mergeDayHistory, phoneEntries } from '../src/utils/historyMerge.js';
 import { formatHistoryHeader } from '../src/utils/historyParser.js';
 
@@ -150,4 +150,36 @@ test('mergeDayHistory: phone records only (no local file)', () => {
 
 test('phoneEntries keeps mini-program records only', () => {
   assert.deepEqual(phoneEntries([MP('a', 1, 0, 0), { ...MP('b', 1, 0, 0), source: 'cli' }]).map((e) => e.id), ['a']);
+});
+
+test('formatDigest: range title, the daily sections and the review recap', () => {
+  const blocks = formatDigest({
+    date: '2026-11-23',
+    content: { ...DAILY, range: { start: '2026-11-17', end: '2026-11-23' }, review: [{ itemId: 'i9', display: 'mitigate', gloss: '减轻', lapses: 2 }, { nope: true }] },
+  });
+  assert.deepEqual(blocks[0], { text: '7-day digest · 2026-11-17 – 2026-11-23', bold: true });
+  const text = blocks.map((b) => b.text).join('\n');
+  assert.match(text, /meticulous/);
+  assert.match(text, /Forgotten in review \(1\)/);
+  assert.match(text, /mitigate — 减轻 \(forgot 2×\)/);
+  assert.equal(formatDigest({ date: '2026-11-23', content: null })[0].text, '7-day digest · 2026-11-17 – 2026-11-23', 'a missing range is derived from the date');
+});
+
+test('digestCovering / shiftDate: the earliest digest whose 7 days include the date', () => {
+  assert.equal(shiftDate('2026-03-01', -1), '2026-02-28');
+  assert.equal(shiftDate('2026-12-31', 1), '2027-01-01');
+  const dates = ['2026-11-23', '2026-11-16', '2026-11-30'];
+  assert.equal(digestCovering(dates, '2026-11-17'), '2026-11-23');
+  assert.equal(digestCovering(dates, '2026-11-16'), '2026-11-16');
+  assert.equal(digestCovering(dates, '2026-11-10'), '2026-11-16');
+  assert.equal(digestCovering(dates, '2026-11-09'), null);
+  assert.equal(digestCovering([], '2026-11-17'), null);
+});
+
+test('shiftDate / formatDigest: malformed dates never throw', () => {
+  assert.equal(shiftDate('', -6), '');
+  assert.equal(shiftDate('2026-1-1', 1), '2026-1-1');
+  assert.equal(shiftDate('not a date', 1), 'not a date');
+  const blocks = formatDigest({ date: '2026-11-23', content: { range: { start: 'x', end: '2026/11/23' } } });
+  assert.equal(blocks[0].text, '7-day digest · 2026-11-17 – 2026-11-23', 'a malformed range falls back to the material date');
 });

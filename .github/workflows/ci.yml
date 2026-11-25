@@ -41,9 +41,27 @@ jobs:
       - name: Typecheck mini-program
         run: npm run typecheck -w @t-cli/miniprogram
 
+      # The PDF export tests render with the real Typst and fonts. Versions and
+      # SHA-256 sums are pinned in fetch-typst.sh (shared with the Dockerfile),
+      # so the cache key is that script's hash.
+      - name: Cache Typst and fonts
+        id: typst-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/typst
+          key: typst-${{ runner.os }}-${{ hashFiles('apps/server/deploy/fetch-typst.sh') }}
+
+      - name: Install Typst and fonts
+        if: steps.typst-cache.outputs.cache-hit != 'true'
+        run: sh apps/server/deploy/fetch-typst.sh "$RUNNER_TEMP/typst"
+
       - name: Run tests
         # Unit tests never call the live API, so no API secret is injected here —
         # keeps secrets out of PR/fork build surfaces.
         env:
           TEST_DATABASE_URL: postgres://postgres@127.0.0.1:5432/postgres
+          TYPST_BIN: ${{ runner.temp }}/typst/bin/typst
+          TYPST_FONT_PATH: ${{ runner.temp }}/typst/fonts
+          # Fail instead of skipping the render tests if Typst is missing.
+          TYPST_REQUIRED: "1"
         run: npm test

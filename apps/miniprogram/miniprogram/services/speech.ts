@@ -32,15 +32,18 @@ import { api } from './session'
 const TTS_TIMEOUT_MS = 20_000
 
 /**
- * What `POST /v1/tts` reads: a record, a learning unit, a card, the daily
- * story, or a lexicon entry (单词详情: the lemma, or its example at 0-based
- * index `example`).
+ * What `POST /v1/tts` reads: a record, a learning unit, a card, the story of
+ * a daily material or digest, an extension's passage or one of its items
+ * (0-based `index`), or a lexicon entry (单词详情: the lemma, or its example
+ * at 0-based index `example`).
  */
 export type SpeechSource =
   | { readonly entryId: string }
   | { readonly itemId: string }
   | { readonly cardId: string }
-  | { readonly material: { readonly kind: 'daily'; readonly date: string; readonly section: 'story' } }
+  | { readonly material: { readonly kind: 'daily' | 'digest'; readonly date: string; readonly section: 'story' } }
+  | { readonly material: { readonly kind: 'extend'; readonly date: string; readonly section: 'passage' } }
+  | { readonly material: { readonly kind: 'extend'; readonly date: string; readonly section: 'item'; readonly index: number } }
   | { readonly lexicon: { readonly lemma: string; readonly example?: number } }
 
 const fs = (): WechatMiniprogram.FileSystemManager => wx.getFileSystemManager()

@@ -2,11 +2,13 @@
 
 The phone side of t-cli: translate and grammar check (M2), review with FSRS,
 daily materials and the word library (M3–M4), stats, weekly reports and
-account data (M5). WeChat native + TypeScript + Skyline, the same stack as
-heji-ledger's mini-program. The API contract is `docs/api-v1.md`.
+account data (M5), and the v3 学习 module (M16: 周期资料, 拓展资料, PDF export).
+WeChat native + TypeScript + Skyline, the same stack as heji-ledger's
+mini-program. The API contract is `docs/api-v1.md` (v3: "v3 (M12–M17)").
 
-Tabs: **翻译** (default), **笔记本** (v2; replaces 纠错, whose page stays until 翻译 takes it over), **复习** (今日进度, 开始复习, 每日材料, 词库, 周报; the tab
-badge is the number of cards due), **我的** (记录, 学习统计, 周报, 词库, settings — 翻译: 显示翻译方向按钮,
+Tabs: **翻译** (default), **笔记本** (v2; replaces 纠错, whose page stays until 翻译 takes it over), **学习** (v3; was 复习, same route
+`pages/review/index` because reminder messages open it: 今天的复习 with the scope 全部到期 / 只复习笔记本 / 3 星以上,
+the latest 学习资料, 打印与导出, 学习计划; the tab badge is the number of cards due), **我的** (记录, 学习统计, 周报, 词库, settings — 翻译: 显示翻译方向按钮,
 查单词后自动朗读, 释义语言; 笔记本与复习: 按重要程度安排复习, 复习翻面后自动朗读, 复习提醒; 外观: 主题色,
 深浅模式 and 阅读模式 (→ 外观) —, 账号与数据 (导出 / 注销), 设备, 授权 CLI 登录).
 
@@ -37,14 +39,23 @@ apps/miniprogram/
       tts-cache.ts           audio file naming and eviction
       speaker.ts             朗读 state: one sound at a time, idle / loading / playing per key
       review-*.ts            复习: session state machine, rating outbox, client ULIDs, interval
-                             labels, card-face rendering, swipe, home ring/badge, material view,
-                             response validation (review-types.ts: shared types)
+                             labels, card-face rendering, swipe, tab badge and reminder, DailyMaterial
+                             reading and story marks, response validation (review-types.ts: shared types)
+      learn-types.ts         v3 wire types: learn summary, material list, digest, extension, exercises, PDF request
+      learn-wire.ts          shape checks for the v3 learning endpoints
+      learn-view.ts          学习 home and 学习资料 list: labels, relative dates, week groups, review scope, plan line
+      periodic-view.ts       周期资料 page: title, counts row, word rows, the parts materialParts shows
+      exercises.ts           选词填空 choices and checking, score; 中译英 / 改错 reveal rows
+      extend-view.ts         拓展资料 checklist (known items not choosable), adopt result, wording
+      learn-plan.ts          学习计划 choices: frequency, weekday, parts (≥ 1), topics, muted topics, level hint
+      pdf-export.ts          export sheet: scopes, page estimate, request body, file name, error wording
+      export-records.ts      导出记录: local records, 7-day expiry, orphan files
       library.ts item.ts     词库 query/filters and rows; 学习单元 view per item type
       stats.ts weekly.ts     学习统计 heatmap / streak / retention bars; 周报 view and week paging
       account.ts             settings options (reminder hours), export filename, subscribe outcomes
       settings.ts            setting defaults and the local-first rules (pending queue, merge with the account)
       appearance.ts          深浅模式 (system / time / fixed), the day bar, 阅读模式 type sizes, labels
-      palette.ts             theme and accent colours for JS (icons, tab bar, ring gradient), icon and tab icon paths
+      palette.ts             theme and accent colours for JS (icons, tab bar, inline colours), icon and tab icon paths
       wire.ts                shape checks for API responses: settings, lookup, notes, entry days, TTS part headers
       tokens.ts              English word tokens for tap-to-look-up; extending a selection to a phrase
       lookup-view.ts         the lookup sheet's content, the word-page URL, scroll-into-view math
@@ -55,16 +66,19 @@ apps/miniprogram/
       notebook.ts            笔记本 rows and filters, 单词详情 view, the saved-notes index
       history-days.ts        查询记录 day groups, day strip and labels
     services/                wx-bound glue: request transport, session, stream, TTS, voice, theme,
-                             settings, review (queue, ratings outbox, badge, reminders), library, account,
+                             settings, review (queue with scope, ratings outbox, badge, reminders), learn
+                             (v3 summary, materials, 学完了, adopt, dismiss), pdf (export, files, records), library, account,
                              notes (saves with an offline outbox), saved-index (the account's notes, shared
                              by the 翻译 and word pages so a note is never saved twice)
     pages/                   translate (翻译 and 纠错 in one page), me, history, devices, authorize, invite,
-                             review (tab), review-session, materials, library, item, stats, weekly, account,
-                             notebook (tab), word, appearance (v2)
+                             review (学习 tab), review-session, materials (周期资料), library, item, stats, weekly,
+                             account, notebook (tab), word, appearance (v2), learn-materials, extend, learn-plan,
+                             exports (v3)
     components/nav-bar/      custom navigation bar (Skyline pages have no native one)
     components/t-icon/       <t-icon name tone size>: one generated SVG in the current theme and accent
     components/t-speak-icon/ <t-speak-icon phase tone size>: the speaker, or loading dots / playing bars
     components/t-stars/      <t-stars level size bind:change>: a note's importance, four tappable stars
+    components/t-export-sheet/ <t-export-sheet open input bind:close bind:exported>: 导出 PDF as a bottom sheet
     assets/icons/            GENERATED: <theme>/<name>-<tone>.svg (+ <name>-accent-<accent>.svg)
     assets/tab/              GENERATED: <theme>/<tab>.png (unselected), <theme>/<tab>-<accent>.png (selected)
     vendor/core/detect.js    GENERATED copy of packages/core/src/detect.js
@@ -109,17 +123,24 @@ of page-local look-alikes; a page's own wxss only lays things out.
 
 | Piece | Classes | Use |
 | --- | --- | --- |
-| Colour | `--bg --surface --ink --ink-soft --muted --rule --accent --accent-soft --accent-ink --danger` | CSS variables on the page root: `theme-light` / `theme-dark`, then `accent-<accent>-<theme>` (主题色: indigo, pine, plum, ochre, ink) overriding the three accent variables; `lib/palette.ts` mirrors them for JS. See "Theme and accent on a page" |
-| Button | `.btn` + `.btn-primary` / `.btn-secondary` / `.btn-tonal` / `.btn-danger`, sizes `.btn-sm` / `.btn-lg`, `.btn-block`, `.btn-disabled` | Pill. One primary per screen; tonal for inline actions (朗读, 复制, 停止); an icon comes first, with `.btn-icon-first` on a small pill |
+| Colour | `--bg --surface --ink --ink-soft --muted --rule --accent --accent-soft --accent-ink --danger --danger-soft` | CSS variables on the page root: `theme-light` / `theme-dark`, then `accent-<accent>-<theme>` (主题色: indigo, pine, plum, ochre, ink) overriding the three accent variables; `lib/palette.ts` mirrors them for JS. See "Theme and accent on a page" |
+| Button | `.btn` + `.btn-primary` / `.btn-secondary` / `.btn-tonal` / `.btn-danger`, sizes `.btn-sm` / `.btn-lg`, `.btn-block`, `.btn-disabled` | Pill. One primary per screen; tonal for inline actions (复制, 显示译文); an icon comes first, with `.btn-icon-first` on a small pill |
 | Icon button | `.icon-btn` (+ `.icon-btn-sm`, `.icon-btn-tonal`, `.icon-btn-off`) | A round target around one icon: 朗读 next to a word, clear, date steppers |
-| Icon | `<t-icon name tone size>` | `name`: speaker, stop, copy, close, check, chevron-left, chevron-right, mic, bookmark, bookmark-filled, star, star-filled, calendar, search, arrow-up, swap, cloud-check. `tone`: ink, muted, accent, danger, accentInk (= `--accent-ink`, only on an accent fill); `accent` follows the current 主题色. `size` in rpx |
-| 朗读 | `<t-speak-icon phase tone size>` inside a `.icon-btn` or a tonal `.btn` | The one speaker icon. `phase` (idle / loading / playing) comes from `services/speech.ts`: idle draws the speaker, loading three dots pulsing in turn, playing three bouncing bars. The label reads 朗读 when idle and 停止 otherwise; the tap is `toggleSpeech`, so tapping what sounds stops it |
+| Icon | `<t-icon name tone size>` | `name`: speaker, stop, copy, close, check, chevron-left, chevron-right, mic, bookmark, bookmark-filled, star, star-filled, calendar, search, arrow-up, swap, cloud-check, book, printer, doc, cards, checklist, info, share. `tone`: ink, muted, accent, danger, accentInk (= `--accent-ink`, only on an accent fill); `accent` follows the current 主题色. `size` in rpx |
+| 朗读 | `<t-speak-icon phase tone="accent" size>` alone inside a tonal `.icon-btn`: `.icon-btn-sm` with size 30 beside content, the full `.icon-btn` with size 32 in an action bar. Never with a text label | The one speaker icon. `phase` (idle / loading / playing) comes from `services/speech.ts`: idle draws the speaker, loading three dots pulsing in turn, playing three bouncing bars. The `aria-label` reads 朗读 when idle and 停止朗读 otherwise; the tap is `toggleSpeech`, so tapping what sounds stops it |
 | Stars | `<t-stars level size bind:change>` | A note's importance (重要程度): `level` 0–4 (0 = not saved), filled stars in accent, empty ones muted. Tapping star N emits `change` `{ level: N }` (only when it differs); the page owns the value. Each star is a ≥ 30×36 px target labelled 「重要程度 N 星」. Placement is the page's: beside the bookmark in a wide action bar, on its own line under a narrow row |
 | Link | `.link` (+ `.link-strong`, `.link-danger`) | A quiet action inside a line (撤销) |
 | Row | `.row`, `.row-label`, `.row-value`, `.row-trail`; `.row-text` + `.row-hint` | List rows; a trailing value plus `chevron-right`. A label with a hint line under it goes in `.row-text` |
 | Switch | `.switch` (+ `.switch-on`) with a `.knob` (+ `.knob-on`) | A drawn on/off switch in the accent, at the end of a `.row` that carries `aria-role="switch"`, `aria-checked` and the tap |
 | Marks | `.mark-line` + `.mark-icon` | ✓ / ✗ in front of a sentence (check accent, close danger) |
-| Progress | `.meter` + `.meter-fill` | A rounded bar; the 复习 ring is a conic gradient (`lib/review-home.ts`) |
+| Progress | `.meter` + `.meter-fill` | A rounded bar (today's review on 学习, the export sheet's 正在排版) |
+| Card | `.card-surface` | A surface panel with a hairline: a material, a settings group |
+| Label | `.label-tag` (+ `-accent`, `-soft`, `-plain`, `-danger`, `-danger-soft`) | A small label: 每日资料, 拓展 (accent), 未读 (soft), 已学完 (plain), 忘了 2 次 (danger); a word's reason in a material: 复习时忘了 2 次 (danger-soft), 笔记本 · 3 星 (soft), 查了 2 次 (the bare `.label-tag`) |
+| Choice chip | `.choice-chips` row of `.choice-chip` (+ `.choice-chip-on`) | A pill to pick: 复习范围, 资料里放什么, 拓展方向, cloze choices |
+| Checkbox | `.tick` (+ `.tick-on`, `.tick-round`) with `<t-icon name="check" tone="accentInk">` inside when on | 拓展资料 items; round when selecting materials |
+| Segmented | `.seg-control` of `.seg-option` (+ `.seg-option-on`) | 资料类型, 生成频率, 版式 |
+| Bottom bar | `.bottom-bar` (padding-bottom inline with the safe area) | The docked actions of a detail page (朗读, 导出 PDF, 学完了) |
+| Export sheet | `<t-export-sheet open input bind:close>` | 导出 PDF over the page; the page root is `position: relative` (`input` from `lib/pdf-export.ts`) |
 
 Rules that come from Skyline (they are why the pieces look the way they do):
 
@@ -173,7 +194,7 @@ this.stopWatchingTheme = bindPageLook(this)
 ```
 
 `bindPageLook` replaces `watchTheme((theme) => this.setData({ theme }))`.
-Pages that draw with colours in JS (the 复习 ring) use `watchLook` and
+Pages that draw with colours in JS (accent swatches) use `watchLook` and
 `paletteFor(theme, accent)`. Components use `followLook(this, …)` /
 `unfollowTheme(this)`. `<t-icon>`, `<t-speak-icon>` and `<t-stars>` follow the
 look on their own. `<nav-bar>` restyles the native chrome (status bar text, the
@@ -275,6 +296,26 @@ MINIPROGRAM_CI_DIR=/tmp/mpci WX_APPID=wx... WX_UPLOAD_KEY=~/.wx-miniprogram/priv
   elsewhere). Only the 宣纸 paper ships (light 宣纸, dark 墨夜).
 - **阅读模式** and its 字号 (`readingMode`, `readingFontStep`) are settings;
   `lib/appearance.ts` `readingType()` gives the type sizes for reading pages.
+- **学习** (v3): the home reads `GET /v1/learn/summary` on every show (it also
+  sets the tab badge); a server without it (404) gets the review summary and
+  no scope choice. 开始复习 passes the chosen scope to the session
+  (`?scope=notes|stars3`; `all` sends no scope). 周期资料 (`pages/materials`,
+  `?kind=daily|digest&date=`) shows only the parts in `materialParts`;
+  选词填空 is answered in the app from the material's `exercises.bank`, and a
+  right answer is final. 学完了 posts `…/read`. 拓展资料 ticks every item not
+  yet in review; 加入复习 posts their indexes (and marks the material read);
+  不感兴趣 / 撤销 post `…/dismiss` and take the answer's `extendMuted` into the
+  local settings (`applyAccountSettings`). 学习计划 changes the v3 settings
+  local-first like every other setting.
+- **PDF export**: `POST /v1/exports/pdf` with `wx.request` (arraybuffer; only
+  the request domain is whitelisted) → `${USER_DATA_PATH}/exports/<name>.pdf`
+  (the `Content-Disposition` name, else the server's naming) → a record in
+  storage (导出记录). 发给微信好友 calls `wx.shareFileMessage` first thing in
+  the tap handler; 预览 is `wx.openDocument({ fileType: 'pdf', showMenu: true })`
+  (its menu saves, opens elsewhere or prints). Files are deleted after 7 days
+  (at launch and when 导出记录 opens); 注销 removes the folder. Errors: 429 →
+  每小时最多导出 10 次, 422 `TOO_MANY_PAGES` → 超过 40 页, 502 `EXPORT_FAILED`,
+  503 `EXPORT_UNAVAILABLE`.
 - **Skyline**: pages use `navigationStyle: custom` + `disableScroll` with a
   `scroll-view` body, as Skyline requires. Clients without Skyline fall back to
   WebView automatically; to force WebView everywhere, remove `renderer`,

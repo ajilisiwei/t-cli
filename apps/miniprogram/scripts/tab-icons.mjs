@@ -23,7 +23,7 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ACCENTS, PALETTES, TAB_NAMES, paletteFor, tabIconPath } from '../miniprogram/lib/palette.ts'
-import { svgDocument } from './icons.mjs'
+import { BOOK_SHAPE, svgDocument } from './icons.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const MINIPROGRAM = path.join(ROOT, 'miniprogram')
@@ -41,8 +41,8 @@ const TAB_SHAPES = {
   notebook:
     '<rect x="5.5" y="3" width="14" height="18" rx="2"/><path d="M3 7.5h4M3 12h4M3 16.5h4"/>' +
     '<path d="M10 8h6.5M10 12h4.5"/>',
-  // Two stacked cards.
-  review: '<rect x="3" y="7" width="13" height="14" rx="2.5"/><path d="M8 4h10.5A2.5 2.5 0 0 1 21 6.5V17"/>',
+  // An open book: 学习 (the tab of pages/review/index, the route reminders open).
+  review: BOOK_SHAPE,
   // A person.
   me: '<circle cx="12" cy="8" r="4"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/>',
 }

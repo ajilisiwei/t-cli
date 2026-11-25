@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, lt, lte, ne, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, lt, lte, ne, or, sql, type SQL } from 'drizzle-orm';
 import type { Executor } from '../../db/client.ts';
 import { cards, items } from '../../db/schema.ts';
 import { currentStreak } from './activity.ts';
@@ -39,6 +39,16 @@ export interface QueueCard {
   intervals: Intervals;
 }
 
+/**
+ * Which cards a session reviews (docs/api-v1.md, "v3 → Review scope"): every
+ * card, the cards of notebook items (stars ≥ 1) or of 3 ★+ items.
+ */
+export const REVIEW_SCOPES = ['all', 'notes', 'stars3'] as const;
+export type ReviewScope = (typeof REVIEW_SCOPES)[number];
+export const SCOPE_MIN_STARS: Readonly<Record<ReviewScope, number>> = { all: 0, notes: 1, stars3: 3 };
+
+export type DueByScope = Record<ReviewScope, number>;
+
 export interface ReviewSummary {
   due: number;
   newAvailable: number;
@@ -46,6 +56,8 @@ export interface ReviewSummary {
   doneToday: number;
   estimatedMinutes: number;
   streakDays: number;
+  /** v3: `due` per scope, each with the same daily limits (`all` = `due`). */
+  dueByScope: DueByScope;
 }
 
 interface DayCounts {
@@ -88,16 +100,36 @@ function duePredicate(userId: string, now: Date, day: LocalDay): SQL {
 
 const itemOfCard = and(eq(items.userId, cards.userId), eq(items.id, cards.itemId));
 
-async function countAvailable(db: Executor, userId: string, now: Date, day: LocalDay): Promise<{ fresh: number; review: number }> {
+/** The scope's filter on the card's item (none for `all`). */
+function scopePredicate(scope: ReviewScope): SQL | undefined {
+  const minStars = SCOPE_MIN_STARS[scope];
+  return minStars > 0 ? gte(items.stars, minStars) : undefined;
+}
+
+type Available = { fresh: number; review: number };
+
+/** Due new and non-new cards per scope, in one pass. */
+async function countAvailable(db: Executor, userId: string, now: Date, day: LocalDay): Promise<Record<ReviewScope, Available>> {
+  const isNew = sql`${cards.state} = ${STATE_NEW}`;
+  const counter = (scope: ReviewScope, fresh: boolean) =>
+    sql<number>`(count(*) filter (where ${fresh ? isNew : sql`not ${isNew}`} and ${items.stars} >= ${SCOPE_MIN_STARS[scope]}))::int`;
   const [row] = await db
     .select({
-      fresh: sql<number>`(count(*) filter (where ${cards.state} = ${STATE_NEW}))::int`,
-      review: sql<number>`(count(*) filter (where ${cards.state} <> ${STATE_NEW}))::int`,
+      allFresh: counter('all', true),
+      allReview: counter('all', false),
+      notesFresh: counter('notes', true),
+      notesReview: counter('notes', false),
+      stars3Fresh: counter('stars3', true),
+      stars3Review: counter('stars3', false),
     })
     .from(cards)
     .innerJoin(items, itemOfCard)
     .where(duePredicate(userId, now, day));
-  return { fresh: row?.fresh ?? 0, review: row?.review ?? 0 };
+  return {
+    all: { fresh: row?.allFresh ?? 0, review: row?.allReview ?? 0 },
+    notes: { fresh: row?.notesFresh ?? 0, review: row?.notesReview ?? 0 },
+    stars3: { fresh: row?.stars3Fresh ?? 0, review: row?.stars3Review ?? 0 },
+  };
 }
 
 /** How many cards of each kind the queue may still serve today. */
@@ -125,8 +157,9 @@ export async function reviewSummary(
 ): Promise<ReviewSummary> {
   const { day, counts, newLeft, reviewsLeft } = await allowance(db, userId, now, utcOffsetMinutes, limits);
   const available = await countAvailable(db, userId, now, day);
-  const newAvailable = Math.min(available.fresh, newLeft);
-  const reviewDue = Math.min(available.review, reviewsLeft);
+  const dueOf = ({ fresh, review }: Available): number => Math.min(fresh, newLeft) + Math.min(review, reviewsLeft);
+  const newAvailable = Math.min(available.all.fresh, newLeft);
+  const reviewDue = Math.min(available.all.review, reviewsLeft);
   const due = newAvailable + reviewDue;
   return {
     due,
@@ -135,6 +168,7 @@ export async function reviewSummary(
     doneToday: counts.done,
     estimatedMinutes: Math.ceil((due * SECONDS_PER_CARD) / 60),
     streakDays: await currentStreak(db, userId, day.date, utcOffsetMinutes),
+    dueByScope: { all: due, notes: dueOf(available.notes), stars3: dueOf(available.stars3) },
   };
 }
 
@@ -153,14 +187,22 @@ const queueColumns = {
  * Due non-new cards first (oldest due first), then new cards by their item's
  * stars (desc), then item weight (`errorCount × 2 + lookupCount`, desc),
  * within today's limits and `limit` (docs/api-v1.md, "Review by importance").
- * Intervals are previewed with each card's own retention.
+ * `scope` (v3) filters due and new cards alike. Intervals are previewed with
+ * each card's own retention.
  */
 export async function reviewQueue(
   db: Executor,
-  { userId, now, utcOffsetMinutes, limits, limit }: { userId: string; now: Date; utcOffsetMinutes: number; limits: ReviewLimits; limit: number },
+  {
+    userId,
+    now,
+    utcOffsetMinutes,
+    limits,
+    limit,
+    scope = 'all',
+  }: { userId: string; now: Date; utcOffsetMinutes: number; limits: ReviewLimits; limit: number; scope?: ReviewScope },
 ): Promise<QueueCard[]> {
   const { day, newLeft, reviewsLeft } = await allowance(db, userId, now, utcOffsetMinutes, limits);
-  const due = duePredicate(userId, now, day);
+  const due = and(duePredicate(userId, now, day), scopePredicate(scope));
   const reviewCount = Math.min(reviewsLeft, limit);
   const reviewRows = reviewCount === 0
     ? []

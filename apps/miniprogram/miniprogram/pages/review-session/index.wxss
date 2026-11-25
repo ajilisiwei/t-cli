@@ -128,7 +128,7 @@
   margin-left: 16rpx;
 }
 
-/* The 朗读 pill when there is no IPA line to sit next to. */
+/* The 朗读 button when there is no IPA line to sit next to. */
 .speak-line {
   display: flex;
   flex-direction: row;

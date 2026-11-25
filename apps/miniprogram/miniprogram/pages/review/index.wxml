@@ -1,5 +1,5 @@
-<view class="page theme-{{theme}} {{accentClass}}">
-  <nav-bar title="复习" />
+<view class="page lh-page theme-{{theme}} {{accentClass}}">
+  <nav-bar title="学习" />
   <scroll-view
     class="body"
     scroll-y
@@ -10,80 +10,139 @@
     bindrefresherrefresh="onRefresh"
   >
     <view class="content">
-      <view class="today">
-        <text class="today-date">{{dateLabel}}</text>
-        <text wx:if="{{view.streak}}" class="today-streak">{{view.streak}}</text>
-      </view>
-
-      <block wx:if="{{loaded}}">
-        <view wx:if="{{view.mode !== 'idle'}}" class="hero">
-          <view class="ring" style="{{ring.background}}" aria-role="img" aria-label="今日复习 {{view.done}} / {{view.total}} 张">
-            <view wx:if="{{ring.caps}}" class="ring-cap" />
-            <view wx:if="{{ring.caps}}" class="ring-arm" style="{{ring.endCap}}"><view class="ring-cap" /></view>
-            <view class="ring-hole">
-              <text class="ring-caption">今日复习</text>
-              <text class="ring-done serif">{{view.done}}</text>
-              <text class="ring-total">/ {{view.total}} 张</text>
+      <!-- 今天的复习 -->
+      <view class="card-surface lh-today" aria-label="今天的复习">
+        <block wx:if="{{loaded}}">
+          <view class="lh-today-top">
+            <view class="lh-today-left">
+              <text class="lh-caption">{{today.caption}}</text>
+              <view class="lh-due">
+                <text class="lh-due-n serif">{{today.due}}</text>
+                <text class="lh-due-unit">{{today.dueUnit}}</text>
+              </view>
             </view>
+            <text class="lh-done">已完成 {{today.done}}</text>
           </view>
-          <block wx:if="{{view.mode === 'due'}}">
-            <text class="hero-meta">{{view.meta}}</text>
-            <view class="btn btn-primary btn-lg start" bindtap="onStart" aria-role="button" aria-label="开始复习">
-              <text>开始复习</text>
+          <view class="meter lh-meter" aria-role="img" aria-label="{{today.meterLabel}}">
+            <view class="meter-fill" style="width: {{today.meterPct}}%;" />
+          </view>
+          <block wx:if="{{today.mode === 'due'}}">
+            <view wx:if="{{scopeAvailable}}" class="choice-chips lh-chips" aria-role="radiogroup" aria-label="复习范围">
+              <view
+                wx:for="{{scopes}}"
+                wx:key="id"
+                class="choice-chip {{item.checked ? 'choice-chip-on' : ''}}"
+                data-id="{{item.id}}"
+                bindtap="onScope"
+                aria-role="radio"
+                aria-checked="{{item.checked}}"
+              >
+                <text>{{item.label}}</text>
+              </view>
+            </view>
+            <view
+              class="btn btn-primary btn-lg lh-start {{startText ? '' : 'btn-disabled'}}"
+              bindtap="onStart"
+              aria-role="button"
+              aria-disabled="{{!startText}}"
+            >
+              <text>{{startText || '这个范围今天没有要复习的'}}</text>
             </view>
           </block>
-          <text wx:else class="hero-meta">今天的复习完成了</text>
+          <text wx:elif="{{today.mode === 'finished'}}" class="lh-calm">今天的复习完成了。</text>
+          <text wx:else class="lh-calm">今天没有要复习的卡片。查过的词句，第二天早上会整理成复习卡。</text>
+        </block>
+        <text wx:elif="{{!errorText}}" class="lh-calm">加载中…</text>
+        <view wx:if="{{errorText}}" class="lh-error">
+          <text class="error lh-error-text">{{errorText}}</text>
+          <view class="btn btn-secondary btn-sm" bindtap="onRetry" aria-role="button"><text>重试</text></view>
         </view>
+      </view>
 
-        <view wx:else class="calm">
-          <text class="calm-title">今天没有要复习的卡片</text>
-          <text class="calm-note">查过的单词、句子和纠错，第二天早上会整理成复习卡。</text>
+      <!-- 学习资料 -->
+      <view class="lh-section-head">
+        <text class="lh-section-title">学习资料</text>
+        <view class="lh-more" bindtap="onAllMaterials" aria-role="button" aria-label="全部学习资料">
+          <text>全部</text>
+          <t-icon name="chevron-right" tone="accent" size="28" />
+        </view>
+      </view>
+      <block wx:for="{{materials}}" wx:key="key">
+        <view wx:if="{{item.layout === 'full'}}" class="card-surface lh-material">
+          <view class="lh-tags">
+            <text class="label-tag">{{item.kindLabel}}</text>
+            <text class="lh-when">{{item.dateLabel}}</text>
+            <text wx:if="{{item.status}}" class="label-tag lh-status {{item.statusTone === 'accent' ? 'label-tag-soft' : 'label-tag-plain'}}">{{item.status}}</text>
+          </view>
+          <view class="lh-material-body" data-url="{{item.url}}" bindtap="onOpen" aria-role="button" aria-label="{{item.title}}">
+            <text class="lh-material-title">{{item.title}}</text>
+            <text wx:if="{{item.meta}}" class="lh-material-meta">{{item.meta}}</text>
+          </view>
+          <view class="lh-material-actions">
+            <view class="btn btn-tonal lh-grow" data-url="{{item.url}}" bindtap="onOpen" aria-role="button"><text>开始学习</text></view>
+            <view class="btn btn-secondary btn-icon-first" data-key="{{item.key}}" bindtap="onMaterialPdf" aria-role="button" aria-label="导出 PDF">
+              <t-icon name="printer" tone="accent" size="32" />
+              <text>PDF</text>
+            </view>
+          </view>
+        </view>
+        <view
+          wx:elif="{{item.layout === 'card'}}"
+          class="card-surface lh-material"
+          data-url="{{item.url}}"
+          bindtap="onOpen"
+          aria-role="button"
+          aria-label="{{item.title}}"
+        >
+          <view class="lh-tags">
+            <text class="label-tag label-tag-accent">{{item.kindLabel}}</text>
+            <text class="lh-when">{{item.dateLabel}}</text>
+            <text wx:if="{{item.status}}" class="label-tag lh-status {{item.statusTone === 'accent' ? 'label-tag-soft' : 'label-tag-plain'}}">{{item.status}}</text>
+          </view>
+          <text class="lh-material-title">{{item.title}}</text>
+          <text wx:if="{{item.subtitle}}" class="lh-material-subtitle" max-lines="1" overflow="ellipsis">{{item.subtitle}}</text>
+          <text wx:if="{{item.meta}}" class="lh-material-meta">{{item.meta}}</text>
+        </view>
+        <view wx:else class="lh-report" data-url="{{item.url}}" bindtap="onOpen" aria-role="button" aria-label="周报：{{item.title}}">
+          <text class="label-tag lh-tag-surface">{{item.kindLabel}}</text>
+          <text class="lh-report-text">{{item.dateLabel}} · {{item.title}}</text>
+          <t-icon name="chevron-right" tone="muted" size="28" />
         </view>
       </block>
-      <text wx:elif="{{!errorText}}" class="empty">加载中…</text>
+      <text wx:if="{{materialsEmpty}}" class="lh-empty">{{materialsEmpty}}</text>
 
-      <view wx:if="{{errorText}}" class="load-error">
-        <text class="error load-error-text">{{errorText}}</text>
-        <view class="btn btn-secondary btn-sm" bindtap="onRetry" aria-role="button"><text>重试</text></view>
-      </view>
-
-      <view wx:if="{{material}}" class="material" bindtap="onMaterial" aria-role="button" aria-label="{{material.title}}">
-        <view class="material-head">
-          <text class="material-title">{{material.title}}</text>
-          <t-icon name="chevron-right" tone="muted" size="32" />
-        </view>
-        <text class="material-counts">{{material.counts}}</text>
-        <view wx:if="{{material.hasStory}}" class="material-story">
-          <text>附 1 篇情景短文</text>
-          <view
-            class="btn btn-tonal btn-sm btn-icon-first"
-            catchtap="onPlayStory"
-            aria-role="button"
-            aria-label="{{storyPhase === 'idle' ? '朗读情景短文' : '停止朗读'}}"
-          >
-            <t-speak-icon phase="{{storyPhase}}" tone="accent" size="32" />
-            <text>{{storyPhase === 'idle' ? '朗读' : '停止'}}</text>
-          </view>
+      <!-- 打印与导出 -->
+      <view class="lh-section-head">
+        <text class="lh-section-title">打印与导出</text>
+        <view class="lh-more" bindtap="onExports" aria-role="button" aria-label="导出记录">
+          <text>导出记录{{exportCount ? ' ' + exportCount : ''}}</text>
+          <t-icon name="chevron-right" tone="accent" size="28" />
         </view>
       </view>
-      <view wx:elif="{{materialMissing}}" class="material">
-        <text class="material-title">每日材料</text>
-        <text class="material-counts material-note">每天早上 5 点，前一天查过的词句会整理成一份材料。</text>
+      <view class="lh-tiles">
+        <view
+          wx:for="{{tiles}}"
+          wx:key="id"
+          class="lh-tile {{item.off ? 'lh-tile-off' : ''}}"
+          data-id="{{item.id}}"
+          data-off="{{item.off}}"
+          bindtap="onTile"
+          aria-role="button"
+          aria-label="{{item.label}}，{{item.hint}}"
+        >
+          <t-icon name="{{item.icon}}" tone="accent" size="44" />
+          <text class="lh-tile-label">{{item.label}}</text>
+          <text class="lh-tile-hint">{{item.hint}}</text>
+        </view>
       </view>
 
-      <view class="links">
-        <view class="row" bindtap="onLibrary" aria-role="button">
-          <text class="row-label">词库</text>
-          <view class="row-trail">
-            <text class="row-value">搜索</text>
-            <t-icon name="chevron-right" tone="muted" size="32" />
-          </view>
-        </view>
-        <view class="row" bindtap="onWeekly" aria-role="button">
-          <text class="row-label">周报</text>
-          <t-icon name="chevron-right" tone="muted" size="32" />
-        </view>
+      <!-- 学习计划 -->
+      <view class="lh-plan" bindtap="onPlan" aria-role="button" aria-label="学习计划：{{planText}}">
+        <text class="lh-plan-text">学习计划：{{planText}}</text>
+        <t-icon name="chevron-right" tone="muted" size="28" />
       </view>
     </view>
   </scroll-view>
+
+  <t-export-sheet open="{{exportOpen}}" input="{{exportInput}}" bind:close="onExportClose" bind:exported="onExported" />
 </view>
