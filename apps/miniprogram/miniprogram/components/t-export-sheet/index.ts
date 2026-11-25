@@ -33,7 +33,6 @@ import {
 } from '../../lib/pdf-export'
 import { confirmTap } from '../../services/haptics'
 import { exportFileExists, exportPdf, openExportFile, shareExportFile } from '../../services/pdf'
-import { safeBottomInset } from '../../services/platform'
 import { toast } from '../../services/ui'
 
 type Step = 'options' | 'working' | 'done' | 'error'
@@ -98,6 +97,22 @@ const readInput = (value: unknown): ExportInput => {
 const layoutViews = (layout: ExportLayout): LayoutView[] =>
   LAYOUTS.map((option) => ({ id: option.id, label: option.label, checked: option.id === layout }))
 
+/**
+ * The home indicator under this window, in px: the sheet pads for it. On a
+ * tab page (the 学习 home) the native tab bar already sits over it, and the
+ * window ends above the safe area's bottom, so this is 0 there.
+ */
+const sheetBottomInset = (): number => {
+  try {
+    const info = wx.getWindowInfo()
+    if (!info.safeArea) return 0
+    const windowBottom = (info.screenTop || 0) + info.windowHeight
+    return Math.max(0, windowBottom - info.safeArea.bottom)
+  } catch {
+    return 0
+  }
+}
+
 const errorText = (error: unknown): string =>
   (isApiError(error) ? exportErrorText(error.code, error.details) : null) ?? errorMessage(error)
 
@@ -131,7 +146,7 @@ Component({
   },
   lifetimes: {
     attached() {
-      this.setData({ safeBottom: safeBottomInset() })
+      this.setData({ safeBottom: sheetBottomInset() })
     },
   },
   methods: {
