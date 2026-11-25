@@ -5,6 +5,7 @@ import { ok, fail, registerErrorHandler } from './http/errors.ts';
 import { registerAccountRoutes } from './modules/account/routes.ts';
 import { registerAiRoutes } from './modules/ai/routes.ts';
 import { registerAuthRoutes } from './modules/auth/routes.ts';
+import { registerExportRoutes } from './modules/export/routes.ts';
 import { registerLearnRoutes } from './modules/learn/routes.ts';
 import { registerMaterialRoutes } from './modules/library/materialRoutes.ts';
 import { registerLibraryRoutes } from './modules/library/routes.ts';
@@ -55,6 +56,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await registerAccountRoutes(app, deps);
   await registerLookupRoutes(app, deps);
   await registerNotesRoutes(app, deps);
+  await registerExportRoutes(app, deps);
 
   return app;
 }
