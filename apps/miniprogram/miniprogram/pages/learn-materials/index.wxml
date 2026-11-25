@@ -31,6 +31,7 @@
     type="list"
     show-scrollbar="{{false}}"
     refresher-enabled
+    refresher-default-style="{{theme === 'dark' ? 'white' : 'black'}}"
     refresher-triggered="{{refreshing}}"
     bindrefresherrefresh="onRefresh"
     bindscrolltolower="onMore"
