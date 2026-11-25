@@ -516,7 +516,7 @@ type MaterialListItem = {
   kind: 'daily' | 'digest' | 'extend' | 'weekly';
   date: string;
   title: string;          // built by the server in the explanation language, e.g. "9 个词和一篇短文", "7 天合集：18 个词", the extension's title, "复习 126 次，记住 82%"
-  subtitle: string | null;   // extend: its first reason (`reasons[0]`, as stored); null for the other kinds
+  subtitle: string | null;   // extend: its first non-empty reason (trimmed), null without one; null for the other kinds
   counts: { words: number; phrases: number; grammar: number; exercises: number; items: number };   // items = extension items; 0 where not applicable
   readAt: string | null;  // 学完了
   pages: number;          // estimated A4 pages of its PDF (practice layout); 0 for weekly
