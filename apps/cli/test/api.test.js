@@ -7,6 +7,7 @@ describe('buildStreamPayload', () => {
     assert.deepEqual(buildStreamPayload('sys', 'user', { thinking: false }).thinking, { type: 'disabled' });
     assert.deepEqual(buildStreamPayload('sys', 'user', { thinking: true }).thinking, { type: 'enabled' });
     assert.equal('thinking' in buildStreamPayload('sys', 'user'), false);
+    assert.equal('thinking' in buildStreamPayload('sys', 'user', { thinking: undefined }), false);
   });
 
   test('keeps the streamed chat request shape', () => {

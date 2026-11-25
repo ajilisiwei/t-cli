@@ -37,9 +37,14 @@ export const LOOKUP_MAX_ATTEMPTS = 2;
  * miss took 8–16 s; without it, 3–6 s with answers that pass the same checks.
  */
 export const LOOKUP_THINKING = false;
-/** Completion budgets per call. An entry is about 450–650 tokens, a context under 50. */
-export const LEXICON_MAX_TOKENS = 2048;
-export const CONTEXT_MAX_TOKENS = 512;
+/**
+ * Completion caps per call. Typical answers are far smaller (an entry about
+ * 450–650 tokens, a context under 50), but the longest answer the schema
+ * accepts (six senses, eight collocations, four examples, Chinese glosses)
+ * can pass 2048; a cap only bounds the call, it does not slow it.
+ */
+export const LEXICON_MAX_TOKENS = 4096;
+export const CONTEXT_MAX_TOKENS = 2048;
 
 export type LookupDeps = Pick<AppDeps, 'config' | 'db' | 'llm' | 'clock'>;
 

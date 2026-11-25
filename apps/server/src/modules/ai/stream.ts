@@ -110,7 +110,7 @@ export async function proxyStream({ reply, llm, messages, meta, persist, started
   if (res.destroyed) controller.abort(new ClientDisconnected());
 
   const upstream = llm
-    .streamChat(messages, { signal: controller.signal, ...(onUsage ? { onUsage } : {}), ...(thinking === undefined ? {} : { thinking }) })
+    .streamChat(messages, { signal: controller.signal, ...(onUsage ? { onUsage } : {}), thinking })
     [Symbol.asyncIterator]();
   const clientGone = (error: unknown): boolean => {
     const gone = controller.signal.aborted || error instanceof ClientDisconnected || res.destroyed;
