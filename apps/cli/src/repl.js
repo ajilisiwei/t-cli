@@ -24,6 +24,10 @@ import { mergeDayHistory } from './utils/historyMerge.js';
 import * as tts from './tts.js';
 
 const h = React.createElement;
+// Translations and checks stream without model reasoning, as on the server
+// (apps/server/src/modules/ai/routes.ts, AI_THINKING): the first text shows
+// after about 0.5 s instead of 1.5–3 s. Notes and quiz scoring keep the default.
+const INTERACTIVE_THINKING = false;
 
 function createIdFactory() {
   let id = 0;
@@ -204,7 +208,8 @@ function App() {
     userText,
     streamColor,
     loadingText,
-    onCompleted
+    onCompleted,
+    thinking
   }) => {
     setIsLoading(true);
     setLoadingLabel(loadingText || 'Processing...');
@@ -218,7 +223,7 @@ function App() {
           const previous = prev || { color: streamColor, text: '' };
           return { ...previous, text: previous.text + chunk };
         });
-      });
+      }, { thinking });
 
       const output = responseBuffer.trim();
       if (output) {
@@ -245,6 +250,7 @@ function App() {
       userText: buildSourceMessage(textToCheck, 'check'),
       streamColor: 'green',
       loadingText: 'Checking grammar and polishing...',
+      thinking: INTERACTIVE_THINKING,
       onCompleted: (rawResponse) => {
         // Both modes put the corrected text first (detail mode: alone on line 1).
         lastSpeakableRef.current = extractSpeakable(rawResponse, isSimpleMode);
@@ -263,6 +269,7 @@ function App() {
       userText: buildSourceMessage(text, 'translate'),
       streamColor: 'yellow',
       loadingText: wordLookup ? 'Looking up word...' : 'Translating...',
+      thinking: INTERACTIVE_THINKING,
       onCompleted: (rawResponse) => {
         lastSpeakableRef.current = extractSpeakable(rawResponse, isSimpleMode);
         const correction = wordLookup

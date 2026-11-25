@@ -70,7 +70,9 @@ export interface FakeLlmOptions {
 
 export interface FakeLlm extends LlmClient {
   calls: (readonly ChatMessage[])[];
-  jsonCalls: { messages: readonly ChatMessage[]; maxTokens: number }[];
+  /** The `thinking` option of each streamChat call, in call order. */
+  streamThinking: (boolean | undefined)[];
+  jsonCalls: { messages: readonly ChatMessage[]; maxTokens: number; thinking: boolean | undefined }[];
 }
 
 export const FAKE_JSON_USAGE: LlmUsage = { promptTokens: 100, completionTokens: 50 };
@@ -82,17 +84,20 @@ export function fakeLlm(
 ): FakeLlm {
   const calls: FakeLlm['calls'] = [];
   const jsonCalls: FakeLlm['jsonCalls'] = [];
+  const streamThinking: FakeLlm['streamThinking'] = [];
   return {
     calls,
+    streamThinking,
     jsonCalls,
-    async *streamChat(messages, { onUsage }) {
+    async *streamChat(messages, { onUsage, thinking }) {
       calls.push(messages);
+      streamThinking.push(thinking);
       const chunks = typeof reply === 'function' ? reply(messages) : reply;
       for (const chunk of chunks) yield chunk;
       if (options.streamUsage) onUsage?.(options.streamUsage);
     },
-    async completeJson(messages, { maxTokens }) {
-      jsonCalls.push({ messages, maxTokens });
+    async completeJson(messages, { maxTokens, thinking }) {
+      jsonCalls.push({ messages, maxTokens, thinking });
       if (!options.json) throw new Error('fakeLlm: no JSON responder configured');
       const answer = await options.json(messages);
       return typeof answer === 'string' ? { content: answer, usage: FAKE_JSON_USAGE } : answer;

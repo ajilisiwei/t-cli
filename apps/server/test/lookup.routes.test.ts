@@ -7,6 +7,7 @@ import { insertEntries } from '../src/db/entriesRepo.ts';
 import { aiUsage, lexicon, users } from '../src/db/schema.ts';
 import { AppError } from '../src/http/errors.ts';
 import type { LexiconEntry } from '../src/modules/lookup/lexicon.ts';
+import { CONTEXT_MAX_TOKENS, LEXICON_MAX_TOKENS } from '../src/modules/lookup/service.ts';
 import type { ChatMessage, LlmClient } from '../src/ports.ts';
 import { buildTestApp, fakeLlm, fixedClock, testConfig, type FakeLlm, type TestClock } from './helpers/app.ts';
 import { captureLogs } from './helpers/auth.ts';
@@ -131,7 +132,7 @@ describe('lookup: POST /v1/lookup', { skip: skipWithoutDb }, () => {
       error: null,
     });
     assert.deepEqual(llm.payloads, [{ task: 'lexicon', text: 'Decisions' }]);
-    assert.equal(llm.jsonCalls[0]?.maxTokens, 4096);
+    assert.equal(llm.jsonCalls[0]?.maxTokens, LEXICON_MAX_TOKENS);
 
     const row = await rowOf('decision');
     assert.ok(row);
@@ -198,7 +199,15 @@ describe('lookup: POST /v1/lookup', { skip: skipWithoutDb }, () => {
       context: { meaning: '截止日期（这里指工作期限）', phrase: { text: 'meet tight deadlines', gloss: '赶上紧迫的期限' } },
       cached: false,
     });
-    assert.deepEqual(llm.tasks().sort(), ['context', 'lexicon']);
+    assert.deepEqual(llm.tasks(), ['lexicon', 'context']);
+    assert.deepEqual(
+      llm.jsonCalls.map(({ maxTokens, thinking }) => ({ maxTokens, thinking })),
+      [
+        { maxTokens: LEXICON_MAX_TOKENS, thinking: false },
+        { maxTokens: CONTEXT_MAX_TOKENS, thinking: false },
+      ],
+      'both calls answer without reasoning',
+    );
     assert.deepEqual(llm.payloads.find((payload) => payload.task === 'lexicon'), { task: 'lexicon', text: 'deadlines' }, 'the lexicon prompt has no sentence');
     assert.ok(!JSON.stringify(await rowOf('deadline')).includes('tight'), 'the sentence is not stored');
 

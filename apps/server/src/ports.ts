@@ -40,17 +40,20 @@ export interface LlmClient {
   /**
    * Yields content deltas in order. Aborts the upstream request when `signal`
    * fires. `onUsage` is called once if the upstream reports the request's
-   * token usage (callers estimate it otherwise).
+   * token usage (callers estimate it otherwise). `thinking` as for
+   * completeJson; reasoning is never yielded, so it only delays the first delta.
    */
   streamChat(
     messages: readonly ChatMessage[],
-    options: { signal: AbortSignal; onUsage?: (usage: LlmUsage) => void },
+    options: { signal: AbortSignal; onUsage?: (usage: LlmUsage) => void; thinking?: boolean },
   ): AsyncIterable<string>;
   /**
-   * One non-streaming completion in JSON mode (the nightly pipeline).
-   * `maxTokens` bounds the completion, reasoning tokens included.
+   * One non-streaming completion in JSON mode (the nightly pipeline, lookups).
+   * `maxTokens` bounds the completion, reasoning tokens included. `thinking`
+   * turns the model's reasoning on or off; omitted, the model's default
+   * applies (deepseek-v4-flash reasons by default).
    */
-  completeJson(messages: readonly ChatMessage[], options: { signal: AbortSignal; maxTokens: number }): Promise<JsonCompletion>;
+  completeJson(messages: readonly ChatMessage[], options: { signal: AbortSignal; maxTokens: number; thinking?: boolean }): Promise<JsonCompletion>;
 }
 
 /**

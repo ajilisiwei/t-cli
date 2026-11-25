@@ -31,7 +31,18 @@ import { countHit, exhaustedQuota, explanationLangOf, latestUtcOffset, readLexic
 
 /** The first try plus one retry (contract: "validated (LexiconEntrySchema, one retry)"). */
 export const LOOKUP_MAX_ATTEMPTS = 2;
-/** Completion budgets per call (reasoning tokens included). */
+/**
+ * The model answers without reasoning. With deepseek-v4-flash's default
+ * thinking, about 70% of an entry's completion tokens were reasoning and a
+ * miss took 8–16 s; without it, 3–6 s with answers that pass the same checks.
+ */
+export const LOOKUP_THINKING = false;
+/**
+ * Completion caps per call. Typical answers are far smaller (an entry about
+ * 450–650 tokens, a context under 50), but the longest answer the schema
+ * accepts (six senses, eight collocations, four examples, Chinese glosses)
+ * can pass 2048; a cap only bounds the call, it does not slow it.
+ */
 export const LEXICON_MAX_TOKENS = 4096;
 export const CONTEXT_MAX_TOKENS = 2048;
 
@@ -148,7 +159,7 @@ interface ModelCall {
 /** A JSON-mode call validated by `parse`, asked again once when the answer is invalid; still invalid → 502. */
 async function askValidated<T>(call: ModelCall, messages: readonly ChatMessage[], maxTokens: number, parse: (raw: unknown) => Parsed<T>): Promise<T> {
   for (let attempt = 1; attempt <= LOOKUP_MAX_ATTEMPTS; attempt += 1) {
-    const { content, usage } = await call.llm.completeJson(messages, { signal: call.signal, maxTokens });
+    const { content, usage } = await call.llm.completeJson(messages, { signal: call.signal, maxTokens, thinking: LOOKUP_THINKING });
     await call.charge(usage);
     const parsed = parse(parseJson(content));
     if (parsed.ok) return parsed.value;

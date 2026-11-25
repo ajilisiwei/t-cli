@@ -56,6 +56,16 @@ describe('DeepSeek client', () => {
     assert.equal(TEMPERATURE, 0.3, 'same temperature as the CLI');
   });
 
+  test('streamChat sends thinking: false as the disabled switch', async (t) => {
+    const upstream = await fakeUpstream(t, (_req, res) => {
+      startSse(res);
+      res.end(delta('ok') + finish + sse('[DONE]'));
+    });
+    const stream = client(upstream.baseUrl).streamChat(MESSAGES, { signal: new AbortController().signal, thinking: false });
+    assert.deepEqual(await collect(stream), ['ok']);
+    assert.deepEqual((JSON.parse(upstream.requests[0]?.body ?? '') as Record<string, unknown>)['thinking'], { type: 'disabled' });
+  });
+
   test('a base URL with a path prefix keeps it', async (t) => {
     const upstream = await fakeUpstream(t, (_req, res) => {
       startSse(res);
@@ -267,6 +277,16 @@ describe('DeepSeek client: completeJson', () => {
       max_tokens: 4096,
       stream: false,
     });
+  });
+
+  test('thinking: false and true are sent as the thinking switch; omitted, the model default applies', async (t) => {
+    const upstream = await fakeUpstream(t, (_req, res) => json(res, completion('{}')));
+    const signal = new AbortController().signal;
+    await client(upstream.baseUrl).completeJson(MESSAGES, { signal, maxTokens: 10, thinking: false });
+    await client(upstream.baseUrl).completeJson(MESSAGES, { signal, maxTokens: 10, thinking: true });
+    await client(upstream.baseUrl).completeJson(MESSAGES, { signal, maxTokens: 10 });
+    const sent = upstream.requests.map((request) => (JSON.parse(request.body) as Record<string, unknown>)['thinking']);
+    assert.deepEqual(sent, [{ type: 'disabled' }, { type: 'enabled' }, undefined]);
   });
 
   test('without usage the tokens are estimated as code points / 2', async (t) => {
